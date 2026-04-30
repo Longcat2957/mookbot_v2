@@ -1,10 +1,11 @@
 # mookbot v2 — Embedded App SDK 전면 리팩토링 기획서
 
-> **상태**: 기획 (구현 0%) — 인프라(nginx) 구축 완료 (2026-04-30)
+> **상태**: v0.1.1 — Phase 0~3 완료, 실서비스 가능 단계. Phase 4 (운영 안정화) 진행 중.
 > **선행 산출물**: `myDiscordBot` (v0.7, discord.js + satori PNG 기반)
 > **목적**: 채널 메시지 edit 기반 UI의 latency / refresh 병목을 근본 해결.
 > **수단**: Discord Embedded App SDK (Activity) 전면 채택. 봇은 진입점·영속 기록 발행자로 슬림화.
 > **도메인**: `bot.mooklol.com` (Cloudflare proxied, single-host path-based routing).
+> **Repo**: https://github.com/Longcat2957/mookbot_v2 (private)
 
 ---
 
@@ -458,60 +459,106 @@ Activity Backend                        Bot
 - [x] OAuth2 Redirect URL 등록 (`https://bot.mooklol.com`)
 - [x] 이용약관 / 개인정보 보호 정책 페이지 게시
 
-### Phase 2 — 4단계 시리즈 라이프사이클 구현 (진행 중)
+### Phase 2 — 4단계 시리즈 라이프사이클 ✅
 
-**[1] 모집 (Bot)**
-- [ ] `apps/bot` 부트 — discord.js v14 + `@mookbot/core` consumer
-- [ ] `/내전모집` 슬래시 — 채널 메시지 + 참석 등록 버튼 + 라인 선호 select
-- [ ] `recruitments` 테이블 wire (v1 스키마 그대로)
-- [ ] 정원 도달 → 담당자에게 [엔트리 수정 시작] 버튼 노출
+**[1] 모집 (Bot)** ✅
+- [x] `apps/bot` 부트 — discord.js v14 + `@mookbot/core` consumer + Components V2 메시지
+- [x] `/내전모집` 슬래시 — 채널 메시지 + 참석 등록 버튼 + 라인 선호 StringSelect
+- [x] `recruitments` 테이블 wire
+- [x] 정원 도달 → 운영자에게 [▶ 엔트리 수정 시작] 버튼 노출
+- [x] 운영자 [+ 멤버 관리] (UserSelectMenu) — 다른 멤버 강제 추가/제거
+- [x] [모집 취소] (status=CANCELLED), 라인 선호 변경 시 자동 참가
+- [x] 임베드 → Components V2 (`MessageFlags.IsComponentsV2`) 전환 — 다른 사용자 가시성 보장
 
-**[2] 엔트리 수정 (Activity 담당자)**
-- [ ] `apps/activity` daisyUI 셋업 + 4 화면 라우팅
-- [ ] **자동 분배 + 수동 슬롯 보드 (드래그&드롭)** — *가장 큰 효용 1*
-- [ ] 후보 풀 표시 (라인 선호 ⭐ + 라인별 MMR)
-- [ ] 시리즈 row INSERT (status=`ENTRY_EDITING`)
-- [ ] 엔트리 제출 → status=`READY`
+**[2] 엔트리 수정 (Activity 담당자)** ✅
+- [x] `apps/activity` Vite + React + daisyUI + Embedded SDK
+- [x] 드래그&드롭 슬롯 보드 (1팀/2팀 × 5라인) — sticky 제거 + 단일 스크롤
+- [x] 후보 풀: 가로 컴팩트 카드 — 라인 선호 + W/L + 자주 쓰는 챔프 5개 (DD 아이콘 + WR%)
+- [x] 시리즈 row INSERT (status=`IN_PROGRESS`) + 모집 status=`CONVERTED`
 
-**[3] 대기실 (Activity 참가자 read-only)**
-- [ ] BLUE/RED 라인업 표시
-- [ ] 담당자 [내전 시작] 버튼
+**[3] 대기실 = 대시보드 "진행중인 내전" 카드** ✅
+- [x] LineupPreview (3컬럼 미니멀: 라인 / 1팀 / 2팀)
+- [x] 클릭 → PickBan 화면 진입
 
-**[4] 픽/밴 + 결과 (Activity)**
-- [ ] **챔프 그리드 + 검색 (Data Dragon 아이콘)** — *가장 큰 효용 2*
-- [ ] 픽/밴 입력 + Hard Fearless 즉시 검증
-- [ ] 사이드 픽커
-- [ ] 결과 입력 (승팀/duration)
-- [ ] 직전 게임 되돌리기, 시리즈 취소
-- [ ] WS 룸 + JSON Patch delta 동기화
+**[4] 픽/밴 + 결과 (Activity)** ✅
+- [x] DD 챔프 그리드 + 검색 + 초기화 버튼 (60px 셀, 한글/영문 매치)
+- [x] 5밴 / 5픽 슬롯 (라인별, 플레이어명 + 챔프명 인라인)
+- [x] **사이드 결정** — 1팀 BLUE/RED 선택, 2팀 자동 반대
+- [x] **Hard Fearless** — 시리즈 내 이전 게임 픽 자동 비활성화 + F 배지
+- [x] **결과 입력** — 승팀 + duration (분), 게임 row INSERT + game_picks/bans/stats + MMR 업데이트
+- [x] **Bo3 자동 종료** — 한 팀 2승 도달 시 status=COMPLETED + 우승팀 표시
+- [x] **Game N → N+1 게이팅** — 이전 게임 미완료면 다음 탭 disabled
+- [x] **직전 게임 되돌리기 [↺]** — DELETE last game + MMR 복원 (2-click 확인)
+- [x] **시리즈 → 모집 되돌리기** — 게임 0개일 때만 (FK 순서 보정 적용)
+- [x] pickban draft auto-save (guild_kv) — Activity 재진입 시 복원
 
-**채널 알림 (Bot, 텍스트 only)**
-- [ ] `/internal/notify` 엔드포인트 (api → bot)
-- [ ] `series_started` / `series_ended` / `series_cancelled` 알림 — embed 또는 V2 TextDisplay
+**[5] 지난 내전 보기** ✅
+- [x] 대시보드에 "지난 내전" 섹션 (COMPLETED 시리즈 카드 + 스코어 + 우승팀)
+- [x] SeriesResult 화면 — 게임별 양 팀 박스 (승자 success ring) + 라인업 + 챔프 아이콘
 
-### Phase 3 — read-only 슬래시 이식 (Bot, 텍스트 only)
-- [ ] `/등록`, `/일괄등록`, `/내정보`, `/내전기록`, `/랭킹`
-- [ ] `/전적`, `/지금게임` (Riot API 결과 텍스트 표)
-- [ ] 운영자 admin (`/시리즈강제삭제`, `/MMR수정`, `/시즌결과리셋`, `/오래된내전정리`)
+**WebSocket 룸 + 채널 알림** ✅
+- [x] `apps/api/src/ws/{rooms,server}.ts` — topic 기반 broadcast (`dashboard`, `recruitment:N`, `series:N`)
+- [x] Activity `wsClient.subscribe(topic, cb)` — 자동 재연결 + 다중 구독
+- [x] api 의 모든 write 엔드포인트 → 해당 topic invalidate
+- [x] `POST /internal/notify` (X-Internal-Key 인증) — 봇이 D1 직접 쓸 때 api 에 broadcast 트리거
+- [x] 봇 `notify(topic)` 헬퍼 — 참가자 변경 / 모집 상태 전이 / 멤버 관리 후 호출
 
-### Phase 4 — 운영 안정화
-- [ ] Sentry, 헬스체크, 로그 집중
-- [ ] D1 백업 GHA 이식
-- [ ] 모바일 Activity QA
+### Phase 3 — read-only 슬래시 ✅ (8개 명령)
+- [x] `/내전모집` ([1] 모집)
+- [x] `/등록` (디스코드 + Riot ID 연결 선택)
+- [x] `/일괄등록` (운영자, dry_run 미리보기, 별명 라이엇 ID 자동 매칭)
+- [x] `/내정보` (등록 정보 + 시즌 라인별 MMR)
+- [x] `/내전기록` (라인별 통계 + 최근 MMR 변동)
+- [x] `/랭킹` (라인별 시즌 MMR Top 10)
+- [x] `/전적` (Riot 솔로/자유 랭크 + 마스터리 Top 5)
+- [x] `/지금게임` (Riot Spectator API — 라이브 매치업 + 밴)
 
-**총 4~6주.** Phase 2 [2] + [4] 완료 시점에 핵심 효용 (담당자 엔트리 작성 + 픽밴 latency 해결) 검증 가능.
+### 인프라·보안 추가 완료 ✅
+- [x] **권한 분기** (`OPERATOR_ROLE_ID` 또는 `OPERATOR_ROLE_NAME`) — 운영자 role 만 쓰기 허용. read-only 사용자는 UI 비활성화 + 서버 403
+- [x] **이용약관 / 개인정보 보호 정책** 페이지 (`/terms`, `/privacy`) — Discord OAuth2 동의 필수
+- [x] **버전 관리** — root `package.json` SoT, `pnpm version:*` + `pnpm docker:release` 로 X.Y.Z + latest 두 태그 동시 push
+- [x] **Git private repo** (Longcat2957/mookbot_v2)
+- [x] **Discord 슬래시 Guild Install only** — User Install context 응답 ephemeral 이슈 회피
+- [x] **API 클라이언트 빈 body 처리** — Fastify "empty json body" 400 회피
+
+---
+
+### Phase 4 — 운영 안정화 (다음 작업)
+
+| 우선순위 | 항목 | 비고 |
+|---|---|---|
+| 🟥 높음 | Cloudflare SSL Full(strict) 전환 | 현재 Flexible. Cloudflare → Origin 평문 구간 제거. Origin Cert 발급 + nginx 443 listen |
+| 🟥 높음 | D1 자동 백업 GHA | v1 의 매일 03:00 KST artifact 백업 이식 |
+| 🟧 중간 | 운영자 admin 슬래시 | `/시리즈강제삭제`, `/MMR수정`, `/시즌결과리셋`, `/오래된내전정리` (v1 코드 단순 이식) |
+| 🟧 중간 | 헬스체크 + 모니터링 | api/bot 컨테이너 `HEALTHCHECK`, 외부 모니터링 (UptimeRobot 등) |
+| 🟧 중간 | Sentry 에러 트래킹 | api/bot/activity 3곳 — Phase 2 마무리 후 운영 데이터 수집 |
+| 🟨 낮음 | 모바일 Activity QA | iOS/Android Discord 클라이언트 검증 — 안정 시 Developer Portal Mobile platform 활성화 |
+| 🟨 낮음 | 봇 → 채널 시리즈 종료 알림 | 결과 카드 (3게임 픽밴/MMR 변동 마크다운 표). v0.7 종료 카드를 텍스트로 |
+| 🟨 낮음 | E2E 테스트 | v1 의 `test:scrim` / `test:nvn` 이식. CI에서 D1 throwaway 환경 |
+
+### Phase 5 — 후속 개선 (백로그)
+
+- 자동 분배 알고리즘 (MMR + 라인 선호 기반) — 현재 수동 드래그&드롭만
+- SeriesResult 에 BAN 표시 (현재 PICK 만)
+- 시리즈 진행 중 다른 사용자가 픽밴 보고 있으면 cursor presence (활성 입력자 표시)
+- 시즌 전환 / 종료 (현재 단일 시즌 자동 생성)
+- 매치 자동 감지 (Riot Match-V5 폴링) — 운영자 입력 절감
+
+---
+
+**현재 상태**: v0.1.1 — Phase 0~3 완료, 실서비스 가능. 핵심 효용(엔트리 작성 + 픽밴 latency 해결) 검증 끝. Phase 4 운영 안정화로 진입.
 
 ---
 
 ## 8. 리스크 및 결정 필요 사항
 
-### 8.1 결정 필요
+### 8.1 결정 사항 (모두 결정 완료)
 
-- [ ] **채널 영속 기록 범위** — 종료 카드 1장만 vs. 게임별 결과도 채널에 남길지
-- [ ] **read-only 슬래시 (`/랭킹` 등) 처리** — 봇 유지 vs. Activity 안으로 흡수
-- [ ] **모바일 지원 우선순위** — Phase 5 QA 결과에 따라 모바일에선 봇 슬래시 fallback 유지할지
-- [x] ~~**호스팅**~~ — 현재 VPS 단일 + nginx Docker 확정 (2026-04-30)
-- [x] ~~**도메인**~~ — `bot.mooklol.com` 단일 호스트 path-based routing 확정 (2026-04-30)
+- [x] ~~**호스팅**~~ — 현재 VPS 단일 + nginx Docker (2026-04-30)
+- [x] ~~**도메인**~~ — `bot.mooklol.com` 단일 호스트 path-based routing (2026-04-30)
+- [x] ~~**read-only 슬래시 처리**~~ — 봇 유지 + 텍스트 출력 (Components V2). Activity 흡수는 안 함 (잡담 중 즉시 조회 가치 큼)
+- [x] ~~**채널 영속 기록 범위**~~ — 모집 메시지는 V2 컴포넌트로 항상 갱신, 시리즈 종료 알림은 Phase 4 백로그 (텍스트 요약 webhook)
+- [ ] **모바일 지원 우선순위** — Phase 4 QA 후 결정. 안정성 검증되면 Developer Portal Mobile platform 활성화
 
 ### 8.2 리스크
 
