@@ -4,6 +4,7 @@ import { Steps, type StageKey } from "./components/Steps.js";
 import { SystemDot } from "./components/SystemDot.js";
 import { Toaster } from "./components/Toaster.js";
 import { HelpModal } from "./components/HelpModal.js";
+import { ErrorBoundary } from "./components/ErrorBoundary.js";
 import { PermsProvider, usePerms } from "./state/perms.js";
 import { RecruitmentList } from "./screens/RecruitmentList.js";
 import { EntryEditing } from "./screens/EntryEditing.js";
@@ -154,42 +155,55 @@ function AppInner() {
 
 			<main className="max-w-screen-xl mx-auto p-3 lg:p-4">
 				{stage === "LIST" && (
-					<RecruitmentList
-						onSelectRecruitment={(id) => {
-							setRecruitmentId(id);
-							setSeriesId(null);
-							setStage("ENTRY_EDITING");
-						}}
-						onSelectSeries={(id) => {
-							setSeriesId(id);
-							setRecruitmentId(null);
-							setStage("IN_GAME");
-						}}
-						onSelectCompletedSeries={(id) => {
-							setSeriesId(id);
-							setRecruitmentId(null);
-							setStage("COMPLETED");
-						}}
-					/>
+					<ErrorBoundary key="list" label="대시보드" onReset={goHome}>
+						<RecruitmentList
+							onSelectRecruitment={(id) => {
+								setRecruitmentId(id);
+								setSeriesId(null);
+								setStage("ENTRY_EDITING");
+							}}
+							onSelectSeries={(id) => {
+								setSeriesId(id);
+								setRecruitmentId(null);
+								setStage("IN_GAME");
+							}}
+							onSelectCompletedSeries={(id) => {
+								setSeriesId(id);
+								setRecruitmentId(null);
+								setStage("COMPLETED");
+							}}
+						/>
+					</ErrorBoundary>
 				)}
 				{stage === "ENTRY_EDITING" && (
-					<EntryEditing
-						recruitmentId={recruitmentId}
-						onSubmit={(sId) => {
-							setSeriesId(sId);
-							setRecruitmentId(null);
-							setStage("IN_GAME");
-						}}
-					/>
+					<ErrorBoundary
+						key={`entry-${recruitmentId}`}
+						label="엔트리 수정"
+						onReset={goHome}
+					>
+						<EntryEditing
+							recruitmentId={recruitmentId}
+							onSubmit={(sId) => {
+								setSeriesId(sId);
+								setRecruitmentId(null);
+								setStage("IN_GAME");
+							}}
+						/>
+					</ErrorBoundary>
 				)}
 				{stage === "IN_GAME" && (
-					<PickBan
-						seriesId={seriesId}
-						onBack={goHome}
-					/>
+					<ErrorBoundary key={`pickban-${seriesId}`} label="픽 / 밴" onReset={goHome}>
+						<PickBan seriesId={seriesId} onBack={goHome} />
+					</ErrorBoundary>
 				)}
 				{stage === "COMPLETED" && (
-					<SeriesResult seriesId={seriesId} onBack={goHome} />
+					<ErrorBoundary
+						key={`result-${seriesId}`}
+						label="시리즈 결과"
+						onReset={goHome}
+					>
+						<SeriesResult seriesId={seriesId} onBack={goHome} />
+					</ErrorBoundary>
 				)}
 			</main>
 			<Toaster />
