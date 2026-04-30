@@ -5,6 +5,8 @@ import { useEffect, useRef, useState } from "react";
 import { api } from "../api/rest.js";
 import { wsClient } from "../api/ws.js";
 import { usePerms } from "../state/perms.js";
+import { SaveStatusIndicator, type SaveStatus } from "../components/SaveStatus.js";
+import { showToast } from "../components/Toaster.js";
 
 const LANES = ["TOP", "JUNGLE", "MID", "BOTTOM", "SUPPORT"] as const;
 type Lane = (typeof LANES)[number];
@@ -94,7 +96,19 @@ export function EntryEditing({
 	const [assignment, setAssignment] = useState<Assignment>(new Map());
 	const [submitting, setSubmitting] = useState(false);
 	const [submitError, setSubmitError] = useState<string | null>(null);
+	// Tap-to-Place 입력 — 모바일/터치 / 키보드 대안. design_upgrade.md §4.4.1
+	const [selectedUid, setSelectedUid] = useState<string | null>(null);
 	const perms = usePerms();
+
+	// Esc 키로 선택 해제
+	useEffect(() => {
+		if (!selectedUid) return;
+		const onKey = (e: KeyboardEvent) => {
+			if (e.key === "Escape") setSelectedUid(null);
+		};
+		window.addEventListener("keydown", onKey);
+		return () => window.removeEventListener("keydown", onKey);
+	}, [selectedUid]);
 
 	useEffect(() => {
 		if (recruitmentId === null) return;
@@ -128,16 +142,23 @@ export function EntryEditing({
 	// (origin echo 는 wsClient 가 필터링)
 	useEffect(() => {
 		if (recruitmentId === null) return;
-		return wsClient.subscribe(`recruitment:${recruitmentId}`, refresh);
+		return wsClient.subscribe(`recruitment:${recruitmentId}`, () => {
+			refresh();
+			showToast("다른 운영자가 엔트리를 수정했습니다");
+		});
 	}, [recruitmentId]);
 
 	// debounced 엔트리 draft 저장 — 본인이 만든 변경만 PUT
 	const draftSaveTimer = useRef<number | null>(null);
 	const lastSaved = useRef<string>("");
+	const [saveStatus, setSaveStatus] = useState<SaveStatus>("idle");
+	const [savedAt, setSavedAt] = useState<number | null>(null);
+	const [retryNonce, setRetryNonce] = useState(0);
 	useEffect(() => {
 		if (recruitmentId === null || !perms.canEdit) return;
 		const serialized = JSON.stringify(Object.fromEntries(assignment));
 		if (serialized === lastSaved.current) return;
+		setSaveStatus("saving");
 		if (draftSaveTimer.current) window.clearTimeout(draftSaveTimer.current);
 		draftSaveTimer.current = window.setTimeout(() => {
 			api(`/recruitments/${recruitmentId}/entry-draft`, {
@@ -146,13 +167,18 @@ export function EntryEditing({
 			})
 				.then(() => {
 					lastSaved.current = serialized;
+					setSaveStatus("saved");
+					setSavedAt(performance.now());
 				})
-				.catch((err) => console.warn("[mookbot] entry-draft save failed", err));
+				.catch((err) => {
+					console.warn("[mookbot] entry-draft save failed", err);
+					setSaveStatus("error");
+				});
 		}, 250);
 		return () => {
 			if (draftSaveTimer.current) window.clearTimeout(draftSaveTimer.current);
 		};
-	}, [assignment, recruitmentId, perms.canEdit]);
+	}, [assignment, recruitmentId, perms.canEdit, retryNonce]);
 
 	if (recruitmentId === null) {
 		return (
@@ -207,6 +233,27 @@ export function EntryEditing({
 		(l) => assignedSlots.has(`TEAM_1_${l}`) && assignedSlots.has(`TEAM_2_${l}`),
 	);
 
+	// Tap-to-Place 핸들러
+	const handleParticipantTap = (userId: string) => {
+		if (!perms.canEdit) return;
+		setSelectedUid((prev) => (prev === userId ? null : userId));
+	};
+	const handleSlotTap = (slot: Slot, occupantUserId: string | null) => {
+		if (!perms.canEdit) return;
+		if (selectedUid) {
+			moveTo(selectedUid, slot);
+			setSelectedUid(null);
+		} else if (occupantUserId) {
+			// 빈 selected → 슬롯의 사람을 selected (다른 곳으로 보내기 위해)
+			setSelectedUid(occupantUserId);
+		}
+	};
+	const handlePoolTap = () => {
+		if (!perms.canEdit || !selectedUid) return;
+		moveTo(selectedUid, null);
+		setSelectedUid(null);
+	};
+
 	const submit = async () => {
 		if (!allFilled || recruitmentId === null) return;
 		setSubmitting(true);
@@ -235,7 +282,16 @@ export function EntryEditing({
 		<section className="space-y-3">
 			<header className="flex items-center justify-between flex-wrap gap-2">
 				<div>
-					<h2 className="text-xl font-bold">엔트리 수정</h2>
+					<h2 className="text-xl font-bold flex items-center gap-3">
+						엔트리 수정
+						{perms.canEdit && (
+							<SaveStatusIndicator
+								status={saveStatus}
+								savedAt={savedAt}
+								onRetry={() => setRetryNonce((n) => n + 1)}
+							/>
+						)}
+					</h2>
 					<p className="text-xs text-base-content/70">
 						모집 #{recruitment.id} · {teamSize}v{teamSize} · 후보 {participants.length}명
 						{" · "}
@@ -298,6 +354,28 @@ export function EntryEditing({
 				</div>
 			)}
 
+			{selectedUid && (() => {
+				const sel = participants.find((p) => p.userId === selectedUid);
+				if (!sel) return null;
+				const inSlot = assignment.has(selectedUid);
+				return (
+					<div className="alert alert-info alert-soft sticky top-2 z-10">
+						<span>
+							🎯 <strong>{sel.displayName}</strong> 선택됨 —{" "}
+							{inSlot ? "다른 슬롯 또는 후보 풀" : "슬롯"}을 탭하여 배치
+							<span className="text-xs opacity-70 ml-2">(Esc 취소)</span>
+						</span>
+						<button
+							type="button"
+							className="btn btn-xs btn-ghost"
+							onClick={() => setSelectedUid(null)}
+						>
+							✕ 취소
+						</button>
+					</div>
+				);
+			})()}
+
 			{/* 슬롯 보드 (1팀 / 2팀) */}
 			<div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
 				{(["TEAM_1", "TEAM_2"] as const).map((team) => (
@@ -331,6 +409,9 @@ export function EntryEditing({
 											participant={assignedP ?? null}
 											onDrop={(uid) => moveTo(uid, slot)}
 											onClear={() => assignedP && moveTo(assignedP.userId, null)}
+											onTap={() => handleSlotTap(slot, assignedUserId ?? null)}
+											selected={selectedUid !== null && assignedUserId === selectedUid}
+											targetHint={selectedUid !== null && assignedUserId !== selectedUid}
 										/>
 									);
 								})}
@@ -342,11 +423,21 @@ export function EntryEditing({
 
 			{/* 후보 풀 — 컴팩트 가로 카드 */}
 			<div
-				className="card bg-base-200 shadow-sm"
+				className={`card bg-base-200 shadow-sm transition ${
+					selectedUid !== null && assignment.has(selectedUid)
+						? "ring-2 ring-primary cursor-pointer"
+						: ""
+				}`}
 				onDragOver={(e) => e.preventDefault()}
 				onDrop={(e) => {
 					const uid = e.dataTransfer.getData("text/plain");
 					if (uid) moveTo(uid, null);
+				}}
+				onClick={(e) => {
+					// 자식 카드 클릭은 자기 핸들러가 처리 — 여기는 풀 영역 빈 클릭만
+					if (e.target === e.currentTarget && selectedUid && assignment.has(selectedUid)) {
+						handlePoolTap();
+					}
 				}}
 			>
 				<div className="card-body p-3 gap-2">
@@ -355,7 +446,7 @@ export function EntryEditing({
 							후보 풀 · {unassigned.length}명 미배정 / 총 {participants.length}명
 						</h3>
 						<span className="text-xs text-base-content/50">
-							드래그 → 슬롯 / 슬롯 → 풀 드롭 = 해제
+							탭하여 선택 → 슬롯 탭 (또는 드래그)
 						</span>
 					</div>
 					{unassigned.length === 0 ? (
@@ -363,9 +454,21 @@ export function EntryEditing({
 							모든 참가자가 슬롯에 배정되었습니다.
 						</div>
 					) : (
-						<div className="grid grid-cols-1 md:grid-cols-2 gap-1.5">
+						<div
+							className="grid grid-cols-1 md:grid-cols-2 gap-1.5"
+							onClick={(e) => {
+								if (e.target === e.currentTarget && selectedUid && assignment.has(selectedUid)) {
+									handlePoolTap();
+								}
+							}}
+						>
 							{unassigned.map((p) => (
-								<ParticipantCard key={p.userId} participant={p} />
+								<ParticipantCard
+									key={p.userId}
+									participant={p}
+									selected={selectedUid === p.userId}
+									onTap={() => handleParticipantTap(p.userId)}
+								/>
 							))}
 						</div>
 					)}
@@ -382,9 +485,13 @@ export function EntryEditing({
 function ParticipantCard({
 	participant,
 	compact = false,
+	selected = false,
+	onTap,
 }: {
 	participant: Participant;
 	compact?: boolean;
+	selected?: boolean;
+	onTap?: () => void;
 }) {
 	const { displayName, roles, history } = participant;
 	const totalWr =
@@ -395,11 +502,22 @@ function ParticipantCard({
 	return (
 		<div
 			draggable
+			role={onTap ? "button" : undefined}
+			tabIndex={onTap ? 0 : undefined}
 			onDragStart={(e) => {
 				e.dataTransfer.setData("text/plain", participant.userId);
 				e.dataTransfer.effectAllowed = "move";
 			}}
-			className="bg-base-300 rounded-lg cursor-grab active:cursor-grabbing hover:bg-base-content/10 transition px-3 py-2 flex items-center gap-2 min-w-0"
+			onClick={onTap}
+			onKeyDown={(e) => {
+				if (onTap && (e.key === "Enter" || e.key === " ")) {
+					e.preventDefault();
+					onTap();
+				}
+			}}
+			className={`bg-base-300 rounded-lg cursor-grab active:cursor-grabbing hover:bg-base-content/10 transition px-3 py-2 flex items-center gap-2 min-w-0 ${
+				selected ? "ring-2 ring-primary bg-primary/10" : ""
+			}`}
 		>
 			{/* 좌: 이름 + 메타 */}
 			<div className="flex-1 min-w-0">
@@ -504,16 +622,46 @@ function SlotRow({
 	participant,
 	onDrop,
 	onClear,
+	onTap,
+	selected = false,
+	targetHint = false,
 }: {
 	lane: Lane;
 	participant: Participant | null;
 	onDrop: (userId: string) => void;
 	onClear: () => void;
+	onTap?: () => void;
+	selected?: boolean;
+	targetHint?: boolean;
 }) {
 	const [over, setOver] = useState(false);
 
+	const baseRing = over
+		? "ring-2 ring-primary bg-primary/10"
+		: selected
+			? "ring-2 ring-primary bg-primary/10"
+			: targetHint && !participant
+				? "ring-1 ring-primary/60 bg-primary/5"
+				: targetHint
+					? "ring-1 ring-warning/60"
+					: "";
+
 	return (
 		<div
+			role={onTap ? "button" : undefined}
+			tabIndex={onTap ? 0 : undefined}
+			onClick={(e) => {
+				// inner ✕ button 클릭 시 슬롯 탭이 트리거되지 않도록 stop
+				const target = e.target as HTMLElement;
+				if (target.closest("button")) return;
+				onTap?.();
+			}}
+			onKeyDown={(e) => {
+				if (onTap && (e.key === "Enter" || e.key === " ")) {
+					e.preventDefault();
+					onTap();
+				}
+			}}
 			onDragOver={(e) => {
 				e.preventDefault();
 				e.dataTransfer.dropEffect = "move";
@@ -526,9 +674,7 @@ function SlotRow({
 				const uid = e.dataTransfer.getData("text/plain");
 				if (uid) onDrop(uid);
 			}}
-			className={`flex items-center gap-2 rounded-md transition ${
-				over ? "ring-2 ring-primary bg-primary/10" : ""
-			}`}
+			className={`flex items-center gap-2 rounded-md transition ${baseRing}`}
 		>
 			<span className="badge badge-neutral min-w-[3.5rem] justify-center shrink-0 text-sm font-bold">
 				{LANE_LABEL[lane]}

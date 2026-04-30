@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { initSdk, type AuthedUser } from "./sdk/client.js";
 import { Steps, type StageKey } from "./components/Steps.js";
 import { SystemDot } from "./components/SystemDot.js";
+import { Toaster } from "./components/Toaster.js";
 import { PermsProvider, usePerms } from "./state/perms.js";
 import { RecruitmentList } from "./screens/RecruitmentList.js";
 import { EntryEditing } from "./screens/EntryEditing.js";
@@ -166,6 +167,7 @@ function AppInner() {
 					<SeriesResult seriesId={seriesId} onBack={goHome} />
 				)}
 			</main>
+			<Toaster />
 		</div>
 	);
 }

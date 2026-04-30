@@ -3,6 +3,7 @@ import { api } from "../api/rest.js";
 import { wsClient } from "../api/ws.js";
 import { LineupPreview, type LineupParticipant } from "../components/LineupPreview.js";
 import { EmptyState } from "../components/EmptyState.js";
+import { showToast } from "../components/Toaster.js";
 
 interface Recruitment {
 	id: number;
@@ -74,9 +75,13 @@ export function RecruitmentList({
 
 	const refresh = () => setReloadKey((k) => k + 1);
 
-	// dashboard topic 구독 — 서버측 write (시리즈 생성/종료/취소 등) 시 자동 reload
+	// dashboard topic 구독 — 서버측 write (시리즈 생성/종료/취소 등) 시 자동 reload.
+	// origin echo 필터링은 ws.ts 가 처리 — 이 콜백은 다른 사용자/서버 변경 시에만 호출됨.
 	useEffect(() => {
-		return wsClient.subscribe("dashboard", refresh);
+		return wsClient.subscribe("dashboard", () => {
+			refresh();
+			showToast("대시보드가 업데이트되었습니다");
+		});
 	}, []);
 
 	const header = (

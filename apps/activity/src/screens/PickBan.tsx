@@ -7,6 +7,8 @@ import { api } from "../api/rest.js";
 import { wsClient } from "../api/ws.js";
 import { LineupPreview, type LineupParticipant } from "../components/LineupPreview.js";
 import { ConfirmButton } from "../components/ConfirmButton.js";
+import { SaveStatusIndicator, type SaveStatus } from "../components/SaveStatus.js";
+import { showToast } from "../components/Toaster.js";
 import { usePerms } from "../state/perms.js";
 
 const LANE_LABEL: Record<string, string> = {
@@ -130,28 +132,43 @@ export function PickBan({
 	// series topic 구독 — 다른 사용자가 픽/밴 / 게임 결과 등으로 변경 시 자동 reload
 	useEffect(() => {
 		if (seriesId === null) return;
-		return wsClient.subscribe(`series:${seriesId}`, () =>
-			setReloadKey((k) => k + 1),
-		);
+		return wsClient.subscribe(`series:${seriesId}`, () => {
+			setReloadKey((k) => k + 1);
+			showToast("다른 운영자가 픽/밴/결과를 입력했습니다");
+		});
 	}, [seriesId]);
 
 	// debounced save — 쓰기 권한 있는 경우에만
 	const saveTimer = useRef<number | null>(null);
+	const lastSavedDraft = useRef<string>("");
+	const [saveStatus, setSaveStatus] = useState<SaveStatus>("idle");
+	const [savedAt, setSavedAt] = useState<number | null>(null);
+	const [retryNonce, setRetryNonce] = useState(0);
 	useEffect(() => {
 		if (!draft || seriesId === null || !perms.canEdit) return;
+		const serialized = JSON.stringify(draft);
+		if (serialized === lastSavedDraft.current) return;
+		setSaveStatus("saving");
 		if (saveTimer.current) window.clearTimeout(saveTimer.current);
 		saveTimer.current = window.setTimeout(() => {
 			api(`/series/${seriesId}/pickban`, {
 				method: "PUT",
-				body: JSON.stringify(draft),
-			}).catch((err) => {
-				console.warn("[mookbot] pickban save failed", err);
-			});
+				body: serialized,
+			})
+				.then(() => {
+					lastSavedDraft.current = serialized;
+					setSaveStatus("saved");
+					setSavedAt(performance.now());
+				})
+				.catch((err) => {
+					console.warn("[mookbot] pickban save failed", err);
+					setSaveStatus("error");
+				});
 		}, 400);
 		return () => {
 			if (saveTimer.current) window.clearTimeout(saveTimer.current);
 		};
-	}, [draft, seriesId, perms.canEdit]);
+	}, [draft, seriesId, perms.canEdit, retryNonce]);
 
 	if (seriesId === null) {
 		return (
@@ -255,7 +272,16 @@ export function PickBan({
 		<section className="space-y-3">
 			<header className="flex items-center justify-between flex-wrap gap-2">
 				<div>
-					<h2 className="text-xl font-bold">픽 / 밴</h2>
+					<h2 className="text-xl font-bold flex items-center gap-3">
+						픽 / 밴
+						{perms.canEdit && (
+							<SaveStatusIndicator
+								status={saveStatus}
+								savedAt={savedAt}
+								onRetry={() => setRetryNonce((n) => n + 1)}
+							/>
+						)}
+					</h2>
 					<p className="text-xs text-base-content/70">
 						시리즈 #{detail.series.id} · {teamSize}v{teamSize} ·{" "}
 						{detail.games.length}/3 게임 완료
@@ -493,6 +519,16 @@ function PickBanBoard({
 		idx: number;
 	} | null>(null);
 
+	// Esc 로 활성 슬롯 해제 — design_upgrade.md §4.4.2 / §4.5
+	useEffect(() => {
+		if (!activeSlot) return;
+		const onKey = (e: KeyboardEvent) => {
+			if (e.key === "Escape") setActiveSlot(null);
+		};
+		window.addEventListener("keydown", onKey);
+		return () => window.removeEventListener("keydown", onKey);
+	}, [activeSlot]);
+
 	const usedIds = useMemo(() => {
 		const set = new Set<number>();
 		for (const arr of [
@@ -564,8 +600,42 @@ function PickBanBoard({
 		setActiveSlot({ kind, team, idx });
 	};
 
+	const activeSlotInfo = (() => {
+		if (!activeSlot) return null;
+		const teamLabel = activeSlot.team === "TEAM_1" ? "1팀" : "2팀";
+		const kindLabel = activeSlot.kind === "ban" ? "밴" : "픽";
+		if (activeSlot.kind === "pick") {
+			const lane = LANE_ORDER[activeSlot.idx];
+			if (lane) {
+				const player = lineup.get(`${activeSlot.team}_${lane}`);
+				return `🎯 ${teamLabel} ${kindLabel} · ${LANE_LABEL[lane] ?? lane}${player ? ` (${player})` : ""}`;
+			}
+		}
+		return `🎯 ${teamLabel} ${kindLabel} #${activeSlot.idx + 1}`;
+	})();
+
 	return (
 		<div className="space-y-4">
+			{/* 활성 슬롯 sticky 안내 — design_upgrade.md §6.4.2 #5 */}
+			{activeSlotInfo && (
+				<div className="alert alert-info alert-soft sticky top-2 z-20 shadow-md flex-row items-center">
+					<span className="flex-1">
+						{activeSlotInfo}
+						<span className="text-xs opacity-70 ml-2">
+							— 챔프 선택 또는 슬롯 다시 클릭 (Esc 취소)
+						</span>
+					</span>
+					<button
+						type="button"
+						className="btn btn-xs btn-ghost"
+						onClick={() => setActiveSlot(null)}
+						aria-label="선택 취소"
+					>
+						✕
+					</button>
+				</div>
+			)}
+
 			{/* 픽/밴 보드 — 1팀 | 2팀 */}
 			<div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
 				<TeamColumn
