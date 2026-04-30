@@ -1,7 +1,7 @@
 // [2] 엔트리 수정 — 드래그&드롭 슬롯 보드 (1팀 / 2팀).
 // 후보 풀의 카드를 1팀 / 2팀 라인 슬롯으로 끌어다 놓아 엔트리 작성.
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { api } from "../api/rest.js";
 import { wsClient } from "../api/ws.js";
 import { usePerms } from "../state/perms.js";
@@ -66,6 +66,12 @@ interface RecruitmentDetail {
 		createdAt: number;
 	};
 	participants: Participant[];
+	entryDraft: EntryDraft | null;
+}
+
+interface EntryDraft {
+	// userId → "TEAM_1_TOP" / "TEAM_2_MID" 등 Slot
+	assignments: Record<string, string>;
 }
 
 type Slot = `${Team}_${Lane}`;
@@ -95,10 +101,18 @@ export function EntryEditing({
 		let cancelled = false;
 		setError(null);
 		setDetail(null);
-		setAssignment(new Map());
 		api<RecruitmentDetail>(`/recruitments/${recruitmentId}`)
 			.then((res) => {
-				if (!cancelled) setDetail(res);
+				if (cancelled) return;
+				setDetail(res);
+				// 서버 draft 적용
+				const next = new Map<string, Slot>();
+				if (res.entryDraft?.assignments) {
+					for (const [uid, slot] of Object.entries(res.entryDraft.assignments)) {
+						next.set(uid, slot as Slot);
+					}
+				}
+				setAssignment(next);
 			})
 			.catch((err: unknown) => {
 				if (!cancelled) setError(err instanceof Error ? err.message : String(err));
@@ -110,11 +124,35 @@ export function EntryEditing({
 
 	const refresh = () => setReloadKey((k) => k + 1);
 
-	// recruitment topic 구독 — 다른 사용자가 멤버 관리 등으로 변경 시 자동 reload
+	// recruitment topic 구독 — 다른 사용자가 멤버 관리 / 슬롯 배정 등으로 변경 시 자동 reload
+	// (origin echo 는 wsClient 가 필터링)
 	useEffect(() => {
 		if (recruitmentId === null) return;
 		return wsClient.subscribe(`recruitment:${recruitmentId}`, refresh);
 	}, [recruitmentId]);
+
+	// debounced 엔트리 draft 저장 — 본인이 만든 변경만 PUT
+	const draftSaveTimer = useRef<number | null>(null);
+	const lastSaved = useRef<string>("");
+	useEffect(() => {
+		if (recruitmentId === null || !perms.canEdit) return;
+		const serialized = JSON.stringify(Object.fromEntries(assignment));
+		if (serialized === lastSaved.current) return;
+		if (draftSaveTimer.current) window.clearTimeout(draftSaveTimer.current);
+		draftSaveTimer.current = window.setTimeout(() => {
+			api(`/recruitments/${recruitmentId}/entry-draft`, {
+				method: "PUT",
+				body: JSON.stringify({ assignments: Object.fromEntries(assignment) }),
+			})
+				.then(() => {
+					lastSaved.current = serialized;
+				})
+				.catch((err) => console.warn("[mookbot] entry-draft save failed", err));
+		}, 250);
+		return () => {
+			if (draftSaveTimer.current) window.clearTimeout(draftSaveTimer.current);
+		};
+	}, [assignment, recruitmentId, perms.canEdit]);
 
 	if (recruitmentId === null) {
 		return (
