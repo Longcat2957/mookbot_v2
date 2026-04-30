@@ -531,7 +531,7 @@ Activity Backend                        Bot
 | 🟥 높음 | D1 자동 백업 GHA | v1 의 매일 03:00 KST artifact 백업 이식 |
 | 🟧 중간 | 운영자 admin 슬래시 | `/시리즈강제삭제`, `/MMR수정`, `/시즌결과리셋`, `/오래된내전정리` (v1 코드 단순 이식) |
 | 🟧 중간 | 헬스체크 + 모니터링 | api/bot 컨테이너 `HEALTHCHECK`, 외부 모니터링 (UptimeRobot 등) |
-| 🟧 중간 | Sentry 에러 트래킹 | api/bot/activity 3곳 — Phase 2 마무리 후 운영 데이터 수집 |
+| 🟧 중간 | 에러 알림 — Discord webhook | pino fatal/error 로그 → 운영자 채널. 외부 SaaS 의존 X |
 | 🟨 낮음 | 모바일 Activity QA | iOS/Android Discord 클라이언트 검증 — 안정 시 Developer Portal Mobile platform 활성화 |
 | 🟨 낮음 | 봇 → 채널 시리즈 종료 알림 | 결과 카드 (3게임 픽밴/MMR 변동 마크다운 표). v0.7 종료 카드를 텍스트로 |
 | 🟨 낮음 | E2E 테스트 | v1 의 `test:scrim` / `test:nvn` 이식. CI에서 D1 throwaway 환경 |
