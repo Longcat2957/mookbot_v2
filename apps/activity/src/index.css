@@ -3,10 +3,21 @@
 	themes: dark --default, light;
 }
 
-/* Activity iframe 안에서 body 가 dark 배경 채우도록 */
+/* Noto Sans KR — 모든 OS에서 동일 타이포 보장 (self-hosted, Discord Activity sandbox 외부 fetch 차단 우회) */
+@import "@fontsource/noto-sans-kr/400.css";
+@import "@fontsource/noto-sans-kr/500.css";
+@import "@fontsource/noto-sans-kr/700.css";
+
+@theme {
+	--font-sans:
+		"Noto Sans KR", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
 html,
 body,
 #root {
 	height: 100%;
 	background: var(--color-base-100);
+	font-family: "Noto Sans KR", -apple-system, BlinkMacSystemFont, "Segoe UI",
+		sans-serif;
 }
