@@ -596,15 +596,14 @@ export async function registerRoutes(app: FastifyInstance): Promise<void> {
 				[id],
 			);
 
-			// 시리즈 삭제 (series_participants CASCADE)
-			await cloudflare.execute(`DELETE FROM series WHERE id = ?`, [id]);
-			// pickban draft 삭제
-			await db.deleteKv(`pickban:${id}`);
-
-			// 모집 status 복원 → CLOSED (엔트리 수정 대기)
+			// 순서 중요 — recruitments.converted_series_id 가 series.id 를 FK 로 참조하므로
+			// 1) 모집 status 복원 + converted_series_id NULL 로 설정 (FK 해제)
+			// 2) 그 다음 시리즈 DELETE (CASCADE 로 series_participants 정리)
 			if (recRow) {
 				await db.setRecruitmentStatus(recRow.id, "CLOSED");
 			}
+			await cloudflare.execute(`DELETE FROM series WHERE id = ?`, [id]);
+			await db.deleteKv(`pickban:${id}`);
 
 			invalidate(`series:${id}`);
 			invalidate("dashboard");
