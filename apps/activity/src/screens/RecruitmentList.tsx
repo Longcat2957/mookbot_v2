@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { api } from "../api/rest.js";
 import { wsClient } from "../api/ws.js";
 import { LineupPreview, type LineupParticipant } from "../components/LineupPreview.js";
@@ -85,18 +85,59 @@ export function RecruitmentList({
 	}, []);
 
 	const header = (
-		<div className="flex items-start justify-between">
+		<div className="flex items-start justify-between gap-3 flex-wrap">
 			<div>
 				<h1 className="text-2xl font-bold">대시보드</h1>
 				<p className="text-sm text-base-content/70">
-					마감된 모집은 엔트리 작성, 진행중인 내전은 이어서 픽/밴 입력.
+					처리 대기 카드는 클릭으로 진행 — 엔트리 작성 또는 픽/밴 입력.
 				</p>
 			</div>
-			<button type="button" className="btn btn-sm btn-ghost" onClick={refresh} title="새로고침">
-				↻
-			</button>
+			<div className="flex items-center gap-2">
+				<div className="stats stats-horizontal shadow-none border border-base-300 bg-base-200/40">
+					<div className="stat py-2 px-3">
+						<div className="stat-title text-[10px]">엔트리 대기</div>
+						<div className="stat-value text-xl text-warning tabular-nums">
+							{recruitments?.length ?? "—"}
+						</div>
+					</div>
+					<div className="stat py-2 px-3">
+						<div className="stat-title text-[10px]">진행 중</div>
+						<div className="stat-value text-xl text-info tabular-nums">
+							{series?.length ?? "—"}
+						</div>
+					</div>
+					<div className="stat py-2 px-3">
+						<div className="stat-title text-[10px]">종료</div>
+						<div className="stat-value text-xl text-base-content/60 tabular-nums">
+							{completed?.length ?? "—"}
+						</div>
+					</div>
+				</div>
+				<button
+					type="button"
+					className="btn btn-circle btn-ghost btn-sm"
+					onClick={refresh}
+					title="새로고침"
+					aria-label="새로고침"
+				>
+					↻
+				</button>
+			</div>
 		</div>
 	);
+
+	// 처리 대기 통합 정렬 — 모집 + 진행중, 가장 오래된 것 위로 (방치 방지)
+	const pending = useMemo(() => {
+		if (recruitments === null || series === null) return [];
+		type PendingItem =
+			| { kind: "rec"; data: Recruitment; sortKey: number }
+			| { kind: "series"; data: SeriesItem; sortKey: number };
+		const items: PendingItem[] = [];
+		for (const r of recruitments) items.push({ kind: "rec", data: r, sortKey: r.createdAt });
+		for (const s of series) items.push({ kind: "series", data: s, sortKey: s.startedAt });
+		items.sort((a, b) => a.sortKey - b.sortKey);
+		return items;
+	}, [recruitments, series]);
 
 	if (error) {
 		return (
@@ -115,15 +156,22 @@ export function RecruitmentList({
 		<section className="space-y-6">
 			{header}
 
-			{/* 엔트리 수정 대기 */}
+			{/* 처리 대기 — 모집 + 진행중 통합 (시간순 — 오래된 것 위) */}
 			<div className="space-y-2">
-				<h2 className="text-lg font-bold">엔트리 수정 대기</h2>
+				<div className="flex items-center justify-between">
+					<h2 className="text-lg font-bold">처리 대기</h2>
+					{!isLoading && pending.length > 0 && (
+						<span className="text-xs text-base-content/60">
+							{recruitments.length} 엔트리 대기 · {series.length} 진행 중
+						</span>
+					)}
+				</div>
 				{isLoading ? (
 					<SkeletonGrid />
-				) : recruitments.length === 0 ? (
+				) : pending.length === 0 ? (
 					<EmptyState
-						title="엔트리 수정 대기 중인 모집이 없습니다"
-						description="봇 채널에서 모집을 만들면 이곳에 마감된 모집이 표시됩니다."
+						title="처리할 항목이 없습니다"
+						description="새 모집을 시작하거나, 엔트리를 제출해 시리즈를 만들면 여기에 표시됩니다."
 						tone="warning"
 						steps={[
 							<>
@@ -134,70 +182,62 @@ export function RecruitmentList({
 								<span className="badge badge-success badge-sm">▶ 엔트리 수정 시작</span>{" "}
 								버튼 클릭
 							</>,
-							<>이곳에서 카드 클릭 → 엔트리 수정 화면으로 이동</>,
+							<>이곳에서 카드 클릭 → 엔트리 수정 → 픽/밴 진행</>,
 						]}
 					/>
 				) : (
 					<div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-						{recruitments.map((r) => (
-							<RecruitmentCard
-								key={r.id}
-								rec={r}
-								onClick={() => onSelectRecruitment(r.id)}
-							/>
-						))}
+						{pending.map((item) =>
+							item.kind === "rec" ? (
+								<RecruitmentCard
+									key={`r-${item.data.id}`}
+									rec={item.data}
+									onClick={() => onSelectRecruitment(item.data.id)}
+								/>
+							) : (
+								<SeriesCard
+									key={`s-${item.data.id}`}
+									series={item.data}
+									onClick={() => onSelectSeries(item.data.id)}
+								/>
+							),
+						)}
 					</div>
 				)}
 			</div>
 
-			{/* 진행중인 내전 */}
-			<div className="space-y-2">
-				<h2 className="text-lg font-bold">진행중인 내전</h2>
-				{isLoading ? (
-					<SkeletonGrid />
-				) : series.length === 0 ? (
-					<EmptyState
-						title="진행중인 내전이 없습니다"
-						description="엔트리 제출 시 시리즈가 생성되어 이곳에 표시됩니다."
-						steps={[
-							<>위 "엔트리 수정 대기" 카드 선택 → 슬롯 보드 작성</>,
-							<>
-								<strong>엔트리 제출</strong> → 시리즈 자동 생성
-							</>,
-							<>Activity 재실행되어도 이곳에서 이어서 픽/밴 진행 가능</>,
-						]}
-					/>
-				) : (
-					<div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-						{series.map((s) => (
-							<SeriesCard key={s.id} series={s} onClick={() => onSelectSeries(s.id)} />
-						))}
-					</div>
-				)}
-			</div>
-
-			{/* 지난 내전 (종료) */}
-			<div className="space-y-2">
-				<h2 className="text-lg font-bold">지난 내전</h2>
-				{isLoading ? (
-					<SkeletonGrid />
-				) : completed.length === 0 ? (
-					<EmptyState
-						title="아직 종료된 내전이 없습니다"
-						description="시리즈가 종료되면 이곳에서 게임별 픽/밴 결과를 다시 볼 수 있습니다."
-					/>
-				) : (
-					<div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-						{completed.map((s) => (
-							<CompletedSeriesCard
-								key={s.id}
-								series={s}
-								onClick={() => onSelectCompletedSeries(s.id)}
-							/>
-						))}
-					</div>
-				)}
-			</div>
+			{/* 지난 내전 — 기본 펼침 collapse */}
+			<details className="space-y-2" open>
+				<summary className="cursor-pointer text-lg font-bold list-none flex items-center gap-2 select-none">
+					<span className="text-base-content/40 text-sm">▼</span>
+					지난 내전
+					{!isLoading && completed.length > 0 && (
+						<span className="text-xs font-normal text-base-content/50 ml-1">
+							({completed.length})
+						</span>
+					)}
+				</summary>
+				<div className="pt-2">
+					{isLoading ? (
+						<SkeletonGrid />
+					) : completed.length === 0 ? (
+						<EmptyState
+							title="아직 종료된 내전이 없습니다"
+							description="시리즈가 종료되면 이곳에서 게임별 픽/밴 결과를 다시 볼 수 있습니다."
+						/>
+					) : (
+						<div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+							{completed.map((s) => (
+								<CompletedSeriesCard
+									key={s.id}
+									series={s}
+									onClick={() => onSelectCompletedSeries(s.id)}
+								/>
+							))}
+						</div>
+					)}
+				</div>
+			</details>
 		</section>
 	);
 }
@@ -250,9 +290,9 @@ function RecruitmentCard({ rec, onClick }: { rec: Recruitment; onClick: () => vo
 		<button
 			type="button"
 			onClick={onClick}
-			className="card bg-base-200 shadow-sm hover:bg-base-300 transition cursor-pointer text-left"
+			className="card bg-base-200 shadow-sm hover:bg-base-300 transition cursor-pointer text-left border-l-4 border-warning"
 		>
-			<div className="card-body py-4">
+			<div className="card-body py-4 gap-1">
 				<div className="flex items-center justify-between">
 					<h3 className="card-title text-base">
 						{teamSize}v{teamSize} 내전
@@ -261,6 +301,9 @@ function RecruitmentCard({ rec, onClick }: { rec: Recruitment; onClick: () => vo
 				</div>
 				<div className="text-sm text-base-content/70">
 					모집 #{rec.id} · {formatAgo(rec.createdAt)}
+				</div>
+				<div className="text-xs text-base-content/50 mt-1">
+					→ 클릭하여 엔트리 수정 화면으로
 				</div>
 			</div>
 		</button>
@@ -272,21 +315,28 @@ function SeriesCard({ series, onClick }: { series: SeriesItem; onClick: () => vo
 		<button
 			type="button"
 			onClick={onClick}
-			className="card bg-base-200 shadow-sm hover:bg-base-300 transition cursor-pointer text-left"
+			className="card bg-base-200 shadow-sm hover:bg-base-300 transition cursor-pointer text-left border-l-4 border-info"
 		>
-			<div className="card-body py-4 gap-3">
+			<div className="card-body py-4 gap-2">
 				<div className="flex items-center justify-between">
-					<h3 className="card-title text-base">시리즈 #{series.id}</h3>
+					<h3 className="card-title text-base flex items-center gap-1.5">
+						시리즈 #{series.id}
+						<span
+							className="inline-block size-1.5 rounded-full bg-success animate-pulse"
+							aria-label="라이브"
+						/>
+					</h3>
 					<span className="badge badge-info badge-sm">{series.status}</span>
 				</div>
 				<div className="text-xs text-base-content/60">
 					시즌 {series.seasonId} · 시작 {formatAgo(series.startedAt)}
 				</div>
 				{series.participants.length > 0 && (
-					<div className="bg-base-100 rounded p-3">
+					<div className="bg-base-100 rounded p-2">
 						<LineupPreview participants={series.participants} compact />
 					</div>
 				)}
+				<div className="text-xs text-base-content/50">→ 클릭하여 픽/밴 이어가기</div>
 			</div>
 		</button>
 	);
