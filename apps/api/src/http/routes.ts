@@ -323,6 +323,8 @@ export async function registerRoutes(app: FastifyInstance): Promise<void> {
 		const parts = await db.getSeriesParticipants(id);
 		const users = await db.listUsers(parts.map((p) => p.user_id));
 		const nameById = new Map(users.map((u) => [u.discord_id, u.display_name]));
+		// PickBan 의 챔프 그리드 "MY MAINS" 표시용 — 참가자 전적/주력 챔프
+		const stats = await fetchPlayHistoryFor(parts.map((p) => p.user_id));
 
 		const games = await db.listGamesInSeries(id);
 		// 게임별 picks 조회 — 하드피어리스 검증용 (Game N+1 에서 이미 사용된 챔프 필터)
@@ -357,6 +359,7 @@ export async function registerRoutes(app: FastifyInstance): Promise<void> {
 				displayName: nameById.get(p.user_id) ?? p.user_id,
 				team: p.team,
 				role: p.role,
+				history: stats.get(p.user_id) ?? emptyHistory(),
 			})),
 			games: games.map((g) => ({
 				id: g.id,

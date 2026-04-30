@@ -31,6 +31,27 @@ interface Champion {
 	iconUrl: string;
 }
 
+interface ChampionPlay {
+	championId: number;
+	championName: string;
+	iconUrl: string;
+	plays: number;
+	wins: number;
+	losses: number;
+}
+
+interface PlayHistory {
+	total: { plays: number; wins: number; losses: number };
+	topChampions: ChampionPlay[];
+	rolePlays: { role: string; plays: number; wins: number; losses: number }[];
+	topRole: { role: string; plays: number; wins: number; losses: number } | null;
+}
+
+interface SeriesParticipant extends LineupParticipant {
+	userId: string;
+	history: PlayHistory;
+}
+
 interface SeriesDetail {
 	series: {
 		id: number;
@@ -38,7 +59,7 @@ interface SeriesDetail {
 		startedAt: number;
 		winningTeam: Team | null;
 	};
-	participants: LineupParticipant[];
+	participants: SeriesParticipant[];
 	games: {
 		id: number;
 		gameNumber: number;
@@ -542,12 +563,14 @@ function ChampCell({
 	blocked,
 	reason,
 	onClick,
+	mainCount,
 }: {
 	champ: Champion;
 	disabled?: boolean;
 	blocked?: "used" | "fearless";
 	reason: string;
 	onClick?: () => void;
+	mainCount?: number;
 }) {
 	return (
 		<button
@@ -559,7 +582,7 @@ function ChampCell({
 				disabled
 					? "opacity-40 grayscale cursor-not-allowed"
 					: "hover:ring-2 hover:ring-primary hover:scale-105"
-			}`}
+			} ${mainCount ? "ring-1 ring-warning/50" : ""}`}
 		>
 			<img
 				src={champ.iconUrl}
@@ -586,6 +609,14 @@ function ChampCell({
 					U
 				</span>
 			)}
+			{mainCount !== undefined && mainCount > 0 && (
+				<span
+					className="absolute top-0.5 right-0.5 badge badge-warning badge-xs tabular-nums"
+					aria-label={`${mainCount}회 플레이`}
+				>
+					{mainCount}
+				</span>
+			)}
 		</button>
 	);
 }
@@ -610,7 +641,7 @@ function PickBanBoard({
 	teamSize: number;
 	gameDraft: GameDraft;
 	team1Side: Side;
-	participants: LineupParticipant[];
+	participants: SeriesParticipant[];
 	champions: Champion[];
 	fearlessUsedIds: Set<number>;
 	onChange: (g: GameDraft) => void;
@@ -681,17 +712,55 @@ function PickBanBoard({
 		);
 	}, [champions, search]);
 
-	// 사용 가능 / 사용 불가 분리 — design_upgrade.md §6.4.3
-	const { usable, blocked } = useMemo(() => {
+	// 활성 픽 슬롯의 플레이어 — MY MAINS 추출용 (design_upgrade.md §6.4.3)
+	const activePlayer = useMemo<SeriesParticipant | null>(() => {
+		if (!activeSlot || activeSlot.kind !== "pick") return null;
+		const lane = LANE_ORDER[activeSlot.idx];
+		if (!lane) return null;
+		return (
+			participants.find((p) => p.team === activeSlot.team && p.role === lane) ?? null
+		);
+	}, [activeSlot, participants]);
+
+	// MY MAINS / 사용 가능 / 사용 불가 — 3 섹션 분리
+	const { mains, usable, blocked } = useMemo(() => {
+		const filteredIds = new Set(filtered.map((c) => c.id));
+		const mainsSet = activePlayer
+			? new Set(activePlayer.history.topChampions.map((c) => c.championId))
+			: new Set<number>();
+
+		const mains: ChampionPlay[] = [];
+		if (activePlayer) {
+			for (const c of activePlayer.history.topChampions) {
+				if (!filteredIds.has(c.championId)) continue;
+				if (fearlessUsedIds.has(c.championId)) continue;
+				if (usedIds.has(c.championId)) continue;
+				mains.push(c);
+			}
+		}
+
 		const usable: Champion[] = [];
 		const blocked: { champ: Champion; reason: "used" | "fearless" }[] = [];
 		for (const c of filtered) {
-			if (fearlessUsedIds.has(c.id)) blocked.push({ champ: c, reason: "fearless" });
-			else if (usedIds.has(c.id)) blocked.push({ champ: c, reason: "used" });
-			else usable.push(c);
+			if (fearlessUsedIds.has(c.id)) {
+				blocked.push({ champ: c, reason: "fearless" });
+			} else if (usedIds.has(c.id)) {
+				blocked.push({ champ: c, reason: "used" });
+			} else if (mainsSet.has(c.id)) {
+				// mains 섹션에 별도 표시되므로 일반 usable 에서 제외 (중복 방지)
+				continue;
+			} else {
+				usable.push(c);
+			}
 		}
-		return { usable, blocked };
-	}, [filtered, usedIds, fearlessUsedIds]);
+		return { mains, usable, blocked };
+	}, [filtered, usedIds, fearlessUsedIds, activePlayer]);
+
+	const [filterMode, setFilterMode] = useState<"all" | "mains">("all");
+	// 활성 슬롯 변경 시 필터 모드 reset
+	useEffect(() => {
+		setFilterMode("all");
+	}, [activeSlot]);
 
 	const lineup = useMemo(() => {
 		const map = new Map<string, string>();
@@ -825,10 +894,29 @@ function PickBanBoard({
 							</button>
 						</div>
 						<div className="text-xs text-base-content/60">
-							{usable.length} 사용 가능
+							{mains.length + usable.length} 사용 가능
 							{blocked.length > 0 && ` · ${blocked.length} 사용 불가`}
 						</div>
 					</div>
+
+					{activePlayer && mains.length > 0 && (
+						<div role="tablist" className="tabs tabs-xs tabs-boxed self-start">
+							<button
+								role="tab"
+								className={`tab ${filterMode === "all" ? "tab-active" : ""}`}
+								onClick={() => setFilterMode("all")}
+							>
+								전체
+							</button>
+							<button
+								role="tab"
+								className={`tab ${filterMode === "mains" ? "tab-active" : ""}`}
+								onClick={() => setFilterMode("mains")}
+							>
+								🌟 {activePlayer.displayName} 주력 ({mains.length})
+							</button>
+						</div>
+					)}
 
 					{fearlessUsedIds.size > 0 && (
 						<div className="text-xs text-base-content/60">
@@ -837,28 +925,72 @@ function PickBanBoard({
 						</div>
 					)}
 
-					{usable.length === 0 ? (
-						<div className="text-center text-sm text-base-content/50 py-6">
-							{search.trim()
-								? `"${search}" 검색 결과 없음`
-								: "사용 가능한 챔프가 없습니다."}
-						</div>
-					) : (
-						<div className="grid grid-cols-[repeat(auto-fill,minmax(60px,1fr))] gap-1.5 max-h-[280px] overflow-y-auto pr-1">
-							{usable.map((c) => (
-								<ChampCell
-									key={c.id}
-									champ={c}
-									disabled={!activeSlot}
-									reason={!activeSlot ? "슬롯 먼저 선택" : c.name}
-									onClick={() => {
-										setSlot(c.id);
-										setActiveSlot(null);
-									}}
-								/>
-							))}
+					{/* MY MAINS 섹션 — 활성 픽 슬롯의 플레이어 주력 챔프 */}
+					{activePlayer && mains.length > 0 && (
+						<div>
+							<div className="text-xs font-medium text-warning mb-1.5 flex items-center gap-1">
+								🌟 주력 챔프 ({activePlayer.displayName})
+							</div>
+							<div className="grid grid-cols-[repeat(auto-fill,minmax(60px,1fr))] gap-1.5">
+								{mains.map((m) => (
+									<ChampCell
+										key={m.championId}
+										champ={{
+											id: m.championId,
+											idSlug: "",
+											name: m.championName,
+											iconUrl: m.iconUrl,
+										}}
+										disabled={!activeSlot}
+										mainCount={m.plays}
+										reason={
+											!activeSlot
+												? "슬롯 먼저 선택"
+												: `${m.championName} · ${m.plays}회 (${m.wins}승 ${m.losses}패)`
+										}
+										onClick={() => {
+											setSlot(m.championId);
+											setActiveSlot(null);
+										}}
+									/>
+								))}
+							</div>
 						</div>
 					)}
+
+					{/* 일반 사용 가능 — filterMode === 'all' 에서만 */}
+					{filterMode === "all" &&
+						(usable.length === 0 ? (
+							!mains.length && (
+								<div className="text-center text-sm text-base-content/50 py-6">
+									{search.trim()
+										? `"${search}" 검색 결과 없음`
+										: "사용 가능한 챔프가 없습니다."}
+								</div>
+							)
+						) : (
+							<div>
+								{mains.length > 0 && (
+									<div className="text-xs text-base-content/60 mb-1.5">
+										전체 ({usable.length})
+									</div>
+								)}
+								<div className="grid grid-cols-[repeat(auto-fill,minmax(60px,1fr))] gap-1.5 max-h-[280px] overflow-y-auto pr-1">
+									{usable.map((c) => (
+										<ChampCell
+											key={c.id}
+											champ={c}
+											disabled={!activeSlot}
+											reason={!activeSlot ? "슬롯 먼저 선택" : c.name}
+											onClick={() => {
+												setSlot(c.id);
+												setActiveSlot(null);
+											}}
+										/>
+									))}
+								</div>
+							</div>
+						))}
 
 					{blocked.length > 0 && (
 						<details className="bg-base-100/40 rounded-md">
