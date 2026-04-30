@@ -290,31 +290,56 @@ export function PickBan({
 						)}
 					</p>
 				</div>
-				<div className="join">
+				<div className="flex items-center gap-1">
 					<button
-						className="btn btn-sm btn-ghost join-item"
+						type="button"
+						className="btn btn-sm btn-ghost"
 						onClick={() => setReloadKey((k) => k + 1)}
 						title="새로고침"
+						aria-label="새로고침"
 					>
 						↻
 					</button>
-					{!noGamesPlayed && perms.canEdit && (
-						<ConfirmButton
-							label="↺ 직전 게임 되돌리기"
-							onConfirm={undoLast}
-							className="join-item"
-							variant="error"
-							title="직전 게임 결과 + MMR 변동 취소"
-						/>
-					)}
-					{noGamesPlayed && perms.canEdit && (
-						<ConfirmButton
-							label="엔트리 수정 대기로"
-							onConfirm={revert}
-							className="join-item"
-							variant="warning"
-							title="시리즈 삭제 후 모집을 엔트리 수정 대기 상태로 되돌립니다."
-						/>
+					{perms.canEdit && (noGamesPlayed || !seriesCompleted) && (
+						<div className="dropdown dropdown-end">
+							<div
+								tabIndex={0}
+								role="button"
+								className="btn btn-sm btn-ghost"
+								aria-label="더 보기"
+							>
+								⋯
+							</div>
+							<div
+								tabIndex={0}
+								className="dropdown-content bg-base-100 rounded-box z-30 w-64 p-2 shadow-lg border border-base-300 space-y-1"
+							>
+								<div className="text-xs uppercase tracking-wide text-base-content/60 px-2 pt-1 pb-0.5">
+									위험한 액션
+								</div>
+								{!noGamesPlayed && (
+									<ConfirmButton
+										label="↺ 직전 게임 되돌리기"
+										onConfirm={undoLast}
+										variant="error"
+										className="w-full justify-start"
+									/>
+								)}
+								{noGamesPlayed && (
+									<ConfirmButton
+										label="↩ 엔트리 수정 대기로"
+										onConfirm={revert}
+										variant="warning"
+										className="w-full justify-start"
+									/>
+								)}
+								<div className="text-[10px] text-base-content/50 px-2 pt-1 leading-snug">
+									{!noGamesPlayed
+										? "직전 게임 결과 + MMR 변동을 취소합니다."
+										: "시리즈를 삭제하고 모집을 엔트리 수정 대기 상태로 되돌립니다."}
+								</div>
+							</div>
+						</div>
 					)}
 				</div>
 			</header>
@@ -331,56 +356,86 @@ export function PickBan({
 				</div>
 			)}
 
-			{/* 시리즈 스코어 + 라인업 — 한 행에 통합 */}
-			<div className="grid grid-cols-1 md:grid-cols-[auto_1fr] gap-3">
-				<div className="card bg-base-200 shadow-sm">
-					<div className="card-body p-3 flex-row items-center gap-4">
-						<div className="text-center">
-							<div className="text-[10px] text-info uppercase">1팀</div>
-							<div className="text-2xl font-bold tabular-nums">{t1Wins}</div>
+			{/* 시리즈 스코어 + 라인업 — 단일 카드 (라인업 collapse) */}
+			<div className={`card bg-base-200 shadow-sm ${seriesCompleted ? "border border-success" : ""}`}>
+				<div className="card-body p-4 gap-3">
+					<div className="flex items-end gap-4 flex-wrap">
+						<div className="flex items-end gap-3 tabular-nums">
+							<div className="text-center">
+								<div className="text-[10px] uppercase tracking-wide text-info">1팀</div>
+								<div className="text-3xl font-bold leading-none text-info">{t1Wins}</div>
+							</div>
+							<div className="text-2xl opacity-30 leading-none pb-1">:</div>
+							<div className="text-center">
+								<div className="text-[10px] uppercase tracking-wide text-error">2팀</div>
+								<div className="text-3xl font-bold leading-none text-error">{t2Wins}</div>
+							</div>
 						</div>
-						<div className="text-xl opacity-30">:</div>
-						<div className="text-center">
-							<div className="text-[10px] text-error uppercase">2팀</div>
-							<div className="text-2xl font-bold tabular-nums">{t2Wins}</div>
+						<div className="text-xs text-base-content/60 ml-1">
+							Bo3 · {detail.games.length}/3 게임
+							{!seriesCompleted && ` · Game ${draft.currentGame} 진행 중`}
 						</div>
 						{seriesCompleted && detail.series.winningTeam && (
-							<div className="text-right border-l border-base-300 pl-3 ml-1">
-								<div className="text-[10px] text-base-content/60">우승</div>
-								<div className="text-sm font-bold text-success">
-									{detail.series.winningTeam === "TEAM_1" ? "1팀" : "2팀"}
+							<div className="ml-auto flex items-center gap-2 px-3 py-1 rounded-md bg-success/10 border border-success/40">
+								<span className="text-success text-base">🏆</span>
+								<div>
+									<div className="text-[10px] text-base-content/60 leading-none">우승</div>
+									<div className="text-sm font-bold text-success">
+										{detail.series.winningTeam === "TEAM_1" ? "1팀" : "2팀"}
+									</div>
 								</div>
 							</div>
 						)}
 					</div>
-				</div>
-				<div className="card bg-base-200 shadow-sm">
-					<div className="card-body p-3">
-						<LineupPreview participants={detail.participants} compact />
-					</div>
+					<details className="collapse collapse-arrow bg-base-100/40">
+						<summary className="collapse-title text-sm font-medium py-2 min-h-0 px-3">
+							라인업 보기
+						</summary>
+						<div className="collapse-content px-3">
+							<LineupPreview participants={detail.participants} compact />
+						</div>
+					</details>
 				</div>
 			</div>
 
-			<div role="tablist" className="tabs tabs-boxed bg-base-200 w-fit">
+			<div role="tablist" className="tabs tabs-lift">
 				{[1, 2, 3].map((n) => {
 					const enabled = isGameTabEnabled(n);
 					const recorded = completedGames.has(n);
+					const game = detail.games.find((g) => g.gameNumber === n);
+					const isCurrent = draft.currentGame === n;
 					const tip = !enabled
 						? `Game ${n - 1} 결과를 먼저 입력하세요`
 						: recorded
 							? `Game ${n} 결과 기록됨 — 다시 보기`
-							: `Game ${n} 입력`;
+							: isCurrent
+								? `Game ${n} 입력 중`
+								: `Game ${n} 입력`;
 					const tab = (
 						<button
 							role="tab"
-							className={`tab ${draft.currentGame === n ? "tab-active" : ""} ${
+							className={`tab ${isCurrent ? "tab-active" : ""} ${
 								!enabled ? "opacity-40 cursor-not-allowed" : ""
 							}`}
 							onClick={() => setCurrentGame(n)}
 							disabled={!enabled}
 						>
-							Game {n}
-							{recorded && <span className="ml-1 text-success">✓</span>}
+							<span className="font-medium">Game {n}</span>
+							{recorded && game && (
+								<span
+									className={`ml-1.5 badge badge-xs ${
+										game.winningTeam === "TEAM_1" ? "badge-info" : "badge-error"
+									}`}
+								>
+									{game.winningTeam === "TEAM_1" ? "1팀 W" : "2팀 W"}
+								</span>
+							)}
+							{!recorded && isCurrent && enabled && (
+								<span
+									className="ml-1.5 inline-block size-1.5 rounded-full bg-success animate-pulse"
+									aria-label="진행 중"
+								/>
+							)}
 						</button>
 					);
 					return (
@@ -391,33 +446,53 @@ export function PickBan({
 				})}
 			</div>
 
-			<div className="card bg-base-200 shadow-sm">
-				<div className="card-body p-3 gap-2">
-					<div className="flex items-center justify-between flex-wrap gap-2">
-						<h3 className="font-bold text-sm">Game {draft.currentGame} 사이드</h3>
-						{team1Side && team2Side && (
-							<div className="text-xs text-base-content/80">
-								<span className={sideTextColor(team1Side)}>1팀={team1Side}</span> ·{" "}
-								<span className={sideTextColor(team2Side)}>2팀={team2Side}</span>
-							</div>
-						)}
+			{team1Side && team2Side ? (
+				<div className="flex items-center justify-between gap-2 px-3 py-2 rounded-md bg-base-200 text-sm">
+					<div>
+						<span className="text-xs text-base-content/60 mr-2">Game {draft.currentGame} 사이드</span>
+						<span className={sideTextColor(team1Side)}>1팀 {team1Side}</span>
+						<span className="opacity-30 mx-1.5">·</span>
+						<span className={sideTextColor(team2Side)}>2팀 {team2Side}</span>
 					</div>
-					<div className="grid grid-cols-2 gap-2">
-						<SideButton
-							team="TEAM_1"
-							side="BLUE"
-							selected={team1Side === "BLUE"}
-							onClick={() => setSide("BLUE")}
-						/>
-						<SideButton
-							team="TEAM_1"
-							side="RED"
-							selected={team1Side === "RED"}
-							onClick={() => setSide("RED")}
-						/>
+					{!isCurrentGameRecorded && perms.canEdit && (
+						<button
+							type="button"
+							className="btn btn-xs btn-ghost"
+							onClick={() => setSide(team1Side === "BLUE" ? "RED" : "BLUE")}
+						>
+							사이드 변경
+						</button>
+					)}
+				</div>
+			) : (
+				<div className="card bg-base-200 shadow-sm border-l-4 border-primary">
+					<div className="card-body p-3 gap-2">
+						<h3 className="font-bold text-sm">
+							Game {draft.currentGame} — 1팀이 어느 사이드인가요?
+						</h3>
+						<div className="grid grid-cols-2 gap-2">
+							<button
+								type="button"
+								onClick={() => setSide("BLUE")}
+								className="btn h-auto flex-col py-3 btn-outline hover:btn-info"
+								disabled={!perms.canEdit}
+							>
+								<span className="text-xs opacity-80">1팀</span>
+								<span className="text-base font-bold">BLUE</span>
+							</button>
+							<button
+								type="button"
+								onClick={() => setSide("RED")}
+								className="btn h-auto flex-col py-3 btn-outline hover:btn-error"
+								disabled={!perms.canEdit}
+							>
+								<span className="text-xs opacity-80">1팀</span>
+								<span className="text-base font-bold">RED</span>
+							</button>
+						</div>
 					</div>
 				</div>
-			</div>
+			)}
 
 			{team1Side && (
 				<PickBanBoard
@@ -446,6 +521,7 @@ export function PickBan({
 					gameDraft={currentGameDraft}
 					teamSize={teamSize}
 					participants={detail.participants}
+					champions={champions}
 					onRecorded={() => setReloadKey((k) => k + 1)}
 				/>
 			)}
@@ -460,28 +536,56 @@ export function PickBan({
 	);
 }
 
-function SideButton({
-	team,
-	side,
-	selected,
+function ChampCell({
+	champ,
+	disabled,
+	blocked,
+	reason,
 	onClick,
 }: {
-	team: Team;
-	side: Side;
-	selected: boolean;
-	onClick: () => void;
+	champ: Champion;
+	disabled?: boolean;
+	blocked?: "used" | "fearless";
+	reason: string;
+	onClick?: () => void;
 }) {
-	const teamLabel = team === "TEAM_1" ? "1팀" : "2팀";
 	return (
 		<button
 			type="button"
+			disabled={disabled}
 			onClick={onClick}
-			className={`btn btn-sm h-auto py-2 ${
-				selected ? (side === "BLUE" ? "btn-info" : "btn-error") : "btn-outline"
+			title={reason}
+			className={`relative rounded-md overflow-hidden transition flex flex-col items-center ${
+				disabled
+					? "opacity-40 grayscale cursor-not-allowed"
+					: "hover:ring-2 hover:ring-primary hover:scale-105"
 			}`}
 		>
-			<span className="text-xs opacity-80">{teamLabel}</span>
-			<span className="text-base font-bold">{side}</span>
+			<img
+				src={champ.iconUrl}
+				alt={champ.name}
+				className="w-full aspect-square"
+				draggable={false}
+			/>
+			<span className="text-[10px] truncate w-full px-1 bg-base-300 text-center">
+				{champ.name}
+			</span>
+			{blocked === "fearless" && (
+				<span
+					className="absolute top-0.5 left-0.5 badge badge-error badge-xs"
+					aria-label="Hard Fearless"
+				>
+					F
+				</span>
+			)}
+			{blocked === "used" && (
+				<span
+					className="absolute top-0.5 left-0.5 badge badge-warning badge-xs"
+					aria-label="이번 게임 사용"
+				>
+					U
+				</span>
+			)}
 		</button>
 	);
 }
@@ -518,16 +622,40 @@ function PickBanBoard({
 		team: Team;
 		idx: number;
 	} | null>(null);
+	const searchRef = useRef<HTMLInputElement | null>(null);
 
-	// Esc 로 활성 슬롯 해제 — design_upgrade.md §4.4.2 / §4.5
+	// Esc — 검색 input focus + 검색어 있으면 검색 클리어 우선, 아니면 활성 슬롯 해제
 	useEffect(() => {
 		if (!activeSlot) return;
 		const onKey = (e: KeyboardEvent) => {
-			if (e.key === "Escape") setActiveSlot(null);
+			if (e.key !== "Escape") return;
+			if (document.activeElement === searchRef.current && search) {
+				setSearch("");
+				return;
+			}
+			setActiveSlot(null);
 		};
 		window.addEventListener("keydown", onKey);
 		return () => window.removeEventListener("keydown", onKey);
-	}, [activeSlot]);
+	}, [activeSlot, search]);
+
+	// 활성 슬롯 진입 시 검색 input 자동 focus — 챔프 검색 즉시 시작
+	useEffect(() => {
+		if (activeSlot && perms.canEdit) searchRef.current?.focus();
+	}, [activeSlot, perms.canEdit]);
+
+	// "/" 단축키로 검색 input focus — design_upgrade.md §4.5
+	useEffect(() => {
+		const onKey = (e: KeyboardEvent) => {
+			if (e.key !== "/") return;
+			const tag = (document.activeElement as HTMLElement | null)?.tagName;
+			if (tag === "INPUT" || tag === "TEXTAREA") return;
+			e.preventDefault();
+			searchRef.current?.focus();
+		};
+		window.addEventListener("keydown", onKey);
+		return () => window.removeEventListener("keydown", onKey);
+	}, []);
 
 	const usedIds = useMemo(() => {
 		const set = new Set<number>();
@@ -552,6 +680,18 @@ function PickBanBoard({
 				c.name.replace(/\s+/g, "").toLowerCase().includes(q),
 		);
 	}, [champions, search]);
+
+	// 사용 가능 / 사용 불가 분리 — design_upgrade.md §6.4.3
+	const { usable, blocked } = useMemo(() => {
+		const usable: Champion[] = [];
+		const blocked: { champ: Champion; reason: "used" | "fearless" }[] = [];
+		for (const c of filtered) {
+			if (fearlessUsedIds.has(c.id)) blocked.push({ champ: c, reason: "fearless" });
+			else if (usedIds.has(c.id)) blocked.push({ champ: c, reason: "used" });
+			else usable.push(c);
+		}
+		return { usable, blocked };
+	}, [filtered, usedIds, fearlessUsedIds]);
 
 	const lineup = useMemo(() => {
 		const map = new Map<string, string>();
@@ -666,8 +806,9 @@ function PickBanBoard({
 					<div className="flex items-center gap-2 flex-wrap">
 						<div className="join flex-1 min-w-[200px]">
 							<input
+								ref={searchRef}
 								type="text"
-								placeholder="챔피언 검색… (한/영 모두)"
+								placeholder="챔피언 검색… (한/영, / 키로 포커스)"
 								value={search}
 								onChange={(e) => setSearch(e.target.value)}
 								className="input input-bordered join-item flex-1"
@@ -677,21 +818,15 @@ function PickBanBoard({
 								className="btn btn-ghost join-item"
 								onClick={() => setSearch("")}
 								disabled={!search}
-								title="검색 초기화"
+								title="검색 초기화 (Esc)"
+								aria-label="검색 초기화"
 							>
 								✕
 							</button>
 						</div>
-						<div className="text-sm">
-							{activeSlot ? (
-								<span className="badge badge-primary">
-									{activeSlot.kind === "ban" ? "밴" : "픽"} 슬롯 #
-									{activeSlot.idx + 1} ·{" "}
-									{activeSlot.team === "TEAM_1" ? "1팀" : "2팀"}
-								</span>
-							) : (
-								<span className="text-base-content/50">슬롯 클릭 후 챔프 선택</span>
-							)}
+						<div className="text-xs text-base-content/60">
+							{usable.length} 사용 가능
+							{blocked.length > 0 && ` · ${blocked.length} 사용 불가`}
 						</div>
 					</div>
 
@@ -702,50 +837,51 @@ function PickBanBoard({
 						</div>
 					)}
 
-					<div className="grid grid-cols-[repeat(auto-fill,minmax(60px,1fr))] gap-1.5 max-h-[280px] overflow-y-auto pr-1">
-						{filtered.map((c) => {
-							const used = usedIds.has(c.id);
-							const fearless = fearlessUsedIds.has(c.id);
-							const disabled = !activeSlot || used || fearless;
-							const reason = fearless
-								? `${c.name} — 이전 게임에서 사용 (Hard Fearless)`
-								: used
-									? `${c.name} — 이번 게임에서 이미 사용`
-									: c.name;
-							return (
-								<button
+					{usable.length === 0 ? (
+						<div className="text-center text-sm text-base-content/50 py-6">
+							{search.trim()
+								? `"${search}" 검색 결과 없음`
+								: "사용 가능한 챔프가 없습니다."}
+						</div>
+					) : (
+						<div className="grid grid-cols-[repeat(auto-fill,minmax(60px,1fr))] gap-1.5 max-h-[280px] overflow-y-auto pr-1">
+							{usable.map((c) => (
+								<ChampCell
 									key={c.id}
-									type="button"
-									disabled={disabled}
+									champ={c}
+									disabled={!activeSlot}
+									reason={!activeSlot ? "슬롯 먼저 선택" : c.name}
 									onClick={() => {
 										setSlot(c.id);
 										setActiveSlot(null);
 									}}
-									title={reason}
-									className={`relative rounded-md overflow-hidden transition flex flex-col items-center ${
+								/>
+							))}
+						</div>
+					)}
+
+					{blocked.length > 0 && (
+						<details className="bg-base-100/40 rounded-md">
+							<summary className="cursor-pointer text-xs font-medium px-3 py-2 text-base-content/70">
+								사용 불가 ({blocked.length}) — 이번 게임 사용 또는 Hard Fearless
+							</summary>
+							<div className="grid grid-cols-[repeat(auto-fill,minmax(60px,1fr))] gap-1.5 max-h-[200px] overflow-y-auto p-3 pt-0">
+								{blocked.map(({ champ, reason }) => (
+									<ChampCell
+										key={champ.id}
+										champ={champ}
 										disabled
-											? "opacity-30 grayscale cursor-not-allowed"
-											: "hover:ring-2 hover:ring-primary hover:scale-105"
-									}`}
-								>
-									<img
-										src={c.iconUrl}
-										alt={c.name}
-										className="w-full aspect-square"
-										draggable={false}
+										blocked={reason}
+										reason={
+											reason === "fearless"
+												? `${champ.name} — 이전 게임에서 사용 (Hard Fearless)`
+												: `${champ.name} — 이번 게임에서 이미 사용`
+										}
 									/>
-									<span className="text-[10px] truncate w-full px-1 bg-base-300 text-center">
-										{c.name}
-									</span>
-									{fearless && (
-										<span className="absolute top-0.5 left-0.5 badge badge-error badge-xs">
-											F
-										</span>
-									)}
-								</button>
-							);
-						})}
-					</div>
+								))}
+							</div>
+						</details>
+					)}
 				</div>
 			</div>
 		</div>
@@ -935,12 +1071,14 @@ function ResultPanel({
 	gameDraft,
 	teamSize,
 	participants,
+	champions,
 	onRecorded,
 }: {
 	seriesId: number;
 	gameDraft: GameDraft;
 	teamSize: number;
 	participants: LineupParticipant[];
+	champions: Champion[];
 	onRecorded: () => void;
 }) {
 	const perms = usePerms();
@@ -950,6 +1088,12 @@ function ResultPanel({
 	const [error, setError] = useState<string | null>(null);
 
 	const lanes = LANE_ORDER.slice(0, teamSize);
+
+	const champById = useMemo(() => {
+		const m = new Map<number, Champion>();
+		for (const c of champions) m.set(c.id, c);
+		return m;
+	}, [champions]);
 
 	// 모든 슬롯 채워졌는지 검증
 	const allBansFilled =
@@ -1001,41 +1145,54 @@ function ResultPanel({
 	return (
 		<div className="card bg-base-200 shadow-sm border-l-4 border-success">
 			<div className="card-body p-4 gap-3">
-				<h3 className="card-title text-base">Game {gameDraft.gameNumber} — 결과 입력</h3>
+				<div className="flex items-center justify-between flex-wrap gap-2">
+					<h3 className="card-title text-base">Game {gameDraft.gameNumber} 결과 입력</h3>
+					<span className="text-xs text-base-content/60">
+						{[
+							gameDraft.team1Side ? "사이드" : null,
+							allBansFilled ? "밴" : null,
+							allPicksFilled ? "픽" : null,
+							winner ? "승자" : null,
+						].filter(Boolean).length}
+						/4 단계 완료
+					</span>
+				</div>
 
-				{!allBansFilled && (
-					<div className="text-xs text-warning">⚠️ 밴 슬롯이 비어있습니다.</div>
-				)}
-				{!allPicksFilled && (
-					<div className="text-xs text-warning">⚠️ 픽 슬롯이 비어있습니다.</div>
+				{(!allBansFilled || !allPicksFilled) && (
+					<div className="alert alert-warning alert-soft py-2">
+						<span className="text-xs">
+							{!allBansFilled && "⚠️ 밴 슬롯이 비어있습니다. "}
+							{!allPicksFilled && "⚠️ 픽 슬롯이 비어있습니다."}
+						</span>
+					</div>
 				)}
 
 				<div className="grid grid-cols-2 gap-3">
-					<button
-						type="button"
+					<ResultRadioCard
+						team="TEAM_1"
+						selected={winner === "TEAM_1"}
 						onClick={() => setWinner("TEAM_1")}
-						className={`btn h-auto flex-col py-4 ${
-							winner === "TEAM_1" ? "btn-info" : "btn-outline"
-						}`}
-					>
-						<span className="text-sm opacity-80">승리</span>
-						<span className="text-2xl font-bold">1팀</span>
-					</button>
-					<button
-						type="button"
+						pickIds={gameDraft.picks.TEAM_1}
+						lanes={lanes}
+						champById={champById}
+						disabled={!perms.canEdit}
+					/>
+					<ResultRadioCard
+						team="TEAM_2"
+						selected={winner === "TEAM_2"}
 						onClick={() => setWinner("TEAM_2")}
-						className={`btn h-auto flex-col py-4 ${
-							winner === "TEAM_2" ? "btn-error" : "btn-outline"
-						}`}
-					>
-						<span className="text-sm opacity-80">승리</span>
-						<span className="text-2xl font-bold">2팀</span>
-					</button>
+						pickIds={gameDraft.picks.TEAM_2}
+						lanes={lanes}
+						champById={champById}
+						disabled={!perms.canEdit}
+					/>
 				</div>
 
 				<label className="form-control">
-					<div className="label">
-						<span className="label-text text-xs">게임 시간 (분, 선택)</span>
+					<div className="label py-1">
+						<span className="label-text text-xs text-base-content/70">
+							게임 시간 (분, 선택)
+						</span>
 					</div>
 					<input
 						type="number"
@@ -1068,7 +1225,7 @@ function ResultPanel({
 					const btn = (
 						<button
 							type="button"
-							className="btn btn-success w-full"
+							className="btn btn-success btn-block sticky bottom-2"
 							onClick={submit}
 							disabled={!ready || submitting || !perms.canEdit}
 						>
@@ -1092,5 +1249,90 @@ function ResultPanel({
 				})()}
 			</div>
 		</div>
+	);
+}
+
+function ResultRadioCard({
+	team,
+	selected,
+	onClick,
+	pickIds,
+	lanes,
+	champById,
+	disabled,
+}: {
+	team: Team;
+	selected: boolean;
+	onClick: () => void;
+	pickIds: (number | null)[];
+	lanes: readonly string[];
+	champById: Map<number, Champion>;
+	disabled: boolean;
+}) {
+	const teamLabel = team === "TEAM_1" ? "1팀" : "2팀";
+	// Tailwind JIT 가 동적 string 을 인식 못 하므로 미리 케이스별 정적 클래스.
+	const styles =
+		team === "TEAM_1"
+			? {
+					selectedBg: "bg-info/10 border-info",
+					text: "text-info",
+					radioFill: "bg-info border-info",
+				}
+			: {
+					selectedBg: "bg-error/10 border-error",
+					text: "text-error",
+					radioFill: "bg-error border-error",
+				};
+	return (
+		<button
+			type="button"
+			onClick={onClick}
+			disabled={disabled}
+			role="radio"
+			aria-checked={selected}
+			className={`relative rounded-box border-2 p-3 text-left transition flex flex-col gap-2 ${
+				disabled ? "opacity-60 cursor-not-allowed" : "cursor-pointer"
+			} ${
+				selected
+					? styles.selectedBg
+					: "bg-base-100 border-base-300 hover:border-base-content/30"
+			}`}
+		>
+			<div className="flex items-center justify-between">
+				<div className="flex items-center gap-2">
+					<span
+						className={`inline-flex items-center justify-center size-5 rounded-full border-2 ${
+							selected ? styles.radioFill : "border-base-content/30"
+						}`}
+						aria-hidden
+					>
+						{selected && <span className="size-2 rounded-full bg-base-100" />}
+					</span>
+					<span className={`text-lg font-bold ${styles.text}`}>{teamLabel} 승</span>
+				</div>
+				{selected && <span className="badge badge-success badge-sm">선택됨</span>}
+			</div>
+			<div className="flex gap-1 mt-1">
+				{pickIds.map((cid, i) => {
+					const champ = cid !== null ? champById.get(cid) : null;
+					return champ ? (
+						<img
+							key={i}
+							src={champ.iconUrl}
+							alt={champ.name}
+							title={`${lanes[i]} · ${champ.name}`}
+							className="size-7 rounded-md ring-1 ring-base-content/10"
+							draggable={false}
+						/>
+					) : (
+						<span
+							key={i}
+							className="size-7 rounded-md border border-dashed border-base-content/20"
+							aria-hidden
+						/>
+					);
+				})}
+			</div>
+		</button>
 	);
 }
