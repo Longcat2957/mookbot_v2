@@ -82,7 +82,46 @@ export function clearPermsCache(userId?: string): void {
  */
 export async function userCanEdit(userId: string): Promise<boolean> {
 	const operatorRoleId = await resolveOperatorRoleId();
-	if (!operatorRoleId) return true;
+	if (!operatorRoleId) {
+		console.log(`[perms] no operator role configured — all users can edit`);
+		return true;
+	}
 	const roles = await getRoles(userId);
-	return roles.includes(operatorRoleId);
+	const ok = roles.includes(operatorRoleId);
+	console.log(
+		`[perms] user=${userId} operatorRole=${operatorRoleId} userRoles=[${roles.join(",")}] canEdit=${ok}`,
+	);
+	return ok;
+}
+
+/**
+ * 진단용 — userId 의 권한 상태 + 길드 role 매핑 전체.
+ */
+export async function diagnosePerms(userId: string): Promise<{
+	operatorRoleIdEnv: string | null;
+	operatorRoleNameEnv: string | null;
+	resolvedOperatorRoleId: string | null;
+	guildRoles: { id: string; name: string }[];
+	memberRoles: string[];
+	memberFetchOk: boolean;
+	canEdit: boolean;
+}> {
+	const idEnv = process.env.OPERATOR_ROLE_ID?.trim() || null;
+	const nameEnv = process.env.OPERATOR_ROLE_NAME?.trim() || null;
+	const resolved = await resolveOperatorRoleId();
+	const guildRoles = await fetchGuildRoles();
+	const member = await fetchGuildMember(userId);
+	const memberRoles = member?.roles ?? [];
+	let canEdit: boolean;
+	if (!resolved) canEdit = true;
+	else canEdit = memberRoles.includes(resolved);
+	return {
+		operatorRoleIdEnv: idEnv,
+		operatorRoleNameEnv: nameEnv,
+		resolvedOperatorRoleId: resolved,
+		guildRoles,
+		memberRoles,
+		memberFetchOk: member !== null,
+		canEdit,
+	};
 }

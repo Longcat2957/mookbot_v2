@@ -1,5 +1,6 @@
 // 단일 WebSocket 연결을 공유. topic 별 invalidate 콜백 등록.
 // 서버 측 write 후 broadcast(`series:${id}`) 등 → 클라이언트 즉시 reload.
+// 단, 본인이 일으킨 변경은 reload 안 함 (입력 보호) — server 가 originUser 포함해서 보냄.
 
 type Listener = () => void;
 
@@ -8,6 +9,11 @@ class WsClient {
 	private listeners = new Map<string, Set<Listener>>();
 	private joined = new Set<string>();
 	private reconnectTimer: number | null = null;
+	private myUserId: string | null = null;
+
+	setMyUserId(id: string): void {
+		this.myUserId = id;
+	}
 
 	private connect(): void {
 		if (this.ws && this.ws.readyState <= 1) return; // CONNECTING or OPEN
@@ -23,13 +29,17 @@ class WsClient {
 		});
 
 		ws.addEventListener("message", (ev) => {
-			let msg: { t?: string; topic?: string };
+			let msg: { t?: string; topic?: string; originUser?: string };
 			try {
 				msg = JSON.parse(typeof ev.data === "string" ? ev.data : "");
 			} catch {
 				return;
 			}
 			if (msg.t === "invalidate" && msg.topic) {
+				// 본인이 일으킨 변경은 무시 — 입력 중 self-reload 방지
+				if (msg.originUser && this.myUserId && msg.originUser === this.myUserId) {
+					return;
+				}
 				const set = this.listeners.get(msg.topic);
 				if (set) for (const cb of set) cb();
 			}

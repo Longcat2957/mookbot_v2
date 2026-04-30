@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import { api } from "../api/rest.js";
+import { wsClient } from "../api/ws.js";
 
 interface MeInfo {
 	discordId: string;
@@ -16,7 +17,11 @@ export function PermsProvider({ children }: { children: ReactNode }) {
 
 	useEffect(() => {
 		api<MeInfo>("/me")
-			.then(setMe)
+			.then((info) => {
+				setMe(info);
+				// WS 클라이언트에 본인 user id 등록 — origin echo 필터링
+				if (info.discordId) wsClient.setMyUserId(info.discordId);
+			})
 			.catch((err) => {
 				console.warn("[mookbot] /api/me fetch failed", err);
 				setMe({ discordId: "", canEdit: false, operatorRoleConfigured: false });

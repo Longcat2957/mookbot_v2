@@ -13,27 +13,36 @@ export function joinRoom(topic: string, socket: WebSocket): void {
 		rooms.set(topic, room);
 	}
 	room.add(socket);
+	console.log(`[ws] join topic=${topic} subscribers=${room.size}`);
 }
 
 export function leaveAllRooms(socket: WebSocket): void {
+	let leftCount = 0;
 	for (const [topic, room] of rooms) {
-		if (room.delete(socket) && room.size === 0) {
-			rooms.delete(topic);
+		if (room.delete(socket)) {
+			leftCount++;
+			if (room.size === 0) rooms.delete(topic);
 		}
 	}
+	if (leftCount > 0) console.log(`[ws] socket disconnect, left ${leftCount} rooms`);
 }
 
 export function broadcast(topic: string, msg: unknown): void {
 	const room = rooms.get(topic);
-	if (!room || room.size === 0) return;
+	const size = room?.size ?? 0;
+	console.log(`[ws] broadcast topic=${topic} subscribers=${size}`);
+	if (!room || size === 0) return;
 	const data = JSON.stringify(msg);
+	let sent = 0;
 	for (const ws of room) {
 		try {
 			ws.send(data);
+			sent++;
 		} catch {
 			// 끊긴 소켓은 무시 — close 핸들러가 정리
 		}
 	}
+	console.log(`[ws] broadcast topic=${topic} sent=${sent}/${size}`);
 }
 
 export function roomStats(): { topic: string; count: number }[] {

@@ -1,12 +1,12 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import { cloudflare, datadragon, db } from "@mookbot/core";
-import { userCanEdit } from "../auth/perms.js";
+import { diagnosePerms, userCanEdit } from "../auth/perms.js";
 import { broadcast } from "../ws/rooms.js";
 
 const { listRecruitmentParticipants, getRecruitment } = db;
 
-function invalidate(topic: string): void {
-	broadcast(topic, { t: "invalidate", topic });
+function invalidate(topic: string, originUser?: string): void {
+	broadcast(topic, { t: "invalidate", topic, originUser });
 }
 
 // Data Dragon 절대 URL 을 nginx 프록시 경로로 변환 (Activity iframe same-origin)
@@ -135,6 +135,13 @@ export async function registerRoutes(app: FastifyInstance): Promise<void> {
 				process.env.OPERATOR_ROLE_ID || process.env.OPERATOR_ROLE_NAME,
 			),
 		};
+	});
+
+	// 권한 진단 — 본인 권한 상태 확인용 (운영자 디버그 화면에 노출 가능)
+	app.get("/api/me/perms", async (req, reply) => {
+		const sid = requireSession(req, reply);
+		if (!sid) return;
+		return diagnosePerms(sid);
 	});
 
 	// 엔트리 수정 대기 중인 모집 목록 (status = CLOSED)
@@ -562,9 +569,8 @@ export async function registerRoutes(app: FastifyInstance): Promise<void> {
 			}
 
 			await db.setKv(`pickban:${id}`, JSON.stringify(req.body), sid);
-			// pickban draft 는 broadcast 안 함 — 다른 운영자가 동시 입력 시 본인 화면이
-			// 자동 리로드되어 입력 중인 상태가 날아가는 걸 방지. 게임 기록/취소/시리즈 종료
-			// 같은 구조 변경만 broadcast.
+			// originUser 포함 broadcast — 본인 origin 인 클라이언트는 reload 무시 (입력 보호)
+			invalidate(`series:${id}`, sid);
 			return { ok: true };
 		},
 	);

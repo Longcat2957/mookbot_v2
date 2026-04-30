@@ -9,6 +9,7 @@ export async function registerWs(app: FastifyInstance): Promise<void> {
 			return;
 		}
 
+		console.log(`[ws] connect user=${sid.value}`);
 		socket.send(JSON.stringify({ t: "hello", discordId: sid.value }));
 
 		socket.on("message", (raw) => {
@@ -24,7 +25,10 @@ export async function registerWs(app: FastifyInstance): Promise<void> {
 			}
 		});
 
-		socket.on("close", () => {
+		socket.on("close", (code, reason) => {
+			console.log(
+				`[ws] close user=${sid.value} code=${code} reason=${reason?.toString() ?? ""}`,
+			);
 			leaveAllRooms(socket);
 		});
 	});
