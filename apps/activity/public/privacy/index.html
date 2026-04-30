@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="ko">
+<head>
+	<meta charset="UTF-8" />
+	<meta name="viewport" content="width=device-width, initial-scale=1" />
+	<title>개인정보 보호 정책 — mookbot</title>
+	<style>
+		body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Pretendard", sans-serif; max-width: 720px; margin: 40px auto; padding: 0 24px; color: #1a1a1a; line-height: 1.7; }
+		h1 { font-size: 28px; margin-bottom: 8px; }
+		.meta { color: #666; font-size: 14px; margin-bottom: 32px; }
+		h2 { font-size: 18px; margin-top: 32px; margin-bottom: 12px; }
+		h3 { font-size: 16px; margin-top: 20px; margin-bottom: 8px; }
+		p, li { font-size: 15px; }
+		ul { padding-left: 20px; }
+		a { color: #2563eb; }
+		table { border-collapse: collapse; width: 100%; font-size: 14px; margin: 12px 0; }
+		th, td { border: 1px solid #e5e5e5; padding: 8px 12px; text-align: left; }
+		th { background: #f9f9f9; font-weight: 600; }
+		hr { border: none; border-top: 1px solid #e5e5e5; margin: 32px 0; }
+		footer { color: #999; font-size: 13px; }
+	</style>
+</head>
+<body>
+	<h1>mookbot 개인정보 보호 정책</h1>
+	<p class="meta">최종 갱신: 2026-04-30</p>
+
+	<h2>1. 수집하는 정보</h2>
+	<p>서비스는 내전 운영에 필요한 최소한의 정보만 수집·저장합니다.</p>
+
+	<table>
+		<thead>
+			<tr><th>항목</th><th>출처</th><th>목적</th></tr>
+		</thead>
+		<tbody>
+			<tr><td>Discord ID</td><td>Discord OAuth2 (<code>identify</code> scope)</td><td>사용자 식별, 시리즈 참여 기록</td></tr>
+			<tr><td>Discord 표시 이름 / 사용자명</td><td>Discord OAuth2</td><td>UI 표시</td></tr>
+			<tr><td>Discord 길드(서버) 멤버십</td><td>Discord OAuth2 (<code>guilds.members.read</code> scope)</td><td>현재 서버 참가자 매칭</td></tr>
+			<tr><td>Riot PUUID, Game Name, Tag Line</td><td>사용자가 <code>/등록</code>으로 직접 입력</td><td>전적 조회, 챔피언 마스터리 표시</td></tr>
+			<tr><td>내전 참여 기록 (시리즈, 게임, 픽/밴, 라인, 결과)</td><td>봇 사용 중 발생</td><td>MMR 산정, 통계, 랭킹</td></tr>
+			<tr><td>MMR 변동 이력</td><td>봇 내부 계산 결과</td><td>시즌 랭킹, 분석</td></tr>
+			<tr><td>세션 쿠키 (sid)</td><td>Activity 진입 시 발급</td><td>인증 유지 (HttpOnly, SameSite=None, Secure)</td></tr>
+		</tbody>
+	</table>
+
+	<p><strong>수집하지 않는 항목</strong>: 이메일, 전화번호, 결제 정보, IP 주소(서버 로그 외 별도 저장 안 함), 채팅 내용, 음성 데이터.</p>
+
+	<h2>2. 데이터 저장 및 보관</h2>
+	<ul>
+		<li>저장소: Cloudflare D1 (SQLite 호환) — 한국 또는 아시아 지역 데이터센터에 분산 저장</li>
+		<li>전송: 모든 클라이언트↔서버 통신은 HTTPS/WSS로 암호화 (Cloudflare TLS)</li>
+		<li>백업: 매일 03:00 KST에 자동 백업, 최대 30일 보관</li>
+		<li>보관 기간: 사용자가 삭제를 요청하기 전까지, 또는 시즌 종료 후 통계 목적으로 무기한 보관 (개인 식별 정보는 익명화 가능)</li>
+	</ul>
+
+	<h2>3. 제3자 공유</h2>
+	<p>서비스는 사용자의 개인정보를 제3자에게 판매·임대·공유하지 않습니다. 다만 다음 외부 서비스를 사용하는 과정에서 일부 정보가 처리됩니다:</p>
+	<ul>
+		<li><strong>Discord</strong>: 서비스 진입·인증을 위해 Discord OAuth2 및 Bot API 사용. <a href="https://discord.com/privacy" target="_blank" rel="noreferrer">Discord 개인정보 보호 정책</a></li>
+		<li><strong>Riot Games</strong>: 사용자가 직접 등록한 Riot Game Name#Tag로 Riot Games API 호출. <a href="https://www.riotgames.com/en/privacy-notice" target="_blank" rel="noreferrer">Riot Games Privacy Notice</a></li>
+		<li><strong>Cloudflare</strong>: DNS/프록시·D1 데이터베이스. <a href="https://www.cloudflare.com/privacypolicy/" target="_blank" rel="noreferrer">Cloudflare Privacy Policy</a></li>
+	</ul>
+
+	<h2>4. 사용자의 권리</h2>
+	<ul>
+		<li><strong>열람</strong>: <code>/내정보</code> 명령으로 자신에 대해 저장된 주요 정보 확인</li>
+		<li><strong>수정</strong>: <code>/등록</code> 명령으로 Riot 계정 매핑 갱신</li>
+		<li><strong>삭제</strong>: 운영자에게 요청 시 본인 관련 데이터를 삭제</li>
+		<li><strong>철회</strong>: Discord에서 mookbot의 OAuth2 권한을 해제하면 추가 데이터 수집 중단</li>
+	</ul>
+
+	<h2>5. 쿠키 및 추적</h2>
+	<p>서비스는 인증 유지 목적의 세션 쿠키 1개만 사용합니다. 추적용 쿠키, 광고 쿠키, 분석 쿠키(Google Analytics 등)는 사용하지 않습니다.</p>
+
+	<h2>6. 보안</h2>
+	<ul>
+		<li>모든 통신은 TLS 1.2 이상으로 암호화</li>
+		<li>세션 쿠키는 HttpOnly, Secure, SameSite=None 설정으로 XSS/CSRF 방어</li>
+		<li>Cloudflare API 토큰·Riot API 키는 서버 환경변수로만 관리, 클라이언트에 노출 안 됨</li>
+	</ul>
+
+	<h2>7. 미성년자</h2>
+	<p>서비스는 Discord의 13세 이상 이용 정책을 따릅니다. 13세 미만의 이용은 권장하지 않습니다.</p>
+
+	<h2>8. 정책 변경</h2>
+	<p>본 정책은 사전 고지 없이 변경될 수 있으며, 변경 시 본 페이지의 "최종 갱신" 날짜를 갱신합니다.</p>
+
+	<h2>9. 문의</h2>
+	<p>개인정보 처리에 관한 문의는 GitHub 저장소 또는 Discord 서버 관리자를 통해 주십시오.</p>
+
+	<hr />
+	<footer>
+		<p>mookbot · Not affiliated with Riot Games. League of Legends and Riot Games are trademarks or registered trademarks of Riot Games, Inc.</p>
+		<p><a href="/terms">이용약관</a></p>
+	</footer>
+</body>
+</html>

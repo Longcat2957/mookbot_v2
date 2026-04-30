@@ -1,0 +1,12 @@
+@import "tailwindcss";
+@plugin "daisyui" {
+	themes: dark --default, light;
+}
+
+/* Activity iframe 안에서 body 가 dark 배경 채우도록 */
+html,
+body,
+#root {
+	height: 100%;
+	background: var(--color-base-100);
+}

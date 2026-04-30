@@ -1,0 +1,23 @@
+{
+  "name": "@mookbot/bot",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "main": "dist/index.js",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@mookbot/core": "workspace:*",
+    "discord.js": "^14.26.2",
+    "dotenv": "^17.4.1",
+    "pino": "^10.3.1"
+  },
+  "devDependencies": {
+    "@types/node": "^25.5.2",
+    "tsx": "^4.21.0",
+    "typescript": "^6.0.2"
+  }
+}
