@@ -98,6 +98,13 @@ export function EntryEditing({
 	const [submitError, setSubmitError] = useState<string | null>(null);
 	// Tap-to-Place 입력 — 모바일/터치 / 키보드 대안. design_upgrade.md §4.4.1
 	const [selectedUid, setSelectedUid] = useState<string | null>(null);
+	// 관전 모드 — read-only alert dismissible (세션 단위). design_upgrade.md §6.7
+	const dismissKey = recruitmentId !== null ? `readonly-dismissed-rec-${recruitmentId}` : "";
+	const [readOnlyDismissed, setReadOnlyDismissed] = useState(false);
+	useEffect(() => {
+		if (!dismissKey) return;
+		setReadOnlyDismissed(sessionStorage.getItem(dismissKey) === "1");
+	}, [dismissKey]);
 	const perms = usePerms();
 
 	// Esc 키로 선택 해제
@@ -342,9 +349,20 @@ export function EntryEditing({
 				</div>
 			</header>
 
-			{!perms.canEdit && (
+			{!perms.canEdit && !readOnlyDismissed && (
 				<div className="alert alert-warning">
-					<span>👁 읽기 전용 — 운영자 role 이 필요합니다. 엔트리 변경 불가.</span>
+					<span>👁 관전 중 — 운영자 role 이 있어야 엔트리를 변경할 수 있습니다.</span>
+					<button
+						type="button"
+						className="btn btn-ghost btn-xs"
+						onClick={() => {
+							if (dismissKey) sessionStorage.setItem(dismissKey, "1");
+							setReadOnlyDismissed(true);
+						}}
+						aria-label="알림 닫기"
+					>
+						✕
+					</button>
 				</div>
 			)}
 

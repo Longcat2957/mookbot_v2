@@ -327,14 +327,17 @@ export async function registerRoutes(app: FastifyInstance): Promise<void> {
 		const stats = await fetchPlayHistoryFor(parts.map((p) => p.user_id));
 
 		const games = await db.listGamesInSeries(id);
-		// 게임별 picks 조회 — 하드피어리스 검증용 (Game N+1 에서 이미 사용된 챔프 필터)
-		const gamePicks = await Promise.all(
-			games.map(async (g) => {
-				const picks = await db.getGamePicks(g.id);
-				return { gameId: g.id, picks };
-			}),
-		);
+		// 게임별 picks/bans 조회 — picks 는 하드피어리스 검증, bans 는 SeriesResult 화면용
+		const [gamePicks, gameBans] = await Promise.all([
+			Promise.all(
+				games.map(async (g) => ({ gameId: g.id, picks: await db.getGamePicks(g.id) })),
+			),
+			Promise.all(
+				games.map(async (g) => ({ gameId: g.id, bans: await db.getGameBans(g.id) })),
+			),
+		]);
 		const picksByGame = new Map(gamePicks.map((x) => [x.gameId, x.picks]));
+		const bansByGame = new Map(gameBans.map((x) => [x.gameId, x.bans]));
 
 		const draftRaw = await db.getKv(`pickban:${id}`);
 		let draft: unknown = null;
@@ -373,6 +376,15 @@ export async function registerRoutes(app: FastifyInstance): Promise<void> {
 						team: p.team,
 						role: p.role,
 						championName: p.champion_name,
+						championId: champ ? Number(champ.key) : null,
+					};
+				}),
+				bans: (bansByGame.get(g.id) ?? []).map((b) => {
+					const champ = datadragon.findChampion(b.champion_name);
+					return {
+						team: b.team,
+						position: b.position,
+						championName: b.champion_name,
 						championId: champ ? Number(champ.key) : null,
 					};
 				}),

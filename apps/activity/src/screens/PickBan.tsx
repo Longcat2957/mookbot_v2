@@ -117,6 +117,14 @@ export function PickBan({
 	// 2-click confirm 은 ConfirmButton 컴포넌트가 내부 state 로 처리.
 	// (Discord Activity iframe sandbox 가 native confirm 차단)
 	const [actionError, setActionError] = useState<string | null>(null);
+	// 관전 모드 alert dismissible (세션 단위) — design_upgrade.md §6.7
+	const readOnlyDismissKey =
+		seriesId !== null ? `readonly-dismissed-series-${seriesId}` : "";
+	const [readOnlyDismissed, setReadOnlyDismissed] = useState(false);
+	useEffect(() => {
+		if (!readOnlyDismissKey) return;
+		setReadOnlyDismissed(sessionStorage.getItem(readOnlyDismissKey) === "1");
+	}, [readOnlyDismissKey]);
 	const perms = usePerms();
 
 	useEffect(() => {
@@ -371,9 +379,32 @@ export function PickBan({
 				</div>
 			)}
 
-			{!perms.canEdit && (
+			{!perms.canEdit && !readOnlyDismissed && (
 				<div className="alert alert-warning">
-					<span>👁 읽기 전용 — 운영자 role 이 필요합니다. 픽/밴 / 결과 입력 불가.</span>
+					<span>
+						👁 관전 중 — 운영자가 픽/밴/결과를 입력하면 자동으로 갱신됩니다.
+					</span>
+					<button
+						type="button"
+						className="btn btn-ghost btn-xs"
+						onClick={() => {
+							if (readOnlyDismissKey)
+								sessionStorage.setItem(readOnlyDismissKey, "1");
+							setReadOnlyDismissed(true);
+						}}
+						aria-label="알림 닫기"
+					>
+						✕
+					</button>
+				</div>
+			)}
+			{!perms.canEdit && readOnlyDismissed && !seriesCompleted && (
+				<div className="text-xs text-base-content/60 flex items-center gap-1.5">
+					<span
+						className="size-1.5 rounded-full bg-success animate-pulse"
+						aria-hidden
+					/>
+					라이브 — 운영자 입력 시 자동 갱신
 				</div>
 			)}
 

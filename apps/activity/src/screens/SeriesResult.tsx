@@ -14,6 +14,16 @@ interface Champion {
 	iconUrl: string;
 }
 
+interface GameDetail {
+	id: number;
+	gameNumber: number;
+	team1Side: Side;
+	winningTeam: Team;
+	durationSec: number | null;
+	picks: { team: Team; role: string; championName: string; championId: number | null }[];
+	bans: { team: Team; position: number; championName: string; championId: number | null }[];
+}
+
 interface SeriesDetail {
 	series: {
 		id: number;
@@ -22,14 +32,7 @@ interface SeriesDetail {
 		winningTeam: Team | null;
 	};
 	participants: LineupParticipant[];
-	games: {
-		id: number;
-		gameNumber: number;
-		team1Side: Side;
-		winningTeam: Team;
-		durationSec: number | null;
-		picks: { team: Team; role: string; championName: string; championId: number | null }[];
-	}[];
+	games: GameDetail[];
 }
 
 const LANE_LABEL: Record<string, string> = {
@@ -49,7 +52,6 @@ export function SeriesResult({
 	onBack: () => void;
 }) {
 	const [detail, setDetail] = useState<SeriesDetail | null>(null);
-	const [bansByGame, setBansByGame] = useState<Map<number, { team: Team; championName: string; championId: number | null }[]>>(new Map());
 	const [error, setError] = useState<string | null>(null);
 	const [champions, setChampions] = useState<Champion[]>([]);
 
@@ -67,9 +69,6 @@ export function SeriesResult({
 				if (cancelled) return;
 				setDetail(d);
 				setChampions(c.champions);
-				// bans 는 series detail 응답에 없음 — 게임별 별도 fetch (추후 API 통합)
-				// 일단 picks 만 사용
-				setBansByGame(new Map());
 			})
 			.catch((err: unknown) => {
 				if (!cancelled) setError(err instanceof Error ? err.message : String(err));
@@ -108,52 +107,70 @@ export function SeriesResult({
 	const t2Wins = detail.games.filter((g) => g.winningTeam === "TEAM_2").length;
 	const teamSize = detail.participants.length / 2;
 
+	const startedDate = new Date(detail.series.startedAt * 1000);
+	const dateLabel = `${startedDate.getMonth() + 1}월 ${startedDate.getDate()}일 ${String(startedDate.getHours()).padStart(2, "0")}:${String(startedDate.getMinutes()).padStart(2, "0")}`;
+
 	return (
 		<section className="space-y-4">
-			<header className="flex items-center justify-between flex-wrap gap-2">
-				<div>
-					<h2 className="text-2xl font-bold">시리즈 #{detail.series.id} 결과</h2>
-					<p className="text-sm text-base-content/70">
-						{teamSize}v{teamSize} ·{" "}
-						{detail.series.status === "COMPLETED" ? "종료" : detail.series.status}
-					</p>
-				</div>
+			<div className="flex items-center justify-between flex-wrap gap-2">
 				<button type="button" className="btn btn-sm btn-ghost" onClick={onBack}>
 					← 대시보드
 				</button>
-			</header>
+				<div className="text-xs text-base-content/60">
+					시리즈 #{detail.series.id} · {teamSize}v{teamSize} · {dateLabel}
+				</div>
+			</div>
 
-			<div className="card bg-base-200 shadow-sm">
-				<div className="card-body p-4 flex-row items-center justify-between">
-					<div className="flex items-center gap-6">
-						<TeamScore label="1팀" wins={t1Wins} won={detail.series.winningTeam === "TEAM_1"} color="text-info" />
-						<div className="text-2xl opacity-30">:</div>
-						<TeamScore label="2팀" wins={t2Wins} won={detail.series.winningTeam === "TEAM_2"} color="text-error" />
+			{/* Hero mini — 스코어 + 우승 트로피 */}
+			<div
+				className={`card bg-base-200 shadow-sm ${
+					detail.series.winningTeam ? "border border-success" : ""
+				}`}
+			>
+				<div className="card-body p-5 items-center text-center gap-2">
+					{detail.series.winningTeam && (
+						<div className="text-3xl text-success leading-none" aria-hidden>
+							🏆
+						</div>
+					)}
+					<div className="flex items-end gap-4 tabular-nums">
+						<TeamScore
+							label="1팀"
+							wins={t1Wins}
+							won={detail.series.winningTeam === "TEAM_1"}
+							color="text-info"
+						/>
+						<div className="text-3xl opacity-30 leading-none pb-2">:</div>
+						<TeamScore
+							label="2팀"
+							wins={t2Wins}
+							won={detail.series.winningTeam === "TEAM_2"}
+							color="text-error"
+						/>
 					</div>
 					{detail.series.winningTeam && (
-						<div className="text-right">
-							<div className="text-xs text-base-content/60">우승</div>
-							<div className="text-xl font-bold text-success">
-								{detail.series.winningTeam === "TEAM_1" ? "1팀" : "2팀"}
-							</div>
+						<div className="text-sm font-bold text-success mt-1">
+							{detail.series.winningTeam === "TEAM_1" ? "1팀" : "2팀"} 우승
 						</div>
 					)}
 				</div>
 			</div>
 
-			<div className="card bg-base-200 shadow-sm">
-				<div className="card-body p-4">
-					<h3 className="card-title text-sm mb-2">엔트리</h3>
+			<details className="collapse collapse-arrow bg-base-200">
+				<summary className="collapse-title text-sm font-medium py-2 min-h-0 px-4">
+					라인업 보기
+				</summary>
+				<div className="collapse-content px-4">
 					<LineupPreview participants={detail.participants} />
 				</div>
-			</div>
+			</details>
 
 			{detail.games.length === 0 ? (
 				<div className="alert">
 					<span>기록된 게임이 없습니다.</span>
 				</div>
 			) : (
-				<div className="space-y-3">
+				<div className="space-y-2">
 					{detail.games
 						.slice()
 						.sort((a, b) => a.gameNumber - b.gameNumber)
@@ -197,7 +214,7 @@ function GameSummaryCard({
 	participants,
 	champById,
 }: {
-	game: SeriesDetail["games"][number];
+	game: GameDetail;
 	participants: LineupParticipant[];
 	champById: Map<number, Champion>;
 }) {
@@ -211,53 +228,97 @@ function GameSummaryCard({
 	const pickFor = (team: Team, role: string) =>
 		game.picks.find((p) => p.team === team && p.role === role) ?? null;
 
+	// LoL 관습: BLUE 좌 / RED 우
+	const blueTeam: Team = game.team1Side === "BLUE" ? "TEAM_1" : "TEAM_2";
+	const redTeam: Team = blueTeam === "TEAM_1" ? "TEAM_2" : "TEAM_1";
+
+	const bansFor = (team: Team) =>
+		game.bans
+			.filter((b) => b.team === team)
+			.sort((a, b) => a.position - b.position);
+
 	const duration = game.durationSec
 		? `${Math.floor(game.durationSec / 60)}분 ${game.durationSec % 60}초`
 		: null;
 
-	return (
-		<div className="card bg-base-200 shadow-sm">
-			<div className="card-body p-4 gap-3">
-				<div className="flex items-center justify-between flex-wrap gap-2">
-					<h3 className="card-title text-base">Game {game.gameNumber}</h3>
-					<div className="flex items-center gap-2 text-xs">
-						<span className={`badge ${game.team1Side === "BLUE" ? "badge-info" : "badge-error"}`}>
-							1팀 = {game.team1Side}
-						</span>
-						<span className={`badge ${team2Side === "BLUE" ? "badge-info" : "badge-error"}`}>
-							2팀 = {team2Side}
-						</span>
-						{duration && <span className="opacity-70">⏱ {duration}</span>}
-					</div>
-				</div>
+	const winnerLabel = game.winningTeam === "TEAM_1" ? "1팀" : "2팀";
+	const winnerSide = game.winningTeam === blueTeam ? "BLUE" : "RED";
 
+	return (
+		<details className="collapse collapse-arrow bg-base-200" open>
+			<summary className="collapse-title min-h-0 py-3 px-4 flex items-center justify-between gap-2 flex-wrap">
+				<div className="flex items-center gap-2">
+					<span className="font-bold text-base">Game {game.gameNumber}</span>
+					<span className="badge badge-success badge-sm">
+						{winnerLabel} 승 ({winnerSide})
+					</span>
+				</div>
+				<div className="text-xs text-base-content/60 flex items-center gap-2">
+					{duration && <span>⏱ {duration}</span>}
+				</div>
+			</summary>
+			<div className="collapse-content px-4 pb-4">
 				<div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-					{(["TEAM_1", "TEAM_2"] as const).map((team) => {
+					{[blueTeam, redTeam].map((team) => {
 						const isWinner = game.winningTeam === team;
 						const teamLabel = team === "TEAM_1" ? "1팀" : "2팀";
-						const side = team === "TEAM_1" ? game.team1Side : team2Side;
+						const side = team === blueTeam ? "BLUE" : "RED";
+						const sideTone = side === "BLUE" ? "info" : "error";
+						const bans = bansFor(team);
 						return (
 							<div
 								key={team}
-								className={`rounded-lg p-3 ${
-									isWinner ? "bg-success/15 ring-2 ring-success/40" : "bg-base-300/40"
+								className={`relative rounded-lg p-3 ${
+									isWinner ? "border border-success bg-success/5" : "bg-base-100/40"
 								}`}
 							>
-								<div className="flex items-center justify-between mb-2">
-									<span className="font-bold">
-										{teamLabel}
-										{isWinner && (
-											<span className="ml-2 badge badge-success badge-sm">승</span>
-										)}
+								{isWinner && (
+									<span className="absolute top-2 right-2 badge badge-success badge-sm">
+										WIN
 									</span>
+								)}
+								<div className="flex items-center gap-2 mb-2">
 									<span
 										className={`badge badge-sm ${
-											side === "BLUE" ? "badge-info" : "badge-error"
+											sideTone === "info" ? "badge-info" : "badge-error"
 										}`}
 									>
 										{side}
 									</span>
+									<span className="font-bold">{teamLabel}</span>
 								</div>
+
+								{/* 밴 5개 */}
+								<div className="mb-3">
+									<div className="text-[10px] uppercase tracking-wide text-base-content/50 mb-1">
+										밴
+									</div>
+									<div className="flex gap-1">
+										{Array.from({ length: teamSize }).map((_, i) => {
+											const ban = bans[i];
+											const banChamp = ban?.championId
+												? champById.get(ban.championId)
+												: null;
+											return banChamp ? (
+												<img
+													key={i}
+													src={banChamp.iconUrl}
+													alt={banChamp.name}
+													title={`밴: ${banChamp.name}`}
+													className="size-8 rounded grayscale opacity-70 ring-1 ring-error/40"
+												/>
+											) : (
+												<span
+													key={i}
+													className="size-8 rounded border border-dashed border-base-content/20"
+													aria-hidden
+												/>
+											);
+										})}
+									</div>
+								</div>
+
+								{/* 픽 라인업 */}
 								<div className="space-y-1.5">
 									{lanes.map((lane) => {
 										const pick = pickFor(team, lane);
@@ -275,7 +336,7 @@ function GameSummaryCard({
 													<div className="w-10 h-10 rounded bg-base-content/10" />
 												)}
 												<div className="flex-1 min-w-0">
-													<div className="text-xs text-base-content/60">
+													<div className="text-[10px] text-base-content/60 uppercase tracking-wide">
 														{LANE_LABEL[lane]}
 													</div>
 													<div className="text-sm font-medium truncate">
@@ -296,7 +357,7 @@ function GameSummaryCard({
 					})}
 				</div>
 			</div>
-		</div>
+		</details>
 	);
 }
 
