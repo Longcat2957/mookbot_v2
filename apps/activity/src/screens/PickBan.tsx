@@ -2,7 +2,7 @@
 // 게임별로 1팀/2팀이 BLUE/RED 어느 쪽으로 시작할지 선택 + 5밴 + 5픽 + 결과.
 // pickban draft 는 series 단위로 guild_kv 에 JSON 보관, Activity 재실행 시 복원.
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api } from "../api/rest.js";
 import { wsClient } from "../api/ws.js";
 import { LineupPreview, type LineupParticipant } from "../components/LineupPreview.js";
@@ -10,6 +10,7 @@ import { ConfirmButton } from "../components/ConfirmButton.js";
 import { SaveStatusIndicator, type SaveStatus } from "../components/SaveStatus.js";
 import { showToast } from "../components/Toaster.js";
 import { usePerms } from "../state/perms.js";
+import { useStaleWhileRevalidate } from "../state/useStaleWhileRevalidate.js";
 
 const LANE_LABEL: Record<string, string> = {
 	TOP: "탑",
@@ -109,11 +110,7 @@ export function PickBan({
 	seriesId: number | null;
 	onBack: () => void;
 }) {
-	const [detail, setDetail] = useState<SeriesDetail | null>(null);
-	const [error, setError] = useState<string | null>(null);
-	const [reloadKey, setReloadKey] = useState(0);
 	const [draft, setDraft] = useState<PickBanDraft | null>(null);
-	const [champions, setChampions] = useState<Champion[]>([]);
 	// 2-click confirm 은 ConfirmButton 컴포넌트가 내부 state 로 처리.
 	// (Discord Activity iframe sandbox 가 native confirm 차단)
 	const [actionError, setActionError] = useState<string | null>(null);
@@ -127,49 +124,62 @@ export function PickBan({
 	}, [readOnlyDismissKey]);
 	const perms = usePerms();
 
-	useEffect(() => {
-		if (seriesId === null) return;
-		let cancelled = false;
-		setError(null);
-		setDetail(null);
+	// debounced save — 쓰기 권한 있는 경우에만 (SWR 의 dirty 보호 비교에 사용)
+	const saveTimer = useRef<number | null>(null);
+	const lastSavedDraft = useRef<string>("");
 
-		Promise.all([
-			api<SeriesDetail>(`/series/${seriesId}`),
-			api<{ champions: Champion[] }>("/champions"),
-		])
-			.then(([d, c]) => {
-				if (cancelled) return;
-				setDetail(d);
-				setChampions(c.champions);
-
-				const teamSize = d.participants.length / 2;
-				const initialDraft: PickBanDraft = d.pickbanDraft ?? {
+	// SWR — series detail. dirty 보호 onApply 안 (hot_fix.md §3.4).
+	const detailFetcher = useCallback(
+		() => api<SeriesDetail>(`/series/${seriesId}`),
+		[seriesId],
+	);
+	const detailSwr = useStaleWhileRevalidate<SeriesDetail>(seriesId, detailFetcher, {
+		debounceMs: 150,
+		enabled: seriesId !== null,
+		onApply: (next, prev) => {
+			if (prev === null) {
+				// 첫 로드 — server draft 또는 fresh draft (Bo3 3 게임 빈 슬롯)
+				const teamSize = next.participants.length / 2;
+				const initialDraft: PickBanDraft = next.pickbanDraft ?? {
 					games: [1, 2, 3].map((n) => emptyGameDraft(n, teamSize, teamSize)),
 					currentGame: 1,
 				};
 				setDraft(initialDraft);
-			})
-			.catch((err: unknown) => {
-				if (!cancelled) setError(err instanceof Error ? err.message : String(err));
-			});
+				lastSavedDraft.current = JSON.stringify(initialDraft);
+				return;
+			}
+			// 본인 dirty (lastSavedDraft 와 다름) 면 incoming pickbanDraft 무시.
+			// 본인의 다음 PUT 이 last-write-wins 로 정렬됨.
+			const localSerialized = draft ? JSON.stringify(draft) : "";
+			const isLocalDirty = localSerialized !== lastSavedDraft.current;
+			if (!isLocalDirty && next.pickbanDraft) {
+				setDraft(next.pickbanDraft);
+				lastSavedDraft.current = JSON.stringify(next.pickbanDraft);
+			}
+			// detail.games (기록된 게임) 은 server-only — onApply 가 아니라 swr.data
+			// 가 자동 swap 되어 화면에 즉시 반영됨.
+		},
+	});
+	const detail = detailSwr.data;
+	const error = detailSwr.error;
 
-		return () => {
-			cancelled = true;
-		};
-	}, [seriesId, reloadKey]);
+	// SWR — champions 카탈로그 (시리즈 무관, 별도 캐시 단위).
+	const champFetcher = useCallback(
+		() => api<{ champions: Champion[] }>("/champions").then((r) => r.champions),
+		[],
+	);
+	const champSwr = useStaleWhileRevalidate<Champion[]>("champions", champFetcher);
+	const champions = useMemo(() => champSwr.data ?? [], [champSwr.data]);
 
-	// series topic 구독 — 다른 사용자가 픽/밴 / 게임 결과 등으로 변경 시 자동 reload
+	// series topic 구독 — 다른 사용자 변경 시 background refresh (플리커 X).
 	useEffect(() => {
 		if (seriesId === null) return;
 		return wsClient.subscribe(`series:${seriesId}`, () => {
-			setReloadKey((k) => k + 1);
+			detailSwr.refresh();
 			showToast("다른 운영자가 픽/밴/결과를 입력했습니다");
 		});
-	}, [seriesId]);
+	}, [seriesId, detailSwr]);
 
-	// debounced save — 쓰기 권한 있는 경우에만
-	const saveTimer = useRef<number | null>(null);
-	const lastSavedDraft = useRef<string>("");
 	const [saveStatus, setSaveStatus] = useState<SaveStatus>("idle");
 	const [savedAt, setSavedAt] = useState<number | null>(null);
 	const [retryNonce, setRetryNonce] = useState(0);
@@ -234,7 +244,7 @@ export function PickBan({
 				<button
 					type="button"
 					className="btn btn-sm btn-outline"
-					onClick={() => setReloadKey((k) => k + 1)}
+					onClick={detailSwr.refresh}
 				>
 					↻ 새로고침
 				</button>
@@ -310,7 +320,7 @@ export function PickBan({
 		setActionError(null);
 		try {
 			await api(`/series/${seriesId}/games/last`, { method: "DELETE" });
-			setReloadKey((k) => k + 1);
+			detailSwr.refresh();
 		} catch (err) {
 			setActionError(`되돌리기 실패: ${err instanceof Error ? err.message : String(err)}`);
 		}
@@ -342,7 +352,7 @@ export function PickBan({
 					<button
 						type="button"
 						className="btn btn-sm btn-ghost"
-						onClick={() => setReloadKey((k) => k + 1)}
+						onClick={detailSwr.refresh}
 						title="새로고침"
 						aria-label="새로고침"
 					>
@@ -593,7 +603,7 @@ export function PickBan({
 					teamSize={teamSize}
 					participants={detail.participants}
 					champions={champions}
-					onRecorded={() => setReloadKey((k) => k + 1)}
+					onRecorded={detailSwr.refresh}
 				/>
 			)}
 

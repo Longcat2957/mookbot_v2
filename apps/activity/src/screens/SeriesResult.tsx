@@ -1,8 +1,9 @@
 // 지난 내전 결과 화면 (read-only) — 종료된 시리즈의 게임별 픽/밴 + 승자 + 라인업.
 
-import { useEffect, useState } from "react";
+import { useCallback, useMemo } from "react";
 import { api } from "../api/rest.js";
 import { LineupPreview, type LineupParticipant } from "../components/LineupPreview.js";
+import { useStaleWhileRevalidate } from "../state/useStaleWhileRevalidate.js";
 
 type Team = "TEAM_1" | "TEAM_2";
 type Side = "BLUE" | "RED";
@@ -51,33 +52,24 @@ export function SeriesResult({
 	seriesId: number | null;
 	onBack: () => void;
 }) {
-	const [detail, setDetail] = useState<SeriesDetail | null>(null);
-	const [error, setError] = useState<string | null>(null);
-	const [champions, setChampions] = useState<Champion[]>([]);
-
-	useEffect(() => {
-		if (seriesId === null) return;
-		let cancelled = false;
-		setError(null);
-		setDetail(null);
-
-		Promise.all([
-			api<SeriesDetail>(`/series/${seriesId}`),
-			api<{ champions: Champion[] }>("/champions"),
-		])
-			.then(([d, c]) => {
-				if (cancelled) return;
-				setDetail(d);
-				setChampions(c.champions);
-			})
-			.catch((err: unknown) => {
-				if (!cancelled) setError(err instanceof Error ? err.message : String(err));
-			});
-
-		return () => {
-			cancelled = true;
-		};
-	}, [seriesId]);
+	// SWR — read-only 화면이라 dirty 보호 불필요. setDetail(null) 제거로 플리커
+	// 만 차단 (hot_fix.md §3.5).
+	const detailFetcher = useCallback(
+		() => api<SeriesDetail>(`/series/${seriesId}`),
+		[seriesId],
+	);
+	const detailSwr = useStaleWhileRevalidate<SeriesDetail>(seriesId, detailFetcher, {
+		debounceMs: 150,
+		enabled: seriesId !== null,
+	});
+	const champFetcher = useCallback(
+		() => api<{ champions: Champion[] }>("/champions").then((r) => r.champions),
+		[],
+	);
+	const champSwr = useStaleWhileRevalidate<Champion[]>("champions", champFetcher);
+	const detail = detailSwr.data;
+	const error = detailSwr.error;
+	const champions = useMemo(() => champSwr.data ?? [], [champSwr.data]);
 
 	if (seriesId === null) {
 		return (

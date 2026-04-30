@@ -20,7 +20,22 @@ interface ToastEvent {
 const listeners = new Set<(t: ToastEvent) => void>();
 let nextId = 1;
 
+// dedupe — 동일 메시지가 짧은 시간 내 반복 fire 되면 무시 (hot_fix.md §3.7).
+// WS invalidate 폭발 시 토스트 spam 방지.
+const DEDUPE_MS = 1500;
+let lastFired: { message: string; tone: ToastTone; at: number } | null = null;
+
 export function showToast(message: string, tone: ToastTone = "info"): void {
+	const now = performance.now();
+	if (
+		lastFired &&
+		lastFired.message === message &&
+		lastFired.tone === tone &&
+		now - lastFired.at < DEDUPE_MS
+	) {
+		return;
+	}
+	lastFired = { message, tone, at: now };
 	const ev: ToastEvent = { id: nextId++, message, tone };
 	for (const cb of listeners) cb(ev);
 }

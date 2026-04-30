@@ -48,6 +48,11 @@ export interface SwrOptions<T> {
 	 * setState(next) 로 교체.
 	 */
 	onApply?: (next: T, prev: T | null) => void;
+	/**
+	 * false 면 fetch 를 시도하지 않는다 (key 가 아직 결정되지 않은 일시 상태).
+	 * 기존 data 는 그대로 유지. default true.
+	 */
+	enabled?: boolean;
 }
 
 export function useStaleWhileRevalidate<T>(
@@ -80,6 +85,7 @@ export function useStaleWhileRevalidate<T>(
 	}, [key]);
 
 	useEffect(() => {
+		if (opts.enabled === false) return;
 		let cancelled = false;
 
 		const run = async () => {
@@ -129,7 +135,7 @@ export function useStaleWhileRevalidate<T>(
 		// data 를 deps 에 안 넣음 — fetch 결과로 data 가 바뀌면 무한 loop.
 		// inflight/queued/data 는 ref/closure 로 latest 유지.
 		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [key, nonce]);
+	}, [key, nonce, opts.enabled]);
 
 	const refresh = useCallback(() => {
 		const delay = opts.debounceMs ?? 100;

@@ -1,9 +1,10 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo } from "react";
 import { api } from "../api/rest.js";
 import { wsClient } from "../api/ws.js";
 import { LineupPreview, type LineupParticipant } from "../components/LineupPreview.js";
 import { EmptyState } from "../components/EmptyState.js";
 import { showToast } from "../components/Toaster.js";
+import { useStaleWhileRevalidate } from "../state/useStaleWhileRevalidate.js";
 
 interface Recruitment {
 	id: number;
@@ -40,49 +41,32 @@ export function RecruitmentList({
 	onSelectSeries: (id: number) => void;
 	onSelectCompletedSeries: (id: number) => void;
 }) {
-	const [recruitments, setRecruitments] = useState<Recruitment[] | null>(null);
-	const [series, setSeries] = useState<SeriesItem[] | null>(null);
-	const [completed, setCompleted] = useState<CompletedSeries[] | null>(null);
-	const [error, setError] = useState<string | null>(null);
-	const [reloadKey, setReloadKey] = useState(0);
-
-	useEffect(() => {
-		let cancelled = false;
-		setError(null);
-		setRecruitments(null);
-		setSeries(null);
-		setCompleted(null);
-
-		Promise.all([
+	const fetchAll = useCallback(async () => {
+		const [r, s, c] = await Promise.all([
 			api<{ recruitments: Recruitment[] }>("/recruitments"),
 			api<{ series: SeriesItem[] }>("/series"),
 			api<{ series: CompletedSeries[] }>("/series/completed?limit=20"),
-		])
-			.then(([r, s, c]) => {
-				if (cancelled) return;
-				setRecruitments(r.recruitments);
-				setSeries(s.series);
-				setCompleted(c.series);
-			})
-			.catch((err: unknown) => {
-				if (!cancelled) setError(err instanceof Error ? err.message : String(err));
-			});
-
-		return () => {
-			cancelled = true;
+		]);
+		return {
+			recruitments: r.recruitments,
+			series: s.series,
+			completed: c.series,
 		};
-	}, [reloadKey]);
+	}, []);
 
-	const refresh = () => setReloadKey((k) => k + 1);
+	const swr = useStaleWhileRevalidate("dashboard", fetchAll, { debounceMs: 150 });
+	const recruitments = swr.data?.recruitments ?? null;
+	const series = swr.data?.series ?? null;
+	const completed = swr.data?.completed ?? null;
+	const error = swr.error;
 
-	// dashboard topic 구독 — 서버측 write (시리즈 생성/종료/취소 등) 시 자동 reload.
-	// origin echo 필터링은 ws.ts 가 처리 — 이 콜백은 다른 사용자/서버 변경 시에만 호출됨.
+	// dashboard topic 구독 — 다른 사용자 변경 시 background refresh (플리커 X).
 	useEffect(() => {
 		return wsClient.subscribe("dashboard", () => {
-			refresh();
+			swr.refresh();
 			showToast("대시보드가 업데이트되었습니다");
 		});
-	}, []);
+	}, [swr]);
 
 	const header = (
 		<div className="flex items-start justify-between gap-3 flex-wrap">
@@ -116,7 +100,7 @@ export function RecruitmentList({
 				<button
 					type="button"
 					className="btn btn-circle btn-ghost btn-sm"
-					onClick={refresh}
+					onClick={swr.refresh}
 					title="새로고침"
 					aria-label="새로고침"
 				>

@@ -1,12 +1,13 @@
 // [2] 엔트리 수정 — 드래그&드롭 슬롯 보드 (1팀 / 2팀).
 // 후보 풀의 카드를 1팀 / 2팀 라인 슬롯으로 끌어다 놓아 엔트리 작성.
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "../api/rest.js";
 import { wsClient } from "../api/ws.js";
 import { usePerms } from "../state/perms.js";
 import { SaveStatusIndicator, type SaveStatus } from "../components/SaveStatus.js";
 import { showToast } from "../components/Toaster.js";
+import { useStaleWhileRevalidate } from "../state/useStaleWhileRevalidate.js";
 
 const LANES = ["TOP", "JUNGLE", "MID", "BOTTOM", "SUPPORT"] as const;
 type Lane = (typeof LANES)[number];
@@ -90,14 +91,22 @@ export function EntryEditing({
 	recruitmentId: number | null;
 	onSubmit: (seriesId: number) => void;
 }) {
-	const [detail, setDetail] = useState<RecruitmentDetail | null>(null);
-	const [error, setError] = useState<string | null>(null);
-	const [reloadKey, setReloadKey] = useState(0);
 	const [assignment, setAssignment] = useState<Assignment>(new Map());
 	const [submitting, setSubmitting] = useState(false);
 	const [submitError, setSubmitError] = useState<string | null>(null);
 	// Tap-to-Place 입력 — 모바일/터치 / 키보드 대안. design_upgrade.md §4.4.1
 	const [selectedUid, setSelectedUid] = useState<string | null>(null);
+	// 다른 운영자 변경 시 1.5s ring pulse 로 위치 시각화 (hot_fix.md §3.6).
+	const [recentlyChanged, setRecentlyChanged] = useState<Set<string>>(
+		() => new Set(),
+	);
+	const recentClearTimer = useRef<number | null>(null);
+	useEffect(
+		() => () => {
+			if (recentClearTimer.current) window.clearTimeout(recentClearTimer.current);
+		},
+		[],
+	);
 	// 관전 모드 — read-only alert dismissible (세션 단위). design_upgrade.md §6.7
 	const dismissKey = recruitmentId !== null ? `readonly-dismissed-rec-${recruitmentId}` : "";
 	const [readOnlyDismissed, setReadOnlyDismissed] = useState(false);
@@ -117,47 +126,75 @@ export function EntryEditing({
 		return () => window.removeEventListener("keydown", onKey);
 	}, [selectedUid]);
 
-	useEffect(() => {
-		if (recruitmentId === null) return;
-		let cancelled = false;
-		setError(null);
-		setDetail(null);
-		api<RecruitmentDetail>(`/recruitments/${recruitmentId}`)
-			.then((res) => {
-				if (cancelled) return;
-				setDetail(res);
-				// 서버 draft 적용
-				const next = new Map<string, Slot>();
-				if (res.entryDraft?.assignments) {
-					for (const [uid, slot] of Object.entries(res.entryDraft.assignments)) {
-						next.set(uid, slot as Slot);
-					}
-				}
-				setAssignment(next);
-			})
-			.catch((err: unknown) => {
-				if (!cancelled) setError(err instanceof Error ? err.message : String(err));
-			});
-		return () => {
-			cancelled = true;
-		};
-	}, [recruitmentId, reloadKey]);
-
-	const refresh = () => setReloadKey((k) => k + 1);
-
-	// recruitment topic 구독 — 다른 사용자가 멤버 관리 / 슬롯 배정 등으로 변경 시 자동 reload
-	// (origin echo 는 wsClient 가 필터링)
-	useEffect(() => {
-		if (recruitmentId === null) return;
-		return wsClient.subscribe(`recruitment:${recruitmentId}`, () => {
-			refresh();
-			showToast("다른 운영자가 엔트리를 수정했습니다");
-		});
-	}, [recruitmentId]);
-
 	// debounced 엔트리 draft 저장 — 본인이 만든 변경만 PUT
 	const draftSaveTimer = useRef<number | null>(null);
 	const lastSaved = useRef<string>("");
+
+	// SWR — fetch 중 화면을 비우지 않고, 본인 dirty 변경은 incoming 에 덮이지
+	// 않게 보호 (hot_fix.md §3.3).
+	const fetcher = useCallback(
+		() => api<RecruitmentDetail>(`/recruitments/${recruitmentId}`),
+		[recruitmentId],
+	);
+	const swr = useStaleWhileRevalidate<RecruitmentDetail>(recruitmentId, fetcher, {
+		debounceMs: 150,
+		enabled: recruitmentId !== null,
+		onApply: (next, prev) => {
+			const incoming = new Map<string, Slot>();
+			if (next.entryDraft?.assignments) {
+				for (const [uid, slot] of Object.entries(next.entryDraft.assignments)) {
+					incoming.set(uid, slot as Slot);
+				}
+			}
+			const incomingSerialized = JSON.stringify(Object.fromEntries(incoming));
+			if (prev === null) {
+				// 첫 로드 — server draft 무조건 반영
+				setAssignment(incoming);
+				lastSaved.current = incomingSerialized;
+				return;
+			}
+			// 변경된 user 추출 — incoming pulse 표시용 (적용 여부와 별개로 diff 는 항상 수집)
+			const prevMap = new Map<string, Slot>();
+			if (prev.entryDraft?.assignments) {
+				for (const [uid, slot] of Object.entries(prev.entryDraft.assignments)) {
+					prevMap.set(uid, slot as Slot);
+				}
+			}
+			const changedUids = new Set<string>();
+			for (const [uid, slot] of incoming) {
+				if (prevMap.get(uid) !== slot) changedUids.add(uid);
+			}
+			for (const [uid, slot] of prevMap) {
+				if (incoming.get(uid) !== slot) changedUids.add(uid);
+			}
+			if (changedUids.size > 0) {
+				setRecentlyChanged(changedUids);
+				if (recentClearTimer.current) window.clearTimeout(recentClearTimer.current);
+				recentClearTimer.current = window.setTimeout(() => {
+					setRecentlyChanged(new Set());
+				}, 1500);
+			}
+			// 본인 dirty (lastSaved 와 다름) 면 incoming 무시 — 본인의 다음 PUT 이
+			// last-write-wins 로 정렬됨. clean 이면 server 값으로 동기화.
+			const localSerialized = JSON.stringify(Object.fromEntries(assignment));
+			const isLocalDirty = localSerialized !== lastSaved.current;
+			if (!isLocalDirty) {
+				setAssignment(incoming);
+				lastSaved.current = incomingSerialized;
+			}
+		},
+	});
+	const detail = swr.data;
+	const error = swr.error;
+
+	// recruitment topic 구독 — 다른 사용자 변경 시 background refresh (플리커 X).
+	useEffect(() => {
+		if (recruitmentId === null) return;
+		return wsClient.subscribe(`recruitment:${recruitmentId}`, () => {
+			swr.refresh();
+			showToast("다른 운영자가 엔트리를 수정했습니다");
+		});
+	}, [recruitmentId, swr]);
 	const [saveStatus, setSaveStatus] = useState<SaveStatus>("idle");
 	const [savedAt, setSavedAt] = useState<number | null>(null);
 	const [retryNonce, setRetryNonce] = useState(0);
@@ -200,7 +237,7 @@ export function EntryEditing({
 				<div className="alert alert-error">
 					<span>모집 정보를 불러오지 못했습니다: {error}</span>
 				</div>
-				<button type="button" className="btn btn-sm btn-outline" onClick={refresh}>
+				<button type="button" className="btn btn-sm btn-outline" onClick={swr.refresh}>
 					↻ 새로고침
 				</button>
 			</div>
@@ -310,7 +347,7 @@ export function EntryEditing({
 				<div className="join">
 					<button
 						className="btn btn-sm btn-ghost join-item"
-						onClick={refresh}
+						onClick={swr.refresh}
 						title="새로고침"
 						disabled={submitting}
 					>
@@ -430,6 +467,10 @@ export function EntryEditing({
 											onTap={() => handleSlotTap(slot, assignedUserId ?? null)}
 											selected={selectedUid !== null && assignedUserId === selectedUid}
 											targetHint={selectedUid !== null && assignedUserId !== selectedUid}
+											recentlyChanged={
+												assignedUserId !== undefined &&
+												recentlyChanged.has(assignedUserId)
+											}
 										/>
 									);
 								})}
@@ -486,6 +527,7 @@ export function EntryEditing({
 									participant={p}
 									selected={selectedUid === p.userId}
 									onTap={() => handleParticipantTap(p.userId)}
+									recentlyChanged={recentlyChanged.has(p.userId)}
 								/>
 							))}
 						</div>
@@ -505,11 +547,13 @@ function ParticipantCard({
 	compact = false,
 	selected = false,
 	onTap,
+	recentlyChanged = false,
 }: {
 	participant: Participant;
 	compact?: boolean;
 	selected?: boolean;
 	onTap?: () => void;
+	recentlyChanged?: boolean;
 }) {
 	const { displayName, roles, history } = participant;
 	const totalWr =
@@ -534,7 +578,11 @@ function ParticipantCard({
 				}
 			}}
 			className={`bg-base-300 rounded-lg cursor-grab active:cursor-grabbing hover:bg-base-content/10 transition px-3 py-2 flex items-center gap-2 min-w-0 ${
-				selected ? "ring-2 ring-primary bg-primary/10" : ""
+				selected
+					? "ring-2 ring-primary bg-primary/10"
+					: recentlyChanged
+						? "ring-2 ring-info animate-pulse"
+						: ""
 			}`}
 		>
 			{/* 좌: 이름 + 메타 */}
@@ -643,6 +691,7 @@ function SlotRow({
 	onTap,
 	selected = false,
 	targetHint = false,
+	recentlyChanged = false,
 }: {
 	lane: Lane;
 	participant: Participant | null;
@@ -651,6 +700,7 @@ function SlotRow({
 	onTap?: () => void;
 	selected?: boolean;
 	targetHint?: boolean;
+	recentlyChanged?: boolean;
 }) {
 	const [over, setOver] = useState(false);
 
@@ -662,7 +712,9 @@ function SlotRow({
 				? "ring-1 ring-primary/60 bg-primary/5"
 				: targetHint
 					? "ring-1 ring-warning/60"
-					: "";
+					: recentlyChanged
+						? "ring-2 ring-info animate-pulse"
+						: "";
 
 	return (
 		<div
