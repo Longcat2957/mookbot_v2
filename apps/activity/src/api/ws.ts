@@ -4,15 +4,37 @@
 
 type Listener = () => void;
 
+export type WsStatus = "connected" | "reconnecting" | "disconnected";
+
 class WsClient {
 	private ws: WebSocket | null = null;
 	private listeners = new Map<string, Set<Listener>>();
 	private joined = new Set<string>();
 	private reconnectTimer: number | null = null;
 	private myUserId: string | null = null;
+	private status: WsStatus = "disconnected";
+	private statusListeners = new Set<(s: WsStatus) => void>();
 
 	setMyUserId(id: string): void {
 		this.myUserId = id;
+	}
+
+	getStatus(): WsStatus {
+		return this.status;
+	}
+
+	subscribeStatus(cb: (s: WsStatus) => void): () => void {
+		this.statusListeners.add(cb);
+		cb(this.status);
+		return () => {
+			this.statusListeners.delete(cb);
+		};
+	}
+
+	private setStatus(s: WsStatus): void {
+		if (s === this.status) return;
+		this.status = s;
+		for (const cb of this.statusListeners) cb(s);
 	}
 
 	private connect(): void {
@@ -20,8 +42,10 @@ class WsClient {
 		const proto = location.protocol === "https:" ? "wss" : "ws";
 		const ws = new WebSocket(`${proto}://${location.host}/ws`);
 		this.ws = ws;
+		this.setStatus("reconnecting");
 
 		ws.addEventListener("open", () => {
+			this.setStatus("connected");
 			// 재연결 시 이전 join 복원
 			for (const topic of this.joined) {
 				ws.send(JSON.stringify({ t: "join", topic }));
@@ -47,11 +71,16 @@ class WsClient {
 
 		ws.addEventListener("close", () => {
 			this.ws = null;
-			if (this.reconnectTimer) return;
-			this.reconnectTimer = window.setTimeout(() => {
-				this.reconnectTimer = null;
-				if (this.listeners.size > 0) this.connect();
-			}, 1500);
+			if (this.listeners.size > 0) {
+				this.setStatus("reconnecting");
+				if (this.reconnectTimer) return;
+				this.reconnectTimer = window.setTimeout(() => {
+					this.reconnectTimer = null;
+					if (this.listeners.size > 0) this.connect();
+				}, 1500);
+			} else {
+				this.setStatus("disconnected");
+			}
 		});
 
 		ws.addEventListener("error", () => {

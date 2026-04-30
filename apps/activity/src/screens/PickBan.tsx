@@ -6,6 +6,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { api } from "../api/rest.js";
 import { wsClient } from "../api/ws.js";
 import { LineupPreview, type LineupParticipant } from "../components/LineupPreview.js";
+import { ConfirmButton } from "../components/ConfirmButton.js";
 import { usePerms } from "../state/perms.js";
 
 const LANE_LABEL: Record<string, string> = {
@@ -90,10 +91,8 @@ export function PickBan({
 	const [reloadKey, setReloadKey] = useState(0);
 	const [draft, setDraft] = useState<PickBanDraft | null>(null);
 	const [champions, setChampions] = useState<Champion[]>([]);
-	const [reverting, setReverting] = useState(false);
-	// Discord Activity iframe sandbox 가 native confirm/alert 를 차단하므로
-	// 2-click 패턴 — 모든 useState/useEffect 는 early return 이전에 선언 (Rules of Hooks)
-	const [pendingAction, setPendingAction] = useState<"revert" | "undo" | null>(null);
+	// 2-click confirm 은 ConfirmButton 컴포넌트가 내부 state 로 처리.
+	// (Discord Activity iframe sandbox 가 native confirm 차단)
 	const [actionError, setActionError] = useState<string | null>(null);
 	const perms = usePerms();
 
@@ -153,13 +152,6 @@ export function PickBan({
 			if (saveTimer.current) window.clearTimeout(saveTimer.current);
 		};
 	}, [draft, seriesId, perms.canEdit]);
-
-	// pendingAction 5초 자동 reset
-	useEffect(() => {
-		if (!pendingAction) return;
-		const t = window.setTimeout(() => setPendingAction(null), 5000);
-		return () => window.clearTimeout(t);
-	}, [pendingAction]);
 
 	if (seriesId === null) {
 		return (
@@ -240,30 +232,16 @@ export function PickBan({
 		});
 
 	const revert = async () => {
-		if (pendingAction !== "revert") {
-			setPendingAction("revert");
-			setActionError(null);
-			return;
-		}
-		setPendingAction(null);
-		setReverting(true);
 		setActionError(null);
 		try {
 			await api(`/series/${seriesId}/revert`, { method: "POST" });
 			onBack();
 		} catch (err) {
 			setActionError(`되돌리기 실패: ${err instanceof Error ? err.message : String(err)}`);
-			setReverting(false);
 		}
 	};
 
 	const undoLast = async () => {
-		if (pendingAction !== "undo") {
-			setPendingAction("undo");
-			setActionError(null);
-			return;
-		}
-		setPendingAction(null);
 		setActionError(null);
 		try {
 			await api(`/series/${seriesId}/games/last`, { method: "DELETE" });
@@ -295,33 +273,22 @@ export function PickBan({
 						↻
 					</button>
 					{!noGamesPlayed && perms.canEdit && (
-						<button
-							className={`btn btn-sm join-item ${
-								pendingAction === "undo" ? "btn-error" : "btn-outline"
-							}`}
-							onClick={undoLast}
+						<ConfirmButton
+							label="↺ 직전 게임 되돌리기"
+							onConfirm={undoLast}
+							className="join-item"
+							variant="error"
 							title="직전 게임 결과 + MMR 변동 취소"
-						>
-							{pendingAction === "undo"
-								? "다시 클릭 = 되돌리기 확정"
-								: "↺ 직전 게임 되돌리기"}
-						</button>
+						/>
 					)}
 					{noGamesPlayed && perms.canEdit && (
-						<button
-							className={`btn btn-sm join-item ${
-								pendingAction === "revert" ? "btn-error" : "btn-warning"
-							}`}
-							onClick={revert}
-							disabled={reverting}
+						<ConfirmButton
+							label="엔트리 수정 대기로"
+							onConfirm={revert}
+							className="join-item"
+							variant="warning"
 							title="시리즈 삭제 후 모집을 엔트리 수정 대기 상태로 되돌립니다."
-						>
-							{reverting
-								? "되돌리는 중…"
-								: pendingAction === "revert"
-									? "다시 클릭 = 되돌리기 확정"
-									: "엔트리 수정 대기로"}
-						</button>
+						/>
 					)}
 				</div>
 			</header>
@@ -348,7 +315,7 @@ export function PickBan({
 						</div>
 						<div className="text-xl opacity-30">:</div>
 						<div className="text-center">
-							<div className="text-[10px] text-warning uppercase">2팀</div>
+							<div className="text-[10px] text-error uppercase">2팀</div>
 							<div className="text-2xl font-bold tabular-nums">{t2Wins}</div>
 						</div>
 						{seriesCompleted && detail.series.winningTeam && (
@@ -372,26 +339,28 @@ export function PickBan({
 				{[1, 2, 3].map((n) => {
 					const enabled = isGameTabEnabled(n);
 					const recorded = completedGames.has(n);
-					return (
+					const tip = !enabled
+						? `Game ${n - 1} 결과를 먼저 입력하세요`
+						: recorded
+							? `Game ${n} 결과 기록됨 — 다시 보기`
+							: `Game ${n} 입력`;
+					const tab = (
 						<button
-							key={n}
 							role="tab"
 							className={`tab ${draft.currentGame === n ? "tab-active" : ""} ${
 								!enabled ? "opacity-40 cursor-not-allowed" : ""
 							}`}
 							onClick={() => setCurrentGame(n)}
 							disabled={!enabled}
-							title={
-								enabled
-									? recorded
-										? `Game ${n} 결과 기록됨`
-										: `Game ${n} 입력`
-									: `Game ${n - 1} 결과를 먼저 입력하세요`
-							}
 						>
 							Game {n}
 							{recorded && <span className="ml-1 text-success">✓</span>}
 						</button>
+					);
+					return (
+						<span key={n} className="tooltip tooltip-bottom" data-tip={tip}>
+							{tab}
+						</span>
 					);
 				})}
 			</div>
@@ -986,7 +955,7 @@ function ResultPanel({
 						type="button"
 						onClick={() => setWinner("TEAM_2")}
 						className={`btn h-auto flex-col py-4 ${
-							winner === "TEAM_2" ? "btn-warning" : "btn-outline"
+							winner === "TEAM_2" ? "btn-error" : "btn-outline"
 						}`}
 					>
 						<span className="text-sm opacity-80">승리</span>
@@ -1014,22 +983,43 @@ function ResultPanel({
 					</div>
 				)}
 
-				<button
-					type="button"
-					className="btn btn-success"
-					onClick={submit}
-					disabled={!ready || submitting || !perms.canEdit}
-					title={!perms.canEdit ? "쓰기 권한이 없습니다 (읽기 전용)" : undefined}
-				>
-					{submitting ? (
-						<>
-							<span className="loading loading-spinner loading-sm" />
-							기록 중…
-						</>
+				{(() => {
+					const tip = !perms.canEdit
+						? "쓰기 권한이 없습니다 (읽기 전용)"
+						: !allBansFilled
+							? "밴 슬롯을 모두 채워야 합니다."
+							: !allPicksFilled
+								? "픽 슬롯을 모두 채워야 합니다."
+								: gameDraft.team1Side === null
+									? "사이드(BLUE/RED)를 먼저 선택하세요."
+									: winner === null
+										? "승리 팀을 선택하세요."
+										: undefined;
+					const btn = (
+						<button
+							type="button"
+							className="btn btn-success w-full"
+							onClick={submit}
+							disabled={!ready || submitting || !perms.canEdit}
+						>
+							{submitting ? (
+								<>
+									<span className="loading loading-spinner loading-sm" />
+									기록 중…
+								</>
+							) : (
+								`Game ${gameDraft.gameNumber} 결과 기록`
+							)}
+						</button>
+					);
+					return tip ? (
+						<span className="tooltip tooltip-top w-full block" data-tip={tip}>
+							{btn}
+						</span>
 					) : (
-						`Game ${gameDraft.gameNumber} 결과 기록`
-					)}
-				</button>
+						btn
+					);
+				})()}
 			</div>
 		</div>
 	);

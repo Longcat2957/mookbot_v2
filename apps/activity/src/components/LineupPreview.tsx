@@ -43,7 +43,7 @@ export function LineupPreview({
 		>
 			<div className="text-base-content/50 font-medium text-xs uppercase">라인</div>
 			<div className="text-info text-xs uppercase font-medium">1팀</div>
-			<div className="text-warning text-xs uppercase font-medium">2팀</div>
+			<div className="text-error text-xs uppercase font-medium">2팀</div>
 			{activeLanes.map((lane) => {
 				const t1 = byTeamRole.get(`TEAM_1_${lane}`) ?? "—";
 				const t2 = byTeamRole.get(`TEAM_2_${lane}`) ?? "—";

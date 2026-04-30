@@ -128,7 +128,7 @@ export function SeriesResult({
 					<div className="flex items-center gap-6">
 						<TeamScore label="1팀" wins={t1Wins} won={detail.series.winningTeam === "TEAM_1"} color="text-info" />
 						<div className="text-2xl opacity-30">:</div>
-						<TeamScore label="2팀" wins={t2Wins} won={detail.series.winningTeam === "TEAM_2"} color="text-warning" />
+						<TeamScore label="2팀" wins={t2Wins} won={detail.series.winningTeam === "TEAM_2"} color="text-error" />
 					</div>
 					{detail.series.winningTeam && (
 						<div className="text-right">

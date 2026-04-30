@@ -253,27 +253,36 @@ export function EntryEditing({
 					>
 						↻
 					</button>
-					<button
-						className="btn btn-sm btn-primary join-item"
-						onClick={submit}
-						disabled={!allFilled || submitting || !perms.canEdit}
-						title={
-							!perms.canEdit
-								? "쓰기 권한이 없습니다 (읽기 전용)"
-								: allFilled
-									? undefined
-									: "모든 슬롯을 채워야 제출 가능합니다."
-						}
-					>
-						{submitting ? (
-							<>
-								<span className="loading loading-spinner loading-xs" />
-								제출 중…
-							</>
+					{(() => {
+						const submitTip = !perms.canEdit
+							? "쓰기 권한이 없습니다 (읽기 전용)"
+							: !allFilled
+								? `모든 슬롯을 채워야 제출 가능합니다 (${assignment.size}/${recruitment.targetCount})`
+								: undefined;
+						const btn = (
+							<button
+								className="btn btn-sm btn-primary join-item"
+								onClick={submit}
+								disabled={!allFilled || submitting || !perms.canEdit}
+							>
+								{submitting ? (
+									<>
+										<span className="loading loading-spinner loading-xs" />
+										제출 중…
+									</>
+								) : (
+									"엔트리 제출"
+								)}
+							</button>
+						);
+						return submitTip ? (
+							<span className="tooltip tooltip-bottom join-item" data-tip={submitTip}>
+								{btn}
+							</span>
 						) : (
-							"엔트리 제출"
-						)}
-					</button>
+							btn
+						);
+					})()}
 				</div>
 			</header>
 
@@ -295,13 +304,13 @@ export function EntryEditing({
 					<div
 						key={team}
 						className={`card bg-base-200 shadow-sm border-l-4 ${
-							team === "TEAM_1" ? "border-info" : "border-warning"
+							team === "TEAM_1" ? "border-info" : "border-error"
 						}`}
 					>
 						<div className="card-body p-3 gap-2">
 							<h3
 								className={`card-title text-base ${
-									team === "TEAM_1" ? "text-info" : "text-warning"
+									team === "TEAM_1" ? "text-info" : "text-error"
 								}`}
 							>
 								{TEAM_LABEL[team]}

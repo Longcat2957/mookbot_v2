@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { initSdk, type AuthedUser } from "./sdk/client.js";
 import { Steps, type StageKey } from "./components/Steps.js";
+import { SystemDot } from "./components/SystemDot.js";
 import { PermsProvider, usePerms } from "./state/perms.js";
 import { RecruitmentList } from "./screens/RecruitmentList.js";
 import { EntryEditing } from "./screens/EntryEditing.js";
@@ -93,16 +94,21 @@ function AppInner() {
 					)}
 				</div>
 				<div className="flex-none px-4 flex items-center gap-2">
+					<SystemDot />
 					{perms.operatorRoleConfigured && (
 						<span
-							className={`badge badge-sm ${perms.canEdit ? "badge-success" : "badge-ghost"}`}
-							title={
+							className="tooltip tooltip-bottom"
+							data-tip={
 								perms.canEdit
 									? "운영자 권한 — 엔트리/픽밴/결과 입력 가능"
 									: "읽기 전용 — 운영자 role 이 필요합니다"
 							}
 						>
-							{perms.canEdit ? "✏️ 운영자" : "👁 읽기 전용"}
+							<span
+								className={`badge badge-sm ${perms.canEdit ? "badge-success" : "badge-ghost"}`}
+							>
+								{perms.canEdit ? "✏️ 운영자" : "👁 읽기 전용"}
+							</span>
 						</span>
 					)}
 					<div className="dropdown dropdown-end">

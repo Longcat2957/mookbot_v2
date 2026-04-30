@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { api } from "../api/rest.js";
 import { wsClient } from "../api/ws.js";
 import { LineupPreview, type LineupParticipant } from "../components/LineupPreview.js";
+import { EmptyState } from "../components/EmptyState.js";
 
 interface Recruitment {
 	id: number;
@@ -115,17 +116,21 @@ export function RecruitmentList({
 				{isLoading ? (
 					<SkeletonGrid />
 				) : recruitments.length === 0 ? (
-					<EmptyCard
+					<EmptyState
 						title="엔트리 수정 대기 중인 모집이 없습니다"
-						body={
+						description="봇 채널에서 모집을 만들면 이곳에 마감된 모집이 표시됩니다."
+						tone="warning"
+						steps={[
 							<>
-								봇 채널에서 <code className="kbd kbd-sm">/내전모집</code> 으로 모집을 만들고,
-								<br />
-								정원 도달 시{" "}
-								<span className="badge badge-success">▶ 엔트리 수정 시작</span> 버튼을 눌러
-								이곳에 마감된 모집이 표시됩니다.
-							</>
-						}
+								봇 채널에서 <code className="kbd kbd-sm">/내전모집</code> 입력
+							</>,
+							<>
+								정원 도달 시 모집 메시지의{" "}
+								<span className="badge badge-success badge-sm">▶ 엔트리 수정 시작</span>{" "}
+								버튼 클릭
+							</>,
+							<>이곳에서 카드 클릭 → 엔트리 수정 화면으로 이동</>,
+						]}
 					/>
 				) : (
 					<div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -146,15 +151,16 @@ export function RecruitmentList({
 				{isLoading ? (
 					<SkeletonGrid />
 				) : series.length === 0 ? (
-					<EmptyCard
+					<EmptyState
 						title="진행중인 내전이 없습니다"
-						body={
+						description="엔트리 제출 시 시리즈가 생성되어 이곳에 표시됩니다."
+						steps={[
+							<>위 "엔트리 수정 대기" 카드 선택 → 슬롯 보드 작성</>,
 							<>
-								엔트리 수정 후 <strong>엔트리 제출</strong> 시 시리즈가 생성되며,
-								<br />
-								Activity 가 재실행되어도 이곳에서 이어서 픽/밴을 입력할 수 있습니다.
-							</>
-						}
+								<strong>엔트리 제출</strong> → 시리즈 자동 생성
+							</>,
+							<>Activity 재실행되어도 이곳에서 이어서 픽/밴 진행 가능</>,
+						]}
 					/>
 				) : (
 					<div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -171,9 +177,9 @@ export function RecruitmentList({
 				{isLoading ? (
 					<SkeletonGrid />
 				) : completed.length === 0 ? (
-					<EmptyCard
+					<EmptyState
 						title="아직 종료된 내전이 없습니다"
-						body="시리즈가 종료되면 이곳에서 게임별 픽/밴 결과를 다시 볼 수 있습니다."
+						description="시리즈가 종료되면 이곳에서 게임별 픽/밴 결과를 다시 볼 수 있습니다."
 					/>
 				) : (
 					<div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -200,7 +206,7 @@ function CompletedSeriesCard({
 }) {
 	const winner = series.winningTeam === "TEAM_1" ? "1팀" : series.winningTeam === "TEAM_2" ? "2팀" : "—";
 	const winnerColor =
-		series.winningTeam === "TEAM_1" ? "text-info" : series.winningTeam === "TEAM_2" ? "text-warning" : "";
+		series.winningTeam === "TEAM_1" ? "text-info" : series.winningTeam === "TEAM_2" ? "text-error" : "";
 	return (
 		<button
 			type="button"
@@ -216,7 +222,7 @@ function CompletedSeriesCard({
 					<span className="tabular-nums font-bold">
 						<span className="text-info">{series.wins.team1}</span>
 						<span className="opacity-30 mx-1">:</span>
-						<span className="text-warning">{series.wins.team2}</span>
+						<span className="text-error">{series.wins.team2}</span>
 					</span>
 					<span className={`font-medium ${winnerColor}`}>{winner} 승</span>
 					<span className="text-base-content/60 text-xs ml-auto">
@@ -278,17 +284,6 @@ function SeriesCard({ series, onClick }: { series: SeriesItem; onClick: () => vo
 				)}
 			</div>
 		</button>
-	);
-}
-
-function EmptyCard({ title, body }: { title: string; body: React.ReactNode }) {
-	return (
-		<div className="card bg-base-200 shadow-sm">
-			<div className="card-body items-center text-center py-8">
-				<h3 className="card-title text-base">{title}</h3>
-				<p className="text-sm text-base-content/70">{body}</p>
-			</div>
-		</div>
 	);
 }
 
