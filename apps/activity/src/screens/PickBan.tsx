@@ -250,6 +250,23 @@ export function PickBan({
 		setDraft((prev) => (prev ? { ...prev, currentGame: n } : prev));
 	};
 
+	// 1/2/3 단축키 — 게임 탭 전환. design_upgrade.md §4.5
+	useEffect(() => {
+		const onKey = (e: KeyboardEvent) => {
+			if (e.key !== "1" && e.key !== "2" && e.key !== "3") return;
+			const tag = (document.activeElement as HTMLElement | null)?.tagName;
+			if (tag === "INPUT" || tag === "TEXTAREA") return;
+			const n = Number(e.key);
+			if (!isGameTabEnabled(n)) return;
+			e.preventDefault();
+			setCurrentGame(n);
+		};
+		window.addEventListener("keydown", onKey);
+		return () => window.removeEventListener("keydown", onKey);
+		// isGameTabEnabled / setCurrentGame 은 매 렌더 새 함수지만 closure 가
+		// 늘 최신 completedGames/draft 를 참조하도록 deps 에 포함
+	}, [completedGames, draft]);
+
 	// Hard Fearless: 시리즈 내 같은 챔프 픽 금지 (양 팀 합산).
 	// 현재 게임 이전의 모든 픽 → 현재 게임 그리드에서 비활성화.
 	const fearlessUsedIds = (() => {

@@ -3,6 +3,7 @@ import { initSdk, type AuthedUser } from "./sdk/client.js";
 import { Steps, type StageKey } from "./components/Steps.js";
 import { SystemDot } from "./components/SystemDot.js";
 import { Toaster } from "./components/Toaster.js";
+import { HelpModal } from "./components/HelpModal.js";
 import { PermsProvider, usePerms } from "./state/perms.js";
 import { RecruitmentList } from "./screens/RecruitmentList.js";
 import { EntryEditing } from "./screens/EntryEditing.js";
@@ -33,6 +34,20 @@ function AppInner() {
 	const [stage, setStage] = useState<StageKey>("LIST");
 	const [recruitmentId, setRecruitmentId] = useState<number | null>(null);
 	const [seriesId, setSeriesId] = useState<number | null>(null);
+	const [helpOpen, setHelpOpen] = useState(false);
+
+	// "?" 단축키 — 도움말 토글. design_upgrade.md §4.5
+	useEffect(() => {
+		const onKey = (e: KeyboardEvent) => {
+			if (e.key !== "?") return;
+			const tag = (document.activeElement as HTMLElement | null)?.tagName;
+			if (tag === "INPUT" || tag === "TEXTAREA") return;
+			e.preventDefault();
+			setHelpOpen((v) => !v);
+		};
+		window.addEventListener("keydown", onKey);
+		return () => window.removeEventListener("keydown", onKey);
+	}, []);
 	const perms = usePerms();
 
 	useEffect(() => {
@@ -96,6 +111,16 @@ function AppInner() {
 				</div>
 				<div className="flex-none px-4 flex items-center gap-2">
 					<SystemDot />
+					<span className="tooltip tooltip-bottom" data-tip="도움말 (?)">
+						<button
+							type="button"
+							className="btn btn-sm btn-ghost btn-circle"
+							onClick={() => setHelpOpen(true)}
+							aria-label="도움말 열기"
+						>
+							?
+						</button>
+					</span>
 					{perms.operatorRoleConfigured && (
 						<span
 							className="tooltip tooltip-bottom"
@@ -168,6 +193,7 @@ function AppInner() {
 				)}
 			</main>
 			<Toaster />
+			<HelpModal open={helpOpen} onClose={() => setHelpOpen(false)} />
 		</div>
 	);
 }
