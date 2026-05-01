@@ -1,0 +1,177 @@
+// 게임 결과 입력 (POST) + 직전 게임 되돌리기 (DELETE).
+// Bo3 종료 자동 검사 + MMR 변동 + picks/bans INSERT.
+
+import { cloudflare, datadragon, db } from "@mookbot/core";
+import type { FastifyInstance } from "fastify";
+import { invalidate, requireEditor } from "./_helpers.js";
+
+export async function registerGameRoutes(app: FastifyInstance): Promise<void> {
+	// 게임 결과 기록 — picks/bans/side/winner 모두 포함.
+	// db.recordGameAndUpdateMmr (game + game_stats + mmr_changes + user_lane_mmr) +
+	// db.setGamePicks / setGameBans. Bo3 종료 조건도 같이 검사.
+	app.post<{
+		Params: { id: string };
+		Body: {
+			gameNumber: number;
+			team1Side: "BLUE" | "RED";
+			winningTeam: "TEAM_1" | "TEAM_2";
+			durationMin?: number;
+			picks: {
+				TEAM_1: { role: string; championId: number }[];
+				TEAM_2: { role: string; championId: number }[];
+			};
+			bans: { TEAM_1: number[]; TEAM_2: number[] };
+		};
+	}>("/api/series/:id/games", async (req, reply) => {
+		const sid = await requireEditor(req, reply);
+		if (!sid) return;
+
+		const id = Number(req.params.id);
+		if (!Number.isFinite(id)) return reply.code(400).send({ error: "invalid id" });
+		const s = await db.getSeries(id);
+		if (!s) return reply.code(404).send({ error: "not found" });
+		if (s.status !== "IN_PROGRESS") {
+			return reply.code(409).send({ error: `series status is ${s.status}` });
+		}
+
+		const body = req.body;
+		if (!body || ![1, 2, 3].includes(body.gameNumber)) {
+			return reply.code(400).send({ error: "gameNumber must be 1/2/3" });
+		}
+		const gameNumber = body.gameNumber as 1 | 2 | 3;
+
+		// Game N 입력은 Game N-1 이 완료된 후에만 가능
+		const games = await db.listGamesInSeries(id);
+		const completed = new Set<number>(games.map((g) => g.game_number));
+		if (gameNumber > 1 && !completed.has(gameNumber - 1)) {
+			return reply.code(409).send({ error: `Game ${gameNumber - 1} 결과를 먼저 입력해야 합니다.` });
+		}
+		if (completed.has(gameNumber)) {
+			return reply.code(409).send({ error: `Game ${gameNumber} 은(는) 이미 기록됨` });
+		}
+
+		// 참가자 → role/team → userId 매핑
+		const parts = await db.getSeriesParticipants(id);
+		const userByTeamRole = new Map<string, string>();
+		for (const p of parts) userByTeamRole.set(`${p.team}_${p.role}`, p.user_id);
+
+		// picks → PlayerStats[]
+		const stats: { userId: string; championId: number }[] = [];
+		const picksFlat: { team: "TEAM_1" | "TEAM_2"; role: string; championName: string }[] = [];
+		for (const team of ["TEAM_1", "TEAM_2"] as const) {
+			for (const pick of body.picks[team]) {
+				const userId = userByTeamRole.get(`${team}_${pick.role}`);
+				if (!userId) {
+					return reply.code(400).send({ error: `${team}/${pick.role} 슬롯에 참가자 없음` });
+				}
+				stats.push({ userId, championId: pick.championId });
+				picksFlat.push({
+					team,
+					role: pick.role,
+					championName: datadragon.getChampionName(pick.championId),
+				});
+			}
+		}
+
+		const bansFlat: { team: "TEAM_1" | "TEAM_2"; position: number; championName: string }[] = [];
+		for (const team of ["TEAM_1", "TEAM_2"] as const) {
+			body.bans[team].forEach((cid, i) => {
+				bansFlat.push({
+					team,
+					position: i + 1,
+					championName: datadragon.getChampionName(cid),
+				});
+			});
+		}
+
+		try {
+			const result = await db.recordGameAndUpdateMmr({
+				seriesId: id,
+				gameNumber,
+				winningTeam: body.winningTeam,
+				team1Side: body.team1Side,
+				...(body.durationMin ? { durationSec: body.durationMin * 60 } : {}),
+				stats,
+			});
+
+			// picks / bans 별도 INSERT (record.ts 가 처리하지 않음)
+			await db.setGamePicks(
+				result.game.id,
+				picksFlat.map((p) => ({
+					team: p.team,
+					role: p.role as "TOP" | "JUNGLE" | "MID" | "BOTTOM" | "SUPPORT",
+					championName: p.championName,
+				})),
+			);
+			await db.setGameBans(result.game.id, bansFlat);
+
+			// Bo3 종료 — 한 팀이 2승 도달 시 자동 COMPLETED
+			const wins = await db.countSeriesWins(id);
+			let completedSeries = false;
+			if (wins.team1 >= 2) {
+				await db.completeSeries(id, "TEAM_1");
+				completedSeries = true;
+			} else if (wins.team2 >= 2) {
+				await db.completeSeries(id, "TEAM_2");
+				completedSeries = true;
+			}
+
+			invalidate(`series:${id}`);
+			if (completedSeries) invalidate("dashboard");
+			return {
+				gameId: result.game.id,
+				wins,
+				completed: completedSeries,
+			};
+		} catch (err) {
+			req.log.error({ err }, "recordGameAndUpdateMmr failed");
+			const msg = err instanceof Error ? err.message : String(err);
+			return reply.code(400).send({ error: msg });
+		}
+	});
+
+	// 직전 게임 되돌리기 — 마지막으로 기록된 game DELETE (cascade)
+	app.delete<{ Params: { id: string } }>("/api/series/:id/games/last", async (req, reply) => {
+		const sid = await requireEditor(req, reply);
+		if (!sid) return;
+
+		const id = Number(req.params.id);
+		if (!Number.isFinite(id)) return reply.code(400).send({ error: "invalid id" });
+		const s = await db.getSeries(id);
+		if (!s) return reply.code(404).send({ error: "not found" });
+
+		const games = await db.listGamesInSeries(id);
+		if (games.length === 0) {
+			return reply.code(409).send({ error: "되돌릴 게임이 없습니다." });
+		}
+		const last = games[games.length - 1]!;
+
+		// game DELETE 시 cascade 로 stats/picks/bans/mmr_changes 정리.
+		// user_lane_mmr 차감은 recordGame 에서만 처리하므로 직접 보정 필요.
+		const mmrChanges = await cloudflare.query<{
+			user_id: string;
+			role: string;
+			delta: number;
+			season_id: number;
+		}>(`SELECT user_id, role, delta, season_id FROM mmr_changes WHERE game_id = ?`, [last.id]);
+		await cloudflare.execute(`DELETE FROM games WHERE id = ?`, [last.id]);
+		for (const c of mmrChanges) {
+			await cloudflare.execute(
+				`UPDATE user_lane_mmr SET mmr = mmr - ? WHERE user_id = ? AND role = ? AND season_id = ?`,
+				[c.delta, c.user_id, c.role, c.season_id],
+			);
+		}
+
+		// 시리즈가 COMPLETED 였으면 IN_PROGRESS 로 복원
+		if (s.status === "COMPLETED") {
+			await cloudflare.execute(
+				`UPDATE series SET status = 'IN_PROGRESS', winning_team = NULL, ended_at = NULL WHERE id = ?`,
+				[id],
+			);
+		}
+
+		invalidate(`series:${id}`);
+		invalidate("dashboard");
+		return { ok: true, deletedGame: last.game_number };
+	});
+}
