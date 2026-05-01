@@ -4,6 +4,10 @@
 
 ## 문서 목록
 
+### 개발
+- [`how_to_dev.md`](./how_to_dev.md) — 개발환경 셋업 + 테스트 실행 / 디버그 / 트러블슈팅 / cheat sheet
+- [`cicd.md`](./cicd.md) — GitHub Actions 워크플로 (CI gate + D1 백업) 정리
+
 ### 테스트
 - [`testing/README.md`](./testing/README.md) — 테스트 전체 현황, 실행법, 카테고리 분류
 - [`testing/infrastructure.md`](./testing/infrastructure.md) — 하네스 / 모킹 패턴 / vitest 설정
