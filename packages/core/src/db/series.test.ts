@@ -10,7 +10,10 @@ import {
 	getSeries,
 	getSeriesParticipants,
 	listAllOpenSeries,
+	listOpenSeriesByUser,
+	listRecentSeriesForUser,
 	listStaleOpenSeries,
+	setSeriesMessage,
 } from "./series.js";
 import { upsertUser } from "./users.js";
 
@@ -75,6 +78,36 @@ describe("createSeries", () => {
 				],
 			}),
 		).rejects.toThrow(/TEAM_1 내 라인 중복|TEAM_2 내 라인 중복|매치업/);
+	});
+
+	it("rejects TEAM_1 내 라인 중복", async () => {
+		await expect(
+			createSeries({
+				seasonId,
+				createdBy: OP,
+				participants: [
+					{ userId: "u1", team: "TEAM_1", role: "TOP" },
+					{ userId: "u2", team: "TEAM_1", role: "TOP" },
+					{ userId: "u3", team: "TEAM_2", role: "TOP" },
+					{ userId: "u4", team: "TEAM_2", role: "MID" },
+				],
+			}),
+		).rejects.toThrow(/TEAM_1 내 라인 중복/);
+	});
+
+	it("rejects TEAM_2 내 라인 중복", async () => {
+		await expect(
+			createSeries({
+				seasonId,
+				createdBy: OP,
+				participants: [
+					{ userId: "u1", team: "TEAM_1", role: "TOP" },
+					{ userId: "u2", team: "TEAM_1", role: "MID" },
+					{ userId: "u3", team: "TEAM_2", role: "TOP" },
+					{ userId: "u4", team: "TEAM_2", role: "TOP" },
+				],
+			}),
+		).rejects.toThrow(/TEAM_2 내 라인 중복/);
 	});
 
 	it("rejects 라인 매치업 없음", async () => {
@@ -186,5 +219,43 @@ describe("deleteSeriesPhysical", () => {
 
 		expect(await getSeries(s.id)).toBeUndefined();
 		expect(await getSeriesParticipants(s.id)).toEqual([]);
+	});
+});
+
+describe("setSeriesMessage / listOpenSeriesByUser / listRecentSeriesForUser", () => {
+	async function mk(uid1: string, uid2: string) {
+		return createSeries({
+			seasonId,
+			createdBy: OP,
+			participants: [
+				{ userId: uid1, team: "TEAM_1", role: "TOP" },
+				{ userId: uid2, team: "TEAM_2", role: "TOP" },
+			],
+		});
+	}
+
+	it("setSeriesMessage 가 channel/message 저장", async () => {
+		const s = await mk("u1", "u2");
+		await setSeriesMessage(s.id, "ch-1", "msg-1");
+		const after = await getSeries(s.id);
+		expect(after?.channel_id).toBe("ch-1");
+		expect(after?.message_id).toBe("msg-1");
+	});
+
+	it("listOpenSeriesByUser — 참가자 본인의 IN_PROGRESS 만", async () => {
+		const s1 = await mk("u1", "u2");
+		const s2 = await mk("u3", "u4");
+		await completeSeries(s1.id, "TEAM_1"); // s1 닫힘
+		const list = await listOpenSeriesByUser("u3");
+		expect(list.map((s) => s.id)).toEqual([s2.id]);
+	});
+
+	it("listRecentSeriesForUser — 참가/운영 모두, 모든 status", async () => {
+		const s1 = await mk("u1", "u2");
+		const s2 = await mk("u3", "u4");
+		await cancelSeries(s2.id);
+		// op (createdBy) 도 본인이 만든 시리즈 모두 보임
+		const opList = await listRecentSeriesForUser(OP);
+		expect(opList.map((s) => s.id).sort()).toEqual([s1.id, s2.id].sort());
 	});
 });
