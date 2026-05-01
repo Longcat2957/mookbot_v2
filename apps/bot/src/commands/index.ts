@@ -6,6 +6,10 @@ import * as history from "./history.js";
 import * as leaderboard from "./leaderboard.js";
 import * as lookup from "./lookup.js";
 import * as currentGame from "./currentGame.js";
+import * as forceDeleteSeries from "./forceDeleteSeries.js";
+import * as adjustMmr from "./adjustMmr.js";
+import * as resetSeasonResults from "./resetSeasonResults.js";
+import * as cleanupStale from "./cleanupStale.js";
 
 export const ALL_COMMANDS = [
 	recruit,
@@ -16,4 +20,8 @@ export const ALL_COMMANDS = [
 	leaderboard,
 	lookup,
 	currentGame,
+	forceDeleteSeries,
+	adjustMmr,
+	resetSeasonResults,
+	cleanupStale,
 ] as const;
