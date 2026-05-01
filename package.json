@@ -1,19 +1,26 @@
 {
-  "name": "mookbot-v2",
-  "private": true,
-  "version": "0.2.7",
-  "type": "module",
-  "engines": {
-    "node": ">=20"
-  },
-  "scripts": {
-    "typecheck": "pnpm -r typecheck",
-    "build": "pnpm -r --workspace-concurrency=1 build",
-    "version:patch": "pnpm version patch --no-git-tag-version",
-    "version:minor": "pnpm version minor --no-git-tag-version",
-    "version:major": "pnpm version major --no-git-tag-version",
-    "docker:build": "scripts/docker-build.sh",
-    "docker:push": "scripts/docker-push.sh",
-    "docker:release": "scripts/docker-build.sh && scripts/docker-push.sh"
-  }
+	"name": "mookbot-v2",
+	"private": true,
+	"version": "0.2.7",
+	"type": "module",
+	"engines": {
+		"node": ">=20"
+	},
+	"scripts": {
+		"typecheck": "pnpm -r typecheck",
+		"build": "pnpm -r --workspace-concurrency=1 build",
+		"lint": "biome lint .",
+		"format": "biome format --write .",
+		"check": "biome check .",
+		"check:fix": "biome check --write .",
+		"version:patch": "pnpm version patch --no-git-tag-version",
+		"version:minor": "pnpm version minor --no-git-tag-version",
+		"version:major": "pnpm version major --no-git-tag-version",
+		"docker:build": "scripts/docker-build.sh",
+		"docker:push": "scripts/docker-push.sh",
+		"docker:release": "scripts/docker-build.sh && scripts/docker-push.sh"
+	},
+	"devDependencies": {
+		"@biomejs/biome": "^2.4.13"
+	}
 }

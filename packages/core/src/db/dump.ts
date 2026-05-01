@@ -61,9 +61,7 @@ export async function dumpDatabase(verbose = true): Promise<{
 			timestamp: new Date().toISOString(),
 			schemaVersion: SCHEMA_VERSION,
 			totalRows,
-			tableCounts: Object.fromEntries(
-				Object.entries(tables).map(([t, rows]) => [t, rows.length]),
-			),
+			tableCounts: Object.fromEntries(Object.entries(tables).map(([t, rows]) => [t, rows.length])),
 		},
 		tables,
 	};
@@ -81,7 +79,9 @@ export async function deleteAllData(verbose = true): Promise<number> {
 		if (verbose) console.log(`  ${t.padEnd(25)} removed ${n} rows`);
 	}
 	// reset autoincrement counters (sqlite_sequence)
-	await execute(`DELETE FROM sqlite_sequence WHERE name IN ('seasons','series','games','mmr_changes')`).catch(() => undefined);
+	await execute(
+		`DELETE FROM sqlite_sequence WHERE name IN ('seasons','series','games','mmr_changes')`,
+	).catch(() => undefined);
 	return total;
 }
 

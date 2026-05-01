@@ -1,9 +1,9 @@
-import { config } from "dotenv";
 import { fileURLToPath } from "node:url";
-import Fastify from "fastify";
 import cookie from "@fastify/cookie";
 import websocket from "@fastify/websocket";
 import { datadragon, log } from "@mookbot/core";
+import { config } from "dotenv";
+import Fastify from "fastify";
 import { registerRoutes } from "./http/routes.js";
 import { registerWs } from "./ws/server.js";
 

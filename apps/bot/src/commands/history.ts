@@ -1,9 +1,5 @@
-import {
-	type ChatInputCommandInteraction,
-	EmbedBuilder,
-	SlashCommandBuilder,
-} from "discord.js";
 import { db } from "@mookbot/core";
+import { type ChatInputCommandInteraction, EmbedBuilder, SlashCommandBuilder } from "discord.js";
 
 const ROLES = ["TOP", "JUNGLE", "MID", "BOTTOM", "SUPPORT"] as const;
 const ROLE_LABEL: Record<(typeof ROLES)[number], string> = {
@@ -17,9 +13,7 @@ const ROLE_LABEL: Record<(typeof ROLES)[number], string> = {
 export const data = new SlashCommandBuilder()
 	.setName("내전기록")
 	.setDescription("내전 라인별 통계 + 최근 MMR 변동")
-	.addUserOption((o) =>
-		o.setName("user").setDescription("(선택) 다른 사용자").setRequired(false),
-	);
+	.addUserOption((o) => o.setName("user").setDescription("(선택) 다른 사용자").setRequired(false));
 
 export async function execute(interaction: ChatInputCommandInteraction): Promise<void> {
 	const target = interaction.options.getUser("user") ?? interaction.user;

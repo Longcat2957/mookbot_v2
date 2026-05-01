@@ -1,15 +1,15 @@
 import { useEffect, useState } from "react";
-import { initSdk, type AuthedUser } from "./sdk/client.js";
-import { Steps, type StageKey } from "./components/Steps.js";
+import { ErrorBoundary } from "./components/ErrorBoundary.js";
+import { HelpModal } from "./components/HelpModal.js";
+import { type StageKey, Steps } from "./components/Steps.js";
 import { SystemDot } from "./components/SystemDot.js";
 import { Toaster } from "./components/Toaster.js";
-import { HelpModal } from "./components/HelpModal.js";
-import { ErrorBoundary } from "./components/ErrorBoundary.js";
-import { PermsProvider, usePerms } from "./state/perms.js";
-import { RecruitmentList } from "./screens/RecruitmentList.js";
 import { EntryEditing } from "./screens/EntryEditing.js";
 import { PickBan } from "./screens/PickBan.js";
+import { RecruitmentList } from "./screens/RecruitmentList.js";
 import { SeriesResult } from "./screens/SeriesResult.js";
+import { type AuthedUser, initSdk } from "./sdk/client.js";
+import { PermsProvider, usePerms } from "./state/perms.js";
 
 function describeError(err: unknown): string {
 	if (err instanceof Error) return err.stack ?? err.message;
@@ -66,9 +66,7 @@ function AppInner() {
 				<div className="hero-content text-center">
 					<div className="max-w-2xl">
 						<h1 className="text-3xl font-bold text-error">Activity 초기화 실패</h1>
-						<pre className="mt-6 text-left text-xs bg-base-300 p-4 rounded-lg overflow-auto">
-							{error}
-						</pre>
+						<pre className="mt-6 text-left text-xs bg-base-300 p-4 rounded-lg overflow-auto">{error}</pre>
 					</div>
 				</div>
 			</div>
@@ -131,9 +129,7 @@ function AppInner() {
 									: "읽기 전용 — 운영자 role 이 필요합니다"
 							}
 						>
-							<span
-								className={`badge badge-sm ${perms.canEdit ? "badge-success" : "badge-ghost"}`}
-							>
+							<span className={`badge badge-sm ${perms.canEdit ? "badge-success" : "badge-ghost"}`}>
 								{perms.canEdit ? "✏️ 운영자" : "👁 읽기 전용"}
 							</span>
 						</span>
@@ -176,11 +172,7 @@ function AppInner() {
 					</ErrorBoundary>
 				)}
 				{stage === "ENTRY_EDITING" && (
-					<ErrorBoundary
-						key={`entry-${recruitmentId}`}
-						label="엔트리 수정"
-						onReset={goHome}
-					>
+					<ErrorBoundary key={`entry-${recruitmentId}`} label="엔트리 수정" onReset={goHome}>
 						<EntryEditing
 							recruitmentId={recruitmentId}
 							onSubmit={(sId) => {
@@ -197,11 +189,7 @@ function AppInner() {
 					</ErrorBoundary>
 				)}
 				{stage === "COMPLETED" && (
-					<ErrorBoundary
-						key={`result-${seriesId}`}
-						label="시리즈 결과"
-						onReset={goHome}
-					>
+					<ErrorBoundary key={`result-${seriesId}`} label="시리즈 결과" onReset={goHome}>
 						<SeriesResult seriesId={seriesId} onBack={goHome} />
 					</ErrorBoundary>
 				)}

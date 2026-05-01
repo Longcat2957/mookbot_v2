@@ -39,7 +39,13 @@ export async function createRecruitment(input: {
 		`INSERT INTO recruitments (season_id, target_count, created_by, channel_id, message_id)
 		 VALUES (?, ?, ?, ?, ?)
 		 RETURNING *`,
-		[input.seasonId, input.targetCount, input.createdBy, input.channelId ?? null, input.messageId ?? null],
+		[
+			input.seasonId,
+			input.targetCount,
+			input.createdBy,
+			input.channelId ?? null,
+			input.messageId ?? null,
+		],
 	);
 	if (!row) throw new Error("createRecruitment: insert failed");
 	return row;
@@ -49,7 +55,11 @@ export async function getRecruitment(id: number): Promise<RecruitmentRow | undef
 	return queryOne<RecruitmentRow>(`SELECT * FROM recruitments WHERE id = ?`, [id]);
 }
 
-export async function setRecruitmentMessage(id: number, channelId: string, messageId: string): Promise<void> {
+export async function setRecruitmentMessage(
+	id: number,
+	channelId: string,
+	messageId: string,
+): Promise<void> {
 	await execute(
 		`UPDATE recruitments SET channel_id = ?, message_id = ?, updated_at = unixepoch() WHERE id = ?`,
 		[channelId, messageId, id],
@@ -76,7 +86,9 @@ export async function deleteRecruitment(id: number): Promise<void> {
 }
 
 export async function listOpenRecruitments(): Promise<RecruitmentRow[]> {
-	return query<RecruitmentRow>(`SELECT * FROM recruitments WHERE status = 'OPEN' ORDER BY created_at DESC`);
+	return query<RecruitmentRow>(
+		`SELECT * FROM recruitments WHERE status = 'OPEN' ORDER BY created_at DESC`,
+	);
 }
 
 /**
@@ -123,12 +135,15 @@ export async function addRecruitmentParticipant(input: {
 	);
 }
 
-export async function removeRecruitmentParticipant(recruitmentId: number, userId: string): Promise<void> {
+export async function removeRecruitmentParticipant(
+	recruitmentId: number,
+	userId: string,
+): Promise<void> {
 	// ON DELETE CASCADE 가 roles 도 정리
-	await execute(
-		`DELETE FROM recruitment_participants WHERE recruitment_id = ? AND user_id = ?`,
-		[recruitmentId, userId],
-	);
+	await execute(`DELETE FROM recruitment_participants WHERE recruitment_id = ? AND user_id = ?`, [
+		recruitmentId,
+		userId,
+	]);
 }
 
 export async function setRecruitmentRoles(
@@ -182,7 +197,10 @@ export async function listRecruitmentParticipants(
 	}));
 }
 
-export async function isRecruitmentParticipant(recruitmentId: number, userId: string): Promise<boolean> {
+export async function isRecruitmentParticipant(
+	recruitmentId: number,
+	userId: string,
+): Promise<boolean> {
 	const row = await queryOne<{ user_id: string }>(
 		`SELECT user_id FROM recruitment_participants WHERE recruitment_id = ? AND user_id = ?`,
 		[recruitmentId, userId],

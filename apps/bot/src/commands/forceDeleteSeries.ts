@@ -1,3 +1,4 @@
+import { db } from "@mookbot/core";
 import {
 	ActionRowBuilder,
 	ButtonBuilder,
@@ -7,7 +8,6 @@ import {
 	EmbedBuilder,
 	SlashCommandBuilder,
 } from "discord.js";
-import { db } from "@mookbot/core";
 import { requireOperator } from "../utils/operator.js";
 
 const { inspectSeriesForDelete, forceDeleteSeriesWithRollback, recordAudit, getSeries } = db;
@@ -51,14 +51,14 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
 		.setDescription(
 			rollback && summary.rollbackPlan.length > 0
 				? `롤백 대상 ${summary.rollbackPlan.length}건\n` +
-					summary.rollbackPlan
-						.slice(0, 10)
-						.map(
-							(p) =>
-								`• <@${p.userId}> ${p.role} **${p.totalDelta > 0 ? "+" : ""}${p.totalDelta}** (game ${p.gamesPlayed}, win ${p.wins})`,
-						)
-						.join("\n") +
-					(summary.rollbackPlan.length > 10 ? `\n…+${summary.rollbackPlan.length - 10}` : "")
+						summary.rollbackPlan
+							.slice(0, 10)
+							.map(
+								(p) =>
+									`• <@${p.userId}> ${p.role} **${p.totalDelta > 0 ? "+" : ""}${p.totalDelta}** (game ${p.gamesPlayed}, win ${p.wins})`,
+							)
+							.join("\n") +
+						(summary.rollbackPlan.length > 10 ? `\n…+${summary.rollbackPlan.length - 10}` : "")
 				: "롤백 없이 시리즈/게임/MMR 변동만 삭제",
 		);
 

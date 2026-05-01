@@ -1,4 +1,4 @@
-import { riotClient, formatTier } from "./client.js";
+import { formatTier, riotClient } from "./client.js";
 import type { LeagueEntryDto, QueueType } from "./types.js";
 
 /**

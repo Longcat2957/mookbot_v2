@@ -1,4 +1,4 @@
-import type { Tier, Rank } from "./types.js";
+import type { Rank, Tier } from "./types.js";
 
 // ============================================================
 // Region Configuration
@@ -99,10 +99,7 @@ export class RiotApiClient {
 	}
 
 	// --- Core request method ---
-	private async request<T>(
-		url: string,
-		ttlMs: number,
-	): Promise<T> {
+	private async request<T>(url: string, ttlMs: number): Promise<T> {
 		// Check cache first
 		const cached = getCache<T>(url);
 		if (cached !== undefined) return cached;
@@ -140,17 +137,26 @@ export class RiotApiClient {
 
 	async getSummonerByPuuid(puuid: string, platform: Platform = "KR") {
 		const path = `/lol/summoner/v4/summoners/by-puuid/${encodeURIComponent(puuid)}`;
-		return this.request<import("./types.js").SummonerDto>(this.platformUrl(platform, path), 10 * 60_000);
+		return this.request<import("./types.js").SummonerDto>(
+			this.platformUrl(platform, path),
+			10 * 60_000,
+		);
 	}
 
 	async getLeagueEntries(puuid: string, platform: Platform = "KR") {
 		const path = `/lol/league/v4/entries/by-puuid/${encodeURIComponent(puuid)}`;
-		return this.request<import("./types.js").LeagueEntryDto[]>(this.platformUrl(platform, path), 5 * 60_000);
+		return this.request<import("./types.js").LeagueEntryDto[]>(
+			this.platformUrl(platform, path),
+			5 * 60_000,
+		);
 	}
 
 	async getChampionMasteries(puuid: string, platform: Platform = "KR") {
 		const path = `/lol/champion-mastery/v4/champion-masteries/by-puuid/${encodeURIComponent(puuid)}`;
-		return this.request<import("./types.js").ChampionMasteryDto[]>(this.platformUrl(platform, path), 10 * 60_000);
+		return this.request<import("./types.js").ChampionMasteryDto[]>(
+			this.platformUrl(platform, path),
+			10 * 60_000,
+		);
 	}
 
 	async getMatchIds(puuid: string, count: number = 20, region: Region = "ASIA") {

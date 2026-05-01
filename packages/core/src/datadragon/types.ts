@@ -5,8 +5,8 @@
 export interface ChampionData {
 	version: string;
 	id: string;
-	key: string;        // numeric string e.g. "64"
-	name: string;       // localized name e.g. "뽀삐"
+	key: string; // numeric string e.g. "64"
+	name: string; // localized name e.g. "뽀삐"
 	title: string;
 	blurb: string;
 	info: { attack: number; defense: number; magic: number; difficulty: number };
@@ -32,7 +32,7 @@ export interface SummonerSpellData {
 	cooldown: number[];
 	cost: number[];
 	effect: (number | null)[][];
-	key: string;        // numeric string e.g. "4"
+	key: string; // numeric string e.g. "4"
 	summonerLevel: number;
 	modes: string[];
 	costType: string;
@@ -64,7 +64,20 @@ export interface ItemData {
 export interface ItemListDto {
 	type: string;
 	version: string;
-	basic: { name: string; rune: boolean; gold: { base: number; total: number; sell: number; purchasable: boolean }; image: { full: string; sprite: string; group: string; x: number; y: number; w: number; h: number } };
+	basic: {
+		name: string;
+		rune: boolean;
+		gold: { base: number; total: number; sell: number; purchasable: boolean };
+		image: {
+			full: string;
+			sprite: string;
+			group: string;
+			x: number;
+			y: number;
+			w: number;
+			h: number;
+		};
+	};
 	data: Record<string, ItemData>; // keyed by item id string e.g. "1001"
 }
 

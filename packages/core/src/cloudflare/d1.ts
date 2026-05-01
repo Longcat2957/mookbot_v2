@@ -120,10 +120,7 @@ export async function queryOne<T = Record<string, unknown>>(
 /**
  * Run an INSERT/UPDATE/DELETE/DDL. Returns the meta (last_row_id, changes).
  */
-export async function execute(
-	sql: string,
-	params: unknown[] = [],
-): Promise<D1Meta> {
+export async function execute(sql: string, params: unknown[] = []): Promise<D1Meta> {
 	const result = await call<unknown>({ sql, params });
 	if (!result[0]) throw new Error("D1 execute returned no result");
 	return result[0].meta;
@@ -140,9 +137,7 @@ export async function execute(
  * Within a single statement (e.g. multi-row INSERT), SQLite's own atomicity
  * still applies — it commits all rows or none.
  */
-export async function batch(
-	statements: D1Statement[],
-): Promise<D1Result<unknown>[]> {
+export async function batch(statements: D1Statement[]): Promise<D1Result<unknown>[]> {
 	if (statements.length === 0) return [];
 	const results: D1Result<unknown>[] = [];
 	for (const stmt of statements) {

@@ -31,8 +31,5 @@ export async function getSeason(id: number): Promise<SeasonRow | undefined> {
 }
 
 export async function endSeason(id: number): Promise<void> {
-	await execute(
-		`UPDATE seasons SET ended_at = unixepoch() WHERE id = ? AND ended_at IS NULL`,
-		[id],
-	);
+	await execute(`UPDATE seasons SET ended_at = unixepoch() WHERE id = ? AND ended_at IS NULL`, [id]);
 }

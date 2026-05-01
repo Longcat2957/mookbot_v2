@@ -1,5 +1,5 @@
 import {
-	ActionRowBuilder,
+	type ActionRowBuilder,
 	type AttachmentBuilder,
 	type ButtonBuilder,
 	ContainerBuilder,
@@ -55,9 +55,7 @@ export function v2Sep(): SeparatorBuilder {
 }
 
 export function v2Section(text: string, accessory: ButtonBuilder): SectionBuilder {
-	return new SectionBuilder()
-		.addTextDisplayComponents(v2Text(text))
-		.setButtonAccessory(accessory);
+	return new SectionBuilder().addTextDisplayComponents(v2Text(text)).setButtonAccessory(accessory);
 }
 
 /** Thumbnail accessory 가 우측에 붙는 Section — 챔피언 초상화 등에 사용. */
@@ -86,7 +84,9 @@ export function v2Container(opts: {
 /**
  * 챔피언 등 이미지 N장을 그리드로 — 각 item 은 url + description (hover tooltip).
  */
-export function v2Gallery(items: Array<{ url: string; description?: string }>): MediaGalleryBuilder {
+export function v2Gallery(
+	items: Array<{ url: string; description?: string }>,
+): MediaGalleryBuilder {
 	const g = new MediaGalleryBuilder();
 	for (const it of items) {
 		const item = new MediaGalleryItemBuilder().setURL(it.url);

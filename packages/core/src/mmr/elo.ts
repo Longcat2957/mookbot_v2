@@ -28,7 +28,7 @@ export const ROLES: readonly Role[] = ["TOP", "JUNGLE", "MID", "BOTTOM", "SUPPOR
  * Probability that `myMmr` beats `oppMmr` (0..1).
  */
 export function expectedScore(myMmr: number, oppMmr: number): number {
-	return 1 / (1 + Math.pow(10, (oppMmr - myMmr) / 400));
+	return 1 / (1 + 10 ** ((oppMmr - myMmr) / 400));
 }
 
 export interface EloUpdate {

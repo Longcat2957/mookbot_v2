@@ -1,11 +1,12 @@
+import { db, riot } from "@mookbot/core";
 import {
 	type ChatInputCommandInteraction,
+	type Collection,
 	EmbedBuilder,
 	type GuildMember,
 	PermissionFlagsBits,
 	SlashCommandBuilder,
 } from "discord.js";
-import { db, riot } from "@mookbot/core";
 import {
 	countHashes,
 	extractRiotIdFromDisplayName,
@@ -15,9 +16,7 @@ import {
 export const data = new SlashCommandBuilder()
 	.setName("일괄등록")
 	.setDescription("(관리자) 서버 멤버 일괄 등록 + 별명 라이엇 ID 자동 연결")
-	.addBooleanOption((o) =>
-		o.setName("dry_run").setDescription("DB 변경 없이 결과만 미리 확인"),
-	)
+	.addBooleanOption((o) => o.setName("dry_run").setDescription("DB 변경 없이 결과만 미리 확인"))
 	.setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild);
 
 type Outcome =
@@ -29,7 +28,7 @@ type Outcome =
 			displayName: string;
 			mainStays: string;
 			subAdded: string;
-		}
+	  }
 	| { kind: "unchanged"; mention: string; displayName: string }
 	| { kind: "ambiguous"; mention: string; displayName: string }
 	| { kind: "noPattern"; mention: string; displayName: string }
@@ -51,7 +50,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
 	const dryRun = interaction.options.getBoolean("dry_run") ?? false;
 	await interaction.deferReply({ ephemeral: true });
 
-	let allMembers;
+	let allMembers: Collection<string, GuildMember>;
 	try {
 		allMembers = await interaction.guild.members.fetch();
 	} catch (err) {
@@ -88,8 +87,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
 	}
 
 	const total = humans.length;
-	const userOnly =
-		buckets.ambiguous.length + buckets.noPattern.length + buckets.apiFailed.length;
+	const userOnly = buckets.ambiguous.length + buckets.noPattern.length + buckets.apiFailed.length;
 
 	const eb = new EmbedBuilder()
 		.setTitle(dryRun ? "🧪 일괄 등록 미리보기" : "✅ 일괄 등록 완료")
@@ -109,33 +107,17 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
 		.setColor(dryRun ? 0x5b6df2 : 0x22a55a);
 
 	pushField(eb, "✅ 새로 연결", buckets.newlyLinked, (o) =>
-		o.kind === "newlyLinked"
-			? `${o.mention} ${o.displayName} → \`${o.gameName}#${o.tagLine}\``
-			: "",
+		o.kind === "newlyLinked" ? `${o.mention} ${o.displayName} → \`${o.gameName}#${o.tagLine}\`` : "",
 	);
 	pushField(eb, "🔄 닉 변경", buckets.renamed, (o) =>
-		o.kind === "renamed"
-			? `${o.mention} ${o.displayName} — \`${o.from}\` → \`${o.to}\``
-			: "",
+		o.kind === "renamed" ? `${o.mention} ${o.displayName} — \`${o.from}\` → \`${o.to}\`` : "",
 	);
 	pushField(eb, "🆕 부계정 추가", buckets.subAdded, (o) =>
-		o.kind === "subAdded"
-			? `${o.mention} 메인: \`${o.mainStays}\`, 추가: \`${o.subAdded}\``
-			: "",
+		o.kind === "subAdded" ? `${o.mention} 메인: \`${o.mainStays}\`, 추가: \`${o.subAdded}\`` : "",
 	);
 	pushField(eb, "↩️ 변동 없음", buckets.unchanged, (o) => `${o.mention} ${o.displayName}`);
-	pushField(
-		eb,
-		"⚠️ 모호 (# 2개 이상)",
-		buckets.ambiguous,
-		(o) => `${o.mention} ${o.displayName}`,
-	);
-	pushField(
-		eb,
-		"📝 패턴 없음",
-		buckets.noPattern,
-		(o) => `${o.mention} ${o.displayName}`,
-	);
+	pushField(eb, "⚠️ 모호 (# 2개 이상)", buckets.ambiguous, (o) => `${o.mention} ${o.displayName}`);
+	pushField(eb, "📝 패턴 없음", buckets.noPattern, (o) => `${o.mention} ${o.displayName}`);
 	pushField(eb, "❓ 라이엇 API 실패", buckets.apiFailed, (o) =>
 		o.kind === "apiFailed" ? `${o.mention} (시도: \`${o.tried}\`)` : "",
 	);
@@ -206,7 +188,7 @@ async function processMember(member: GuildMember, dryRun: boolean): Promise<Outc
 		};
 	}
 
-	let account;
+	let account: Awaited<ReturnType<typeof riot.getAccountByRiotId>>;
 	try {
 		account = await riot.getAccountByRiotId(formatRiotIdSuggestion(extracted));
 	} catch {

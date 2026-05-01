@@ -10,6 +10,7 @@
 // ============================================================
 
 import { config } from "dotenv";
+import type { Role } from "../mmr/elo.js";
 import {
 	addRecruitmentParticipant,
 	completeSeries,
@@ -23,7 +24,6 @@ import {
 	setRecruitmentStatus,
 	upsertUser,
 } from "./index.js";
-import type { Role } from "../mmr/elo.js";
 
 config();
 
@@ -37,11 +37,26 @@ if (!args.has("--confirm")) {
 const ROLES: readonly Role[] = ["TOP", "JUNGLE", "MID", "BOTTOM", "SUPPORT"];
 
 const NAMES = [
-	"정현(Longcat)", "길동(Hong)", "철수(SteelHead)", "영희(Bright)",
-	"민준(Brave)", "서윤(Soyo)", "지호(Jiho)", "예린(Yerin)",
-	"하준(Hajun)", "수아(Sua)", "지우(Jiwoo)", "도윤(Doyun)",
-	"하은(Haeun)", "시우(Siwoo)", "주원(Juwon)", "예준(Yejun)",
-	"이안(Ian)", "유진(Yujin)", "다은(Daeun)", "서아(Seoa)",
+	"정현(Longcat)",
+	"길동(Hong)",
+	"철수(SteelHead)",
+	"영희(Bright)",
+	"민준(Brave)",
+	"서윤(Soyo)",
+	"지호(Jiho)",
+	"예린(Yerin)",
+	"하준(Hajun)",
+	"수아(Sua)",
+	"지우(Jiwoo)",
+	"도윤(Doyun)",
+	"하은(Haeun)",
+	"시우(Siwoo)",
+	"주원(Juwon)",
+	"예준(Yejun)",
+	"이안(Ian)",
+	"유진(Yujin)",
+	"다은(Daeun)",
+	"서아(Seoa)",
 ];
 
 function fakePuuid(idx: number): string {
@@ -138,9 +153,24 @@ const done = await createSeries({
 		{ userId: userIds[(i + 15) % NAMES.length]!, team: "TEAM_2" as const, role },
 	]),
 });
-await recordGameAndUpdateMmr({ seriesId: done.id, gameNumber: 1, winningTeam: "TEAM_1", team1Side: "BLUE" });
-await recordGameAndUpdateMmr({ seriesId: done.id, gameNumber: 2, winningTeam: "TEAM_2", team1Side: "RED" });
-await recordGameAndUpdateMmr({ seriesId: done.id, gameNumber: 3, winningTeam: "TEAM_1", team1Side: "BLUE" });
+await recordGameAndUpdateMmr({
+	seriesId: done.id,
+	gameNumber: 1,
+	winningTeam: "TEAM_1",
+	team1Side: "BLUE",
+});
+await recordGameAndUpdateMmr({
+	seriesId: done.id,
+	gameNumber: 2,
+	winningTeam: "TEAM_2",
+	team1Side: "RED",
+});
+await recordGameAndUpdateMmr({
+	seriesId: done.id,
+	gameNumber: 3,
+	winningTeam: "TEAM_1",
+	team1Side: "BLUE",
+});
 await completeSeries(done.id, "TEAM_1");
 console.log(`  completed series: #${done.id} (2-1)`);
 

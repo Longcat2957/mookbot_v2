@@ -3,8 +3,8 @@
 // - GET /healthz/deep  : 깊은 (D1 ping + bot heartbeat age — UptimeRobot 용)
 // - recordBotHeartbeat(): /internal/heartbeat 라우트가 호출
 
-import type { FastifyInstance } from "fastify";
 import { cloudflare } from "@mookbot/core";
+import type { FastifyInstance } from "fastify";
 
 const apiStartMs = Date.now();
 const STARTUP_GRACE_MS = 90_000; // 봇이 startup 직후 heartbeat 못 보내도 90s 그레이스

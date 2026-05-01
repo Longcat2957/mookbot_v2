@@ -3,18 +3,18 @@
 // ============================================================
 
 export {
-	initDataDragon,
-	getChampionName,
-	getChampionData,
-	getChampionImageUrl,
-	getChampionIconUrlByName,
-	getAllChampions,
 	findChampion,
-	searchChampions,
-	getSummonerSpellName,
+	getAllChampions,
+	getChampionData,
+	getChampionIconUrlByName,
+	getChampionImageUrl,
+	getChampionName,
 	getItemName,
 	getProfileIconUrl,
+	getSummonerSpellName,
 	getVersion,
+	initDataDragon,
+	searchChampions,
 } from "./client.js";
 
 export type * from "./types.js";

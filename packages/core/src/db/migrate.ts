@@ -1,6 +1,6 @@
-import { config } from "dotenv";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
+import { config } from "dotenv";
 import { execute, query } from "../cloudflare/d1.js";
 
 config({ path: fileURLToPath(new URL("../../../../.env", import.meta.url)) });

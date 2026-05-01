@@ -1,9 +1,10 @@
+import { db } from "@mookbot/core";
 import {
 	ActionRowBuilder,
 	ApplicationIntegrationType,
 	ButtonBuilder,
-	ButtonStyle,
 	type ButtonInteraction,
+	ButtonStyle,
 	type ChatInputCommandInteraction,
 	type ContainerBuilder,
 	InteractionContextType,
@@ -14,12 +15,10 @@ import {
 	UserSelectMenuBuilder,
 	type UserSelectMenuInteraction,
 } from "discord.js";
-import { db } from "@mookbot/core";
 import { notify } from "../utils/notify.js";
 import {
 	COLORS,
 	v2Container,
-	v2DeferOpts,
 	v2EditReply,
 	v2Ephemeral,
 	v2Error,
@@ -200,20 +199,12 @@ async function handleLeave(interaction: ButtonInteraction, id: number): Promise<
 	void notify("dashboard");
 }
 
-async function fetchGuildMemberName(
-	interaction: ButtonInteraction,
-): Promise<string> {
+async function fetchGuildMemberName(interaction: ButtonInteraction): Promise<string> {
 	if (!interaction.guild) {
 		return interaction.user.displayName ?? interaction.user.username;
 	}
-	const member = await interaction.guild.members
-		.fetch(interaction.user.id)
-		.catch(() => null);
-	return (
-		member?.displayName ??
-		interaction.user.displayName ??
-		interaction.user.username
-	);
+	const member = await interaction.guild.members.fetch(interaction.user.id).catch(() => null);
+	return member?.displayName ?? interaction.user.displayName ?? interaction.user.username;
 }
 
 async function handleCancel(
@@ -308,9 +299,7 @@ async function openAdminUserSelect(
 			"_셀렉트 결과가 새 풀 상태가 됩니다 — 추가는 선택, 제거는 해제._",
 			"_⚠️ 새로 추가된 멤버는 라인 무관 상태. 본인이 라인 선호 셀렉트로 변경 가능._",
 		].join("\n"),
-		components: [
-			new ActionRowBuilder<UserSelectMenuBuilder>().addComponents(userSelect),
-		],
+		components: [new ActionRowBuilder<UserSelectMenuBuilder>().addComponents(userSelect)],
 		ephemeral: true,
 	});
 }
@@ -319,9 +308,7 @@ async function openAdminUserSelect(
 // Select handlers
 // ======================================================================
 
-export async function handleStringSelect(
-	interaction: StringSelectMenuInteraction,
-): Promise<void> {
+export async function handleStringSelect(interaction: StringSelectMenuInteraction): Promise<void> {
 	const [, action, idStr] = interaction.customId.split(":");
 	if (action !== "roles") return;
 
@@ -355,9 +342,7 @@ export async function handleStringSelect(
 	void notify("dashboard");
 }
 
-export async function handleUserSelect(
-	interaction: UserSelectMenuInteraction,
-): Promise<void> {
+export async function handleUserSelect(interaction: UserSelectMenuInteraction): Promise<void> {
 	const [, action, idStr] = interaction.customId.split(":");
 	if (action !== "adduser_select") return;
 
@@ -478,9 +463,7 @@ async function refreshRecruitMessage(
 				return null;
 			} catch (followErr) {
 				const followDetail =
-					followErr instanceof Error
-						? `${followErr.name}: ${followErr.message}`
-						: String(followErr);
+					followErr instanceof Error ? `${followErr.name}: ${followErr.message}` : String(followErr);
 				return `${detail} (followUp 도 실패: ${followDetail})`;
 			}
 		}
@@ -494,9 +477,7 @@ async function refreshRecruitMessage(
 
 async function renderComponents(
 	id: number,
-): Promise<
-	Array<ContainerBuilder | ActionRowBuilder<ButtonBuilder | StringSelectMenuBuilder>>
-> {
+): Promise<Array<ContainerBuilder | ActionRowBuilder<ButtonBuilder | StringSelectMenuBuilder>>> {
 	const rec = await getRecruitment(id);
 	if (!rec) throw new Error(`recruitment ${id} not found`);
 	const participants = await listRecruitmentParticipants(id);
@@ -555,9 +536,9 @@ async function renderComponents(
 		);
 	}
 
-	const out: Array<
-		ContainerBuilder | ActionRowBuilder<ButtonBuilder | StringSelectMenuBuilder>
-	> = [v2Container({ color, children: containerChildren })];
+	const out: Array<ContainerBuilder | ActionRowBuilder<ButtonBuilder | StringSelectMenuBuilder>> = [
+		v2Container({ color, children: containerChildren }),
+	];
 
 	if (rec.status === "OPEN") {
 		out.push(...buildOpenComponents(id, full));
@@ -574,9 +555,7 @@ function renderRosterLines(
 ): string[] {
 	return participants.map((p, i) => {
 		const roleStr =
-			p.roles.length === 0
-				? "_(라인 무관)_"
-				: p.roles.map((r) => ROLE_LABEL[r]).join("/");
+			p.roles.length === 0 ? "_(라인 무관)_" : p.roles.map((r) => ROLE_LABEL[r]).join("/");
 		const name = nameById.get(p.user_id) ?? p.user_id;
 		return `\`${String(i + 1).padStart(2, " ")}.\` **${name}** · ${roleStr}`;
 	});
@@ -647,9 +626,7 @@ function buildOpenComponents(
 	];
 }
 
-function buildClosedComponents(
-	id: number,
-): ActionRowBuilder<ButtonBuilder>[] {
+function buildClosedComponents(id: number): ActionRowBuilder<ButtonBuilder>[] {
 	const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
 		new ButtonBuilder()
 			.setCustomId(`recruit:adduser:${id}`)

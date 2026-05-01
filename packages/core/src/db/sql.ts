@@ -15,9 +15,7 @@ export function multiInsert(
 	}
 	for (const row of rows) {
 		if (row.length !== columns.length) {
-			throw new Error(
-				`multiInsert(${table}): row length ${row.length} ≠ ${columns.length} columns`,
-			);
+			throw new Error(`multiInsert(${table}): row length ${row.length} ≠ ${columns.length} columns`);
 		}
 	}
 	const placeholder = `(${columns.map(() => "?").join(", ")})`;

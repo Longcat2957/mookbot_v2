@@ -1,9 +1,5 @@
-import {
-	type ChatInputCommandInteraction,
-	EmbedBuilder,
-	SlashCommandBuilder,
-} from "discord.js";
 import { db } from "@mookbot/core";
+import { type ChatInputCommandInteraction, EmbedBuilder, SlashCommandBuilder } from "discord.js";
 import { requireOperator } from "../utils/operator.js";
 
 const { adjustLaneMmr, recordAudit, getCurrentSeason, upsertUser, ROLE_SLOTS } = db;

@@ -26,9 +26,7 @@ export async function registerWs(app: FastifyInstance): Promise<void> {
 		});
 
 		socket.on("close", (code, reason) => {
-			console.log(
-				`[ws] close user=${sid.value} code=${code} reason=${reason?.toString() ?? ""}`,
-			);
+			console.log(`[ws] close user=${sid.value} code=${code} reason=${reason?.toString() ?? ""}`);
 			leaveAllRooms(socket);
 		});
 	});

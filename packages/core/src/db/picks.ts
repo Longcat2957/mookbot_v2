@@ -1,6 +1,6 @@
 import { execute, query } from "../cloudflare/d1.js";
-import { multiInsert } from "./sql.js";
 import type { Role, Team } from "../mmr/elo.js";
+import { multiInsert } from "./sql.js";
 
 // ============================================================
 // 게임별 픽/밴 — 결과기록 후 [픽밴 입력] 모달이 작성.

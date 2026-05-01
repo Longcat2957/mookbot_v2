@@ -1,6 +1,6 @@
-import { config } from "dotenv";
 import { fileURLToPath } from "node:url";
 import { REST, Routes } from "discord.js";
+import { config } from "dotenv";
 import { ALL_COMMANDS } from "./commands/index.js";
 
 config({ path: fileURLToPath(new URL("../../../.env", import.meta.url)) });

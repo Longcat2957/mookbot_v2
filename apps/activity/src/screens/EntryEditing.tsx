@@ -4,9 +4,9 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "../api/rest.js";
 import { wsClient } from "../api/ws.js";
-import { usePerms } from "../state/perms.js";
-import { SaveStatusIndicator, type SaveStatus } from "../components/SaveStatus.js";
+import { type SaveStatus, SaveStatusIndicator } from "../components/SaveStatus.js";
 import { showToast } from "../components/Toaster.js";
+import { usePerms } from "../state/perms.js";
 import { useStaleWhileRevalidate } from "../state/useStaleWhileRevalidate.js";
 
 const LANES = ["TOP", "JUNGLE", "MID", "BOTTOM", "SUPPORT"] as const;
@@ -97,9 +97,7 @@ export function EntryEditing({
 	// Tap-to-Place 입력 — 모바일/터치 / 키보드 대안. design_upgrade.md §4.4.1
 	const [selectedUid, setSelectedUid] = useState<string | null>(null);
 	// 다른 운영자 변경 시 1.5s ring pulse 로 위치 시각화 (hot_fix.md §3.6).
-	const [recentlyChanged, setRecentlyChanged] = useState<Set<string>>(
-		() => new Set(),
-	);
+	const [recentlyChanged, setRecentlyChanged] = useState<Set<string>>(() => new Set());
 	const recentClearTimer = useRef<number | null>(null);
 	useEffect(
 		() => () => {
@@ -337,9 +335,9 @@ export function EntryEditing({
 						)}
 					</h2>
 					<p className="text-xs text-base-content/70">
-						모집 #{recruitment.id} · {teamSize}v{teamSize} · 후보 {participants.length}명
-						{" · "}
-						배정 <span className="font-bold tabular-nums">
+						모집 #{recruitment.id} · {teamSize}v{teamSize} · 후보 {participants.length}명{" · "}
+						배정{" "}
+						<span className="font-bold tabular-nums">
 							{assignment.size}/{recruitment.targetCount}
 						</span>
 					</p>
@@ -409,27 +407,24 @@ export function EntryEditing({
 				</div>
 			)}
 
-			{selectedUid && (() => {
-				const sel = participants.find((p) => p.userId === selectedUid);
-				if (!sel) return null;
-				const inSlot = assignment.has(selectedUid);
-				return (
-					<div className="alert alert-info alert-soft sticky top-2 z-10">
-						<span>
-							🎯 <strong>{sel.displayName}</strong> 선택됨 —{" "}
-							{inSlot ? "다른 슬롯 또는 후보 풀" : "슬롯"}을 탭하여 배치
-							<span className="text-xs opacity-70 ml-2">(Esc 취소)</span>
-						</span>
-						<button
-							type="button"
-							className="btn btn-xs btn-ghost"
-							onClick={() => setSelectedUid(null)}
-						>
-							✕ 취소
-						</button>
-					</div>
-				);
-			})()}
+			{selectedUid &&
+				(() => {
+					const sel = participants.find((p) => p.userId === selectedUid);
+					if (!sel) return null;
+					const inSlot = assignment.has(selectedUid);
+					return (
+						<div className="alert alert-info alert-soft sticky top-2 z-10">
+							<span>
+								🎯 <strong>{sel.displayName}</strong> 선택됨 — {inSlot ? "다른 슬롯 또는 후보 풀" : "슬롯"}
+								을 탭하여 배치
+								<span className="text-xs opacity-70 ml-2">(Esc 취소)</span>
+							</span>
+							<button type="button" className="btn btn-xs btn-ghost" onClick={() => setSelectedUid(null)}>
+								✕ 취소
+							</button>
+						</div>
+					);
+				})()}
 
 			{/* 슬롯 보드 (1팀 / 2팀) */}
 			<div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
@@ -441,19 +436,13 @@ export function EntryEditing({
 						}`}
 					>
 						<div className="card-body p-3 gap-2">
-							<h3
-								className={`card-title text-base ${
-									team === "TEAM_1" ? "text-info" : "text-error"
-								}`}
-							>
+							<h3 className={`card-title text-base ${team === "TEAM_1" ? "text-info" : "text-error"}`}>
 								{TEAM_LABEL[team]}
 							</h3>
 							<div className="space-y-1.5">
 								{activeLanes.map((lane) => {
 									const slot: Slot = `${team}_${lane}`;
-									const assignedUserId = [...assignment.entries()].find(
-										([, s]) => s === slot,
-									)?.[0];
+									const assignedUserId = [...assignment.entries()].find(([, s]) => s === slot)?.[0];
 									const assignedP = assignedUserId
 										? participants.find((p) => p.userId === assignedUserId)
 										: null;
@@ -467,10 +456,7 @@ export function EntryEditing({
 											onTap={() => handleSlotTap(slot, assignedUserId ?? null)}
 											selected={selectedUid !== null && assignedUserId === selectedUid}
 											targetHint={selectedUid !== null && assignedUserId !== selectedUid}
-											recentlyChanged={
-												assignedUserId !== undefined &&
-												recentlyChanged.has(assignedUserId)
-											}
+											recentlyChanged={assignedUserId !== undefined && recentlyChanged.has(assignedUserId)}
 										/>
 									);
 								})}
@@ -483,9 +469,7 @@ export function EntryEditing({
 			{/* 후보 풀 — 컴팩트 가로 카드 */}
 			<div
 				className={`card bg-base-200 shadow-sm transition ${
-					selectedUid !== null && assignment.has(selectedUid)
-						? "ring-2 ring-primary cursor-pointer"
-						: ""
+					selectedUid !== null && assignment.has(selectedUid) ? "ring-2 ring-primary cursor-pointer" : ""
 				}`}
 				onDragOver={(e) => e.preventDefault()}
 				onDrop={(e) => {
@@ -504,9 +488,7 @@ export function EntryEditing({
 						<h3 className="card-title text-base">
 							후보 풀 · {unassigned.length}명 미배정 / 총 {participants.length}명
 						</h3>
-						<span className="text-xs text-base-content/50">
-							탭하여 선택 → 슬롯 탭 (또는 드래그)
-						</span>
+						<span className="text-xs text-base-content/50">탭하여 선택 → 슬롯 탭 (또는 드래그)</span>
 					</div>
 					{unassigned.length === 0 ? (
 						<div className="text-center text-base-content/50 py-4 text-sm">
@@ -557,9 +539,7 @@ function ParticipantCard({
 }) {
 	const { displayName, roles, history } = participant;
 	const totalWr =
-		history.total.plays > 0
-			? Math.round((history.total.wins / history.total.plays) * 100)
-			: 0;
+		history.total.plays > 0 ? Math.round((history.total.wins / history.total.plays) * 100) : 0;
 
 	return (
 		<div
@@ -591,9 +571,7 @@ function ParticipantCard({
 					<span className="font-bold text-base truncate">{displayName}</span>
 					{history.total.plays > 0 ? (
 						<span
-							className={`text-xs font-bold tabular-nums ${
-								totalWr >= 50 ? "text-success" : "text-error"
-							}`}
+							className={`text-xs font-bold tabular-nums ${totalWr >= 50 ? "text-success" : "text-error"}`}
 						>
 							{totalWr}%
 						</span>
@@ -758,9 +736,7 @@ function SlotRow({
 					}}
 					className="flex-1 min-w-0 bg-base-300 rounded-md px-2 py-1.5 cursor-grab active:cursor-grabbing hover:bg-base-content/10 transition flex items-center gap-1.5"
 				>
-					<span className="font-bold text-sm truncate flex-1">
-						{participant.displayName}
-					</span>
+					<span className="font-bold text-sm truncate flex-1">{participant.displayName}</span>
 					{participant.history.topRole && (
 						<span className="badge badge-outline badge-xs shrink-0">
 							{ROLE_LABEL[participant.history.topRole.role] ?? participant.history.topRole.role}

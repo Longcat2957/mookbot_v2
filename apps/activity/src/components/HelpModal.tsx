@@ -19,19 +19,23 @@ const SHORTCUTS: { key: string; label: string }[] = [
 const SCREEN_TIPS: { title: string; body: string }[] = [
 	{
 		title: "대시보드",
-		body: "처리 대기 카드 (모집 ▾ 진행중) 를 클릭하면 다음 단계로 이동합니다. 가장 오래된 항목이 위로 정렬됩니다.",
+		body:
+			"처리 대기 카드 (모집 ▾ 진행중) 를 클릭하면 다음 단계로 이동합니다. 가장 오래된 항목이 위로 정렬됩니다.",
 	},
 	{
 		title: "엔트리 수정",
-		body: "후보 풀에서 사람을 슬롯으로 드래그 또는 탭하여 배치. 슬롯 끼리 드래그/탭으로 swap. 자동 배치 제안은 의도적으로 없음 — 라인 밸런싱은 운영자가 직접.",
+		body:
+			"후보 풀에서 사람을 슬롯으로 드래그 또는 탭하여 배치. 슬롯 끼리 드래그/탭으로 swap. 자동 배치 제안은 의도적으로 없음 — 라인 밸런싱은 운영자가 직접.",
 	},
 	{
 		title: "픽 / 밴",
-		body: "슬롯 클릭 → 활성화 → 챔프 그리드에서 챔프 클릭. 활성 슬롯의 픽 라인 플레이어 주력 챔프가 ‘🌟 주력’ 섹션으로 우선 표시됩니다. 위험 액션은 우상단 ⋯ 메뉴.",
+		body:
+			"슬롯 클릭 → 활성화 → 챔프 그리드에서 챔프 클릭. 활성 슬롯의 픽 라인 플레이어 주력 챔프가 ‘🌟 주력’ 섹션으로 우선 표시됩니다. 위험 액션은 우상단 ⋯ 메뉴.",
 	},
 	{
 		title: "시리즈 결과",
-		body: "게임별 collapse 를 펼쳐 픽 / 밴 / 라인업 확인. 우승팀은 border-success 와 WIN 뱃지로 표시.",
+		body:
+			"게임별 collapse 를 펼쳐 픽 / 밴 / 라인업 확인. 우승팀은 border-success 와 WIN 뱃지로 표시.",
 	},
 ];
 
@@ -59,20 +63,14 @@ export function HelpModal({ open, onClose }: Props) {
 				<div className="flex items-center justify-between mb-3">
 					<h3 className="font-bold text-lg">도움말</h3>
 					<form method="dialog">
-						<button
-							type="submit"
-							className="btn btn-sm btn-circle btn-ghost"
-							aria-label="닫기"
-						>
+						<button type="submit" className="btn btn-sm btn-circle btn-ghost" aria-label="닫기">
 							✕
 						</button>
 					</form>
 				</div>
 
 				<section className="space-y-2 mb-4">
-					<h4 className="font-bold text-sm text-base-content/70 uppercase tracking-wide">
-						단축키
-					</h4>
+					<h4 className="font-bold text-sm text-base-content/70 uppercase tracking-wide">단축키</h4>
 					<table className="table table-sm">
 						<tbody>
 							{SHORTCUTS.map((s) => (
@@ -95,9 +93,7 @@ export function HelpModal({ open, onClose }: Props) {
 						{SCREEN_TIPS.map((t) => (
 							<div key={t.title} className="bg-base-200 rounded-md p-3">
 								<div className="font-bold text-sm mb-0.5">{t.title}</div>
-								<div className="text-xs text-base-content/70 leading-snug">
-									{t.body}
-								</div>
+								<div className="text-xs text-base-content/70 leading-snug">{t.body}</div>
 							</div>
 						))}
 					</div>

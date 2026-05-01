@@ -2,24 +2,23 @@
 // Riot API Service — Unified Export
 // ============================================================
 
-export { RiotApiClient, riotClient, tierValue, formatTier } from "./client.js";
-export type { Platform, Region } from "./client.js";
-
-export { parseRiotId, getAccountByRiotId } from "./account.js";
-export { getSummonerByPuuid } from "./summoner.js";
-export { getLeagueEntries, getLeagueEntry, formatLeagueEntries } from "./league.js";
+export { getAccountByRiotId, parseRiotId } from "./account.js";
 export { getChampionMasteries, getTopMasteries } from "./championMastery.js";
-export { getMatchIds, getMatch, getRecentMatches, findParticipant, formatKDA } from "./match.js";
+export type { Platform, Region } from "./client.js";
+export { formatTier, RiotApiClient, riotClient, tierValue } from "./client.js";
+export { formatLeagueEntries, getLeagueEntries, getLeagueEntry } from "./league.js";
+export { findParticipant, formatKDA, getMatch, getMatchIds, getRecentMatches } from "./match.js";
 export { getCurrentGameByPuuid } from "./spectator.js";
+export { getSummonerByPuuid } from "./summoner.js";
 
 export type * from "./types.js";
 
 // --- Convenience: Full player profile ---
 
 import { getAccountByRiotId } from "./account.js";
-import { getSummonerByPuuid } from "./summoner.js";
-import { getLeagueEntries } from "./league.js";
 import { getTopMasteries } from "./championMastery.js";
+import { getLeagueEntries } from "./league.js";
+import { getSummonerByPuuid } from "./summoner.js";
 import type { PlayerProfile } from "./types.js";
 
 /**

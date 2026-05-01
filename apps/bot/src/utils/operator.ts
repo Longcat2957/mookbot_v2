@@ -1,8 +1,4 @@
-import {
-	type ChatInputCommandInteraction,
-	GuildMember,
-	type ButtonInteraction,
-} from "discord.js";
+import { type ButtonInteraction, type ChatInputCommandInteraction, GuildMember } from "discord.js";
 
 type OpInteraction = ChatInputCommandInteraction | ButtonInteraction;
 
@@ -16,17 +12,16 @@ function memberRoleIds(interaction: OpInteraction): string[] {
 	return [];
 }
 
-async function resolveOperatorRoleId(
-	interaction: OpInteraction,
-): Promise<string | null> {
+async function resolveOperatorRoleId(interaction: OpInteraction): Promise<string | null> {
 	const id = process.env.OPERATOR_ROLE_ID?.trim();
 	if (id) return id;
 	const name = process.env.OPERATOR_ROLE_NAME?.trim();
 	if (!name) return null;
 	const guild = interaction.guild;
 	if (!guild) return null;
-	const role = guild.roles.cache.find((r) => r.name === name)
-		?? (await guild.roles.fetch().then((all) => all.find((r) => r.name === name) ?? null));
+	const role =
+		guild.roles.cache.find((r) => r.name === name) ??
+		(await guild.roles.fetch().then((all) => all.find((r) => r.name === name) ?? null));
 	return role?.id ?? null;
 }
 

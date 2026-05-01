@@ -2,7 +2,7 @@
 
 import { useCallback, useMemo } from "react";
 import { api } from "../api/rest.js";
-import { LineupPreview, type LineupParticipant } from "../components/LineupPreview.js";
+import { type LineupParticipant, LineupPreview } from "../components/LineupPreview.js";
 import { useStaleWhileRevalidate } from "../state/useStaleWhileRevalidate.js";
 
 type Team = "TEAM_1" | "TEAM_2";
@@ -54,10 +54,7 @@ export function SeriesResult({
 }) {
 	// SWR — read-only 화면이라 dirty 보호 불필요. setDetail(null) 제거로 플리커
 	// 만 차단 (hot_fix.md §3.5).
-	const detailFetcher = useCallback(
-		() => api<SeriesDetail>(`/series/${seriesId}`),
-		[seriesId],
-	);
+	const detailFetcher = useCallback(() => api<SeriesDetail>(`/series/${seriesId}`), [seriesId]);
 	const detailSwr = useStaleWhileRevalidate<SeriesDetail>(seriesId, detailFetcher, {
 		debounceMs: 150,
 		enabled: seriesId !== null,
@@ -149,9 +146,7 @@ export function SeriesResult({
 			</div>
 
 			<details className="collapse collapse-arrow bg-base-200">
-				<summary className="collapse-title text-sm font-medium py-2 min-h-0 px-4">
-					라인업 보기
-				</summary>
+				<summary className="collapse-title text-sm font-medium py-2 min-h-0 px-4">라인업 보기</summary>
 				<div className="collapse-content px-4">
 					<LineupPreview participants={detail.participants} />
 				</div>
@@ -194,9 +189,7 @@ function TeamScore({
 	return (
 		<div className="text-center">
 			<div className={`text-xs uppercase ${color}`}>{label}</div>
-			<div className={`text-3xl font-bold tabular-nums ${won ? "text-success" : ""}`}>
-				{wins}
-			</div>
+			<div className={`text-3xl font-bold tabular-nums ${won ? "text-success" : ""}`}>{wins}</div>
 		</div>
 	);
 }
@@ -210,7 +203,6 @@ function GameSummaryCard({
 	participants: LineupParticipant[];
 	champById: Map<number, Champion>;
 }) {
-	const team2Side: Side = game.team1Side === "BLUE" ? "RED" : "BLUE";
 	const lineup = new Map<string, string>();
 	for (const p of participants) lineup.set(`${p.team}_${p.role}`, p.displayName);
 
@@ -225,9 +217,7 @@ function GameSummaryCard({
 	const redTeam: Team = blueTeam === "TEAM_1" ? "TEAM_2" : "TEAM_1";
 
 	const bansFor = (team: Team) =>
-		game.bans
-			.filter((b) => b.team === team)
-			.sort((a, b) => a.position - b.position);
+		game.bans.filter((b) => b.team === team).sort((a, b) => a.position - b.position);
 
 	const duration = game.durationSec
 		? `${Math.floor(game.durationSec / 60)}분 ${game.durationSec % 60}초`
@@ -265,16 +255,10 @@ function GameSummaryCard({
 								}`}
 							>
 								{isWinner && (
-									<span className="absolute top-2 right-2 badge badge-success badge-sm">
-										WIN
-									</span>
+									<span className="absolute top-2 right-2 badge badge-success badge-sm">WIN</span>
 								)}
 								<div className="flex items-center gap-2 mb-2">
-									<span
-										className={`badge badge-sm ${
-											sideTone === "info" ? "badge-info" : "badge-error"
-										}`}
-									>
+									<span className={`badge badge-sm ${sideTone === "info" ? "badge-info" : "badge-error"}`}>
 										{side}
 									</span>
 									<span className="font-bold">{teamLabel}</span>
@@ -282,15 +266,11 @@ function GameSummaryCard({
 
 								{/* 밴 5개 */}
 								<div className="mb-3">
-									<div className="text-[10px] uppercase tracking-wide text-base-content/50 mb-1">
-										밴
-									</div>
+									<div className="text-[10px] uppercase tracking-wide text-base-content/50 mb-1">밴</div>
 									<div className="flex gap-1">
 										{Array.from({ length: teamSize }).map((_, i) => {
 											const ban = bans[i];
-											const banChamp = ban?.championId
-												? champById.get(ban.championId)
-												: null;
+											const banChamp = ban?.championId ? champById.get(ban.championId) : null;
 											return banChamp ? (
 												<img
 													key={i}
@@ -331,13 +311,9 @@ function GameSummaryCard({
 													<div className="text-[10px] text-base-content/60 uppercase tracking-wide">
 														{LANE_LABEL[lane]}
 													</div>
-													<div className="text-sm font-medium truncate">
-														{player}
-													</div>
+													<div className="text-sm font-medium truncate">{player}</div>
 													{pick && (
-														<div className="text-xs text-base-content/70 truncate">
-															{pick.championName}
-														</div>
+														<div className="text-xs text-base-content/70 truncate">{pick.championName}</div>
 													)}
 												</div>
 											</div>

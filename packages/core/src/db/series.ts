@@ -40,16 +40,12 @@ export interface CreateSeriesInput {
 export async function createSeries(input: CreateSeriesInput): Promise<SeriesRow> {
 	const n = input.participants.length;
 	if (n < 2 || n > 10 || n % 2 !== 0) {
-		throw new Error(
-			`createSeries: 참가자 수 ${n} — 2~10 짝수 (1v1 ~ 5v5) 만 지원`,
-		);
+		throw new Error(`createSeries: 참가자 수 ${n} — 2~10 짝수 (1v1 ~ 5v5) 만 지원`);
 	}
 	const t1 = input.participants.filter((p) => p.team === "TEAM_1");
 	const t2 = input.participants.filter((p) => p.team === "TEAM_2");
 	if (t1.length !== t2.length) {
-		throw new Error(
-			`createSeries: 팀 크기 불일치 (TEAM_1=${t1.length}, TEAM_2=${t2.length})`,
-		);
+		throw new Error(`createSeries: 팀 크기 불일치 (TEAM_1=${t1.length}, TEAM_2=${t2.length})`);
 	}
 	const t1Roles = new Set(t1.map((p) => p.role));
 	const t2Roles = new Set(t2.map((p) => p.role));
@@ -87,13 +83,10 @@ export async function getSeries(id: number): Promise<SeriesRow | undefined> {
 	return queryOne<SeriesRow>(`SELECT * FROM series WHERE id = ?`, [id]);
 }
 
-export async function getSeriesParticipants(
-	seriesId: number,
-): Promise<SeriesParticipantRow[]> {
-	return query<SeriesParticipantRow>(
-		`SELECT * FROM series_participants WHERE series_id = ?`,
-		[seriesId],
-	);
+export async function getSeriesParticipants(seriesId: number): Promise<SeriesParticipantRow[]> {
+	return query<SeriesParticipantRow>(`SELECT * FROM series_participants WHERE series_id = ?`, [
+		seriesId,
+	]);
 }
 
 export async function completeSeries(id: number, winningTeam: Team): Promise<void> {
@@ -134,10 +127,9 @@ export async function listStaleOpenSeries(cutoffUnixSec: number): Promise<Series
  * 단, user_lane_mmr 의 누적값은 자동으로 되돌리지 않음 — 별도 rollback 필요.
  */
 export async function deleteSeriesPhysical(seriesId: number): Promise<void> {
-	await execute(
-		`UPDATE recruitments SET converted_series_id = NULL WHERE converted_series_id = ?`,
-		[seriesId],
-	);
+	await execute(`UPDATE recruitments SET converted_series_id = NULL WHERE converted_series_id = ?`, [
+		seriesId,
+	]);
 	await execute(`DELETE FROM series WHERE id = ?`, [seriesId]);
 }
 
@@ -150,10 +142,11 @@ export async function setSeriesMessage(
 	channelId: string,
 	messageId: string,
 ): Promise<void> {
-	await execute(
-		`UPDATE series SET channel_id = ?, message_id = ? WHERE id = ?`,
-		[channelId, messageId, seriesId],
-	);
+	await execute(`UPDATE series SET channel_id = ?, message_id = ? WHERE id = ?`, [
+		channelId,
+		messageId,
+		seriesId,
+	]);
 }
 
 export async function listOpenSeriesByUser(userId: string): Promise<SeriesRow[]> {
@@ -169,10 +162,7 @@ export async function listOpenSeriesByUser(userId: string): Promise<SeriesRow[]>
 /**
  * 사용자가 참가했거나 운영한 최근 시리즈 (모든 status). /내전반복 자동완성용.
  */
-export async function listRecentSeriesForUser(
-	userId: string,
-	limit = 25,
-): Promise<SeriesRow[]> {
+export async function listRecentSeriesForUser(userId: string, limit = 25): Promise<SeriesRow[]> {
 	return query<SeriesRow>(
 		`SELECT DISTINCT s.* FROM series s
 		 LEFT JOIN series_participants sp ON sp.series_id = s.id

@@ -31,9 +31,7 @@ export function LineupPreview({
 		byTeamRole.set(`${p.team}_${p.role}`, p.displayName);
 	}
 	// 활성 라인 = 양 팀 참가자에 등장한 라인의 합집합
-	const activeLanes = LANE_ORDER.filter((l) =>
-		participants.some((p) => p.role === l),
-	);
+	const activeLanes = LANE_ORDER.filter((l) => participants.some((p) => p.role === l));
 
 	return (
 		<div
