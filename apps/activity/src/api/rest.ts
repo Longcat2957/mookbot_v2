@@ -1,7 +1,7 @@
 export async function api<T>(path: string, init?: RequestInit): Promise<T> {
 	// body 가 있을 때만 Content-Type: application/json — 빈 body 에 헤더 설정하면
 	// Fastify 가 "Body cannot be empty when content-type is set to application/json" 으로 400 반환.
-	const headers: Record<string, string> = { ...(init?.headers as Record<string, string> ?? {}) };
+	const headers: Record<string, string> = { ...((init?.headers as Record<string, string>) ?? {}) };
 	if (init?.body !== undefined && !("Content-Type" in headers)) {
 		headers["Content-Type"] = "application/json";
 	}

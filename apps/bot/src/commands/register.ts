@@ -1,9 +1,5 @@
-import {
-	type ChatInputCommandInteraction,
-	EmbedBuilder,
-	SlashCommandBuilder,
-} from "discord.js";
 import { db, riot } from "@mookbot/core";
+import { type ChatInputCommandInteraction, EmbedBuilder, SlashCommandBuilder } from "discord.js";
 
 export const data = new SlashCommandBuilder()
 	.setName("등록")
@@ -83,9 +79,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
 			embeds: [
 				new EmbedBuilder()
 					.setTitle("⚠️ 등록 완료, 라이엇 연결 실패")
-					.setDescription(
-						`디스코드 등록 OK. 라이엇 서버에서 \`${riotIdInput}\` 를 찾지 못함 (${msg}).`,
-					)
+					.setDescription(`디스코드 등록 OK. 라이엇 서버에서 \`${riotIdInput}\` 를 찾지 못함 (${msg}).`)
 					.setColor(0xe8b339),
 			],
 		});

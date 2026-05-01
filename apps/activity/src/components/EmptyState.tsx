@@ -27,10 +27,7 @@ export function EmptyState({
 	tone = "neutral",
 }: EmptyStateProps) {
 	return (
-		<div
-			className={`card bg-base-200 border ${TONE_BORDER[tone]} shadow-sm`}
-			role="status"
-		>
+		<div className={`card bg-base-200 border ${TONE_BORDER[tone]} shadow-sm`} role="status">
 			<div className="card-body items-center text-center py-8 gap-3">
 				{icon && (
 					<div className="text-base-content/40" aria-hidden>
@@ -38,16 +35,12 @@ export function EmptyState({
 					</div>
 				)}
 				<h3 className="card-title text-base">{title}</h3>
-				{description && (
-					<p className="text-sm text-base-content/70 max-w-prose">{description}</p>
-				)}
+				{description && <p className="text-sm text-base-content/70 max-w-prose">{description}</p>}
 				{steps && steps.length > 0 && (
 					<ol className="text-sm text-base-content/80 mt-2 space-y-1.5 text-left max-w-prose">
 						{steps.map((s, i) => (
 							<li key={i} className="flex gap-2">
-								<span className="badge badge-ghost badge-sm shrink-0 mt-0.5 tabular-nums">
-									{i + 1}
-								</span>
+								<span className="badge badge-ghost badge-sm shrink-0 mt-0.5 tabular-nums">{i + 1}</span>
 								<span>{s}</span>
 							</li>
 						))}

@@ -1,0 +1,88 @@
+{
+	"$schema": "https://biomejs.dev/schemas/2.4.13/schema.json",
+	"vcs": {
+		"enabled": true,
+		"clientKind": "git",
+		"useIgnoreFile": true
+	},
+	"files": {
+		"includes": [
+			"**/*.ts",
+			"**/*.tsx",
+			"**/*.json",
+			"**/*.jsonc",
+			"!**/dist",
+			"!**/node_modules",
+			"!**/.svelte-kit",
+			"!pnpm-lock.yaml"
+		]
+	},
+	"formatter": {
+		"enabled": true,
+		"indentStyle": "tab",
+		"indentWidth": 1,
+		"lineWidth": 100,
+		"lineEnding": "lf"
+	},
+	"javascript": {
+		"formatter": {
+			"quoteStyle": "double",
+			"semicolons": "always",
+			"trailingCommas": "all",
+			"arrowParentheses": "always"
+		}
+	},
+	"linter": {
+		"enabled": true,
+		"rules": {
+			"recommended": true,
+			"suspicious": {
+				"noExplicitAny": "error",
+				"noConsole": {
+					"level": "warn",
+					"options": { "allow": ["warn", "error"] }
+				},
+				"noArrayIndexKey": "warn"
+			},
+			"style": {
+				"noNonNullAssertion": "warn",
+				"useImportType": "error",
+				"noUselessElse": "error"
+			},
+			"correctness": {
+				"noUnusedVariables": "error",
+				"noUnusedImports": "error",
+				"useExhaustiveDependencies": "warn"
+			},
+			"a11y": {
+				"useAriaPropsSupportedByRole": "warn",
+				"noStaticElementInteractions": "warn",
+				"useButtonType": "warn",
+				"useSemanticElements": "warn",
+				"useKeyWithClickEvents": "warn",
+				"noNoninteractiveTabindex": "warn"
+			}
+		}
+	},
+	"assist": {
+		"enabled": true,
+		"actions": {
+			"source": {
+				"organizeImports": "on"
+			}
+		}
+	},
+	"overrides": [
+		{
+			"includes": ["**/*.test.ts", "**/*.spec.ts", "**/__tests__/**"],
+			"linter": {
+				"rules": {
+					"suspicious": {
+						"noConsole": "off",
+						"noExplicitAny": "warn"
+					}
+				}
+			}
+		}
+	]
+}

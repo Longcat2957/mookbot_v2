@@ -51,28 +51,21 @@ export class ErrorBoundary extends Component<Props, State> {
 						</div>
 						<div className="flex-1 min-w-0">
 							<h2 className="text-lg font-bold text-error">
-								{this.props.label
-									? `${this.props.label} — 화면 렌더링 오류`
-									: "화면 렌더링 오류"}
+								{this.props.label ? `${this.props.label} — 화면 렌더링 오류` : "화면 렌더링 오류"}
 							</h2>
 							<p className="text-sm text-base-content/70 mt-1">
-								예상치 못한 오류가 발생했습니다. 아래 정보를 운영자에게 전달하면
-								진단에 도움이 됩니다.
+								예상치 못한 오류가 발생했습니다. 아래 정보를 운영자에게 전달하면 진단에 도움이 됩니다.
 							</p>
 						</div>
 					</div>
 
 					<div className="bg-base-300 rounded-md p-3 overflow-auto max-h-48">
-						<pre className="text-xs text-base-content/90 whitespace-pre-wrap break-words">
-							{stack}
-						</pre>
+						<pre className="text-xs text-base-content/90 whitespace-pre-wrap break-words">{stack}</pre>
 					</div>
 
 					{componentStack && (
 						<details className="bg-base-300/60 rounded-md p-2">
-							<summary className="cursor-pointer text-xs text-base-content/70">
-								컴포넌트 스택
-							</summary>
+							<summary className="cursor-pointer text-xs text-base-content/70">컴포넌트 스택</summary>
 							<pre className="text-[10px] text-base-content/70 whitespace-pre-wrap mt-2 max-h-40 overflow-auto">
 								{componentStack}
 							</pre>
@@ -80,11 +73,7 @@ export class ErrorBoundary extends Component<Props, State> {
 					)}
 
 					<div className="flex flex-wrap gap-2">
-						<button
-							type="button"
-							className="btn btn-sm btn-primary"
-							onClick={this.reset}
-						>
+						<button type="button" className="btn btn-sm btn-primary" onClick={this.reset}>
 							↻ 다시 시도
 						</button>
 						<button

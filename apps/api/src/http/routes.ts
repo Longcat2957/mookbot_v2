@@ -1,5 +1,5 @@
-import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import { cloudflare, datadragon, db } from "@mookbot/core";
+import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import { diagnosePerms, userCanEdit } from "../auth/perms.js";
 import { broadcast } from "../ws/rooms.js";
 import { recordBotHeartbeat, registerHealthzRoutes } from "./healthz.js";
@@ -25,10 +25,7 @@ function requireSession(req: FastifyRequest, reply: FastifyReply): string | null
 	return sid.value;
 }
 
-async function requireEditor(
-	req: FastifyRequest,
-	reply: FastifyReply,
-): Promise<string | null> {
+async function requireEditor(req: FastifyRequest, reply: FastifyReply): Promise<string | null> {
 	const sid = requireSession(req, reply);
 	if (!sid) return null;
 	const ok = await userCanEdit(sid);
@@ -141,9 +138,7 @@ export async function registerRoutes(app: FastifyInstance): Promise<void> {
 		return {
 			discordId: sid,
 			canEdit,
-			operatorRoleConfigured: Boolean(
-				process.env.OPERATOR_ROLE_ID || process.env.OPERATOR_ROLE_NAME,
-			),
+			operatorRoleConfigured: Boolean(process.env.OPERATOR_ROLE_ID || process.env.OPERATOR_ROLE_NAME),
 		};
 	});
 
@@ -206,12 +201,7 @@ export async function registerRoutes(app: FastifyInstance): Promise<void> {
 				participants: assignments.map((a) => ({
 					userId: a.userId,
 					team: a.team,
-					role: a.role as
-						| "TOP"
-						| "JUNGLE"
-						| "MID"
-						| "BOTTOM"
-						| "SUPPORT",
+					role: a.role as "TOP" | "JUNGLE" | "MID" | "BOTTOM" | "SUPPORT",
 				})),
 			});
 			await db.setRecruitmentStatus(recruitmentId, "CONVERTED", series.id);
@@ -227,61 +217,54 @@ export async function registerRoutes(app: FastifyInstance): Promise<void> {
 	});
 
 	// 종료된 시리즈 목록 (status=COMPLETED) — 지난 내전 기록.
-	app.get<{ Querystring: { limit?: string } }>(
-		"/api/series/completed",
-		async (req, reply) => {
-			const sid = requireSession(req, reply);
-			if (!sid) return;
+	app.get<{ Querystring: { limit?: string } }>("/api/series/completed", async (req, reply) => {
+		const sid = requireSession(req, reply);
+		if (!sid) return;
 
-			const limit = Math.min(50, Math.max(1, Number(req.query.limit ?? 20)));
-			const rows = await cloudflare.query<{
-				id: number;
-				season_id: number;
-				status: string;
-				winning_team: string | null;
-				started_at: number;
-				ended_at: number | null;
-			}>(
-				`SELECT id, season_id, status, winning_team, started_at, ended_at
+		const limit = Math.min(50, Math.max(1, Number(req.query.limit ?? 20)));
+		const rows = await cloudflare.query<{
+			id: number;
+			season_id: number;
+			status: string;
+			winning_team: string | null;
+			started_at: number;
+			ended_at: number | null;
+		}>(
+			`SELECT id, season_id, status, winning_team, started_at, ended_at
 				 FROM series
 				 WHERE status = 'COMPLETED'
 				 ORDER BY ended_at DESC
 				 LIMIT ?`,
-				[limit],
-			);
-			if (rows.length === 0) return { series: [] };
+			[limit],
+		);
+		if (rows.length === 0) return { series: [] };
 
-			const seriesIds = rows.map((s) => s.id);
-			const partsAll = await Promise.all(
-				seriesIds.map((id) => db.getSeriesParticipants(id)),
-			);
-			const allUserIds = [...new Set(partsAll.flat().map((p) => p.user_id))];
-			const users = await db.listUsers(allUserIds);
-			const nameById = new Map(users.map((u) => [u.discord_id, u.display_name]));
+		const seriesIds = rows.map((s) => s.id);
+		const partsAll = await Promise.all(seriesIds.map((id) => db.getSeriesParticipants(id)));
+		const allUserIds = [...new Set(partsAll.flat().map((p) => p.user_id))];
+		const users = await db.listUsers(allUserIds);
+		const nameById = new Map(users.map((u) => [u.discord_id, u.display_name]));
 
-			const winsAll = await Promise.all(
-				rows.map((s) => db.countSeriesWins(s.id)),
-			);
+		const winsAll = await Promise.all(rows.map((s) => db.countSeriesWins(s.id)));
 
-			return {
-				series: rows.map((s, i) => ({
-					id: s.id,
-					seasonId: s.season_id,
-					status: s.status,
-					winningTeam: s.winning_team,
-					startedAt: s.started_at,
-					endedAt: s.ended_at,
-					wins: winsAll[i] ?? { team1: 0, team2: 0 },
-					participants: (partsAll[i] ?? []).map((p) => ({
-						userId: p.user_id,
-						displayName: nameById.get(p.user_id) ?? p.user_id,
-						team: p.team,
-						role: p.role,
-					})),
+		return {
+			series: rows.map((s, i) => ({
+				id: s.id,
+				seasonId: s.season_id,
+				status: s.status,
+				winningTeam: s.winning_team,
+				startedAt: s.started_at,
+				endedAt: s.ended_at,
+				wins: winsAll[i] ?? { team1: 0, team2: 0 },
+				participants: (partsAll[i] ?? []).map((p) => ({
+					userId: p.user_id,
+					displayName: nameById.get(p.user_id) ?? p.user_id,
+					team: p.team,
+					role: p.role,
 				})),
-			};
-		},
-	);
+			})),
+		};
+	});
 
 	// 진행 중 시리즈 목록 (status=IN_PROGRESS) — Activity 재진입 시 이어서 작업.
 	// 카드 미리보기용으로 라인업도 같이 반환.
@@ -294,12 +277,8 @@ export async function registerRoutes(app: FastifyInstance): Promise<void> {
 
 		// 모든 참가자 한 번에 — 시리즈별로 그룹핑
 		const seriesIds = rows.map((s) => s.id);
-		const partsAll = await Promise.all(
-			seriesIds.map((id) => db.getSeriesParticipants(id)),
-		);
-		const allUserIds = [
-			...new Set(partsAll.flat().map((p) => p.user_id)),
-		];
+		const partsAll = await Promise.all(seriesIds.map((id) => db.getSeriesParticipants(id)));
+		const allUserIds = [...new Set(partsAll.flat().map((p) => p.user_id))];
 		const users = await db.listUsers(allUserIds);
 		const nameById = new Map(users.map((u) => [u.discord_id, u.display_name]));
 
@@ -339,12 +318,8 @@ export async function registerRoutes(app: FastifyInstance): Promise<void> {
 		const games = await db.listGamesInSeries(id);
 		// 게임별 picks/bans 조회 — picks 는 하드피어리스 검증, bans 는 SeriesResult 화면용
 		const [gamePicks, gameBans] = await Promise.all([
-			Promise.all(
-				games.map(async (g) => ({ gameId: g.id, picks: await db.getGamePicks(g.id) })),
-			),
-			Promise.all(
-				games.map(async (g) => ({ gameId: g.id, bans: await db.getGameBans(g.id) })),
-			),
+			Promise.all(games.map(async (g) => ({ gameId: g.id, picks: await db.getGamePicks(g.id) }))),
+			Promise.all(games.map(async (g) => ({ gameId: g.id, bans: await db.getGameBans(g.id) }))),
 		]);
 		const picksByGame = new Map(gamePicks.map((x) => [x.gameId, x.picks]));
 		const bansByGame = new Map(gameBans.map((x) => [x.gameId, x.bans]));
@@ -413,7 +388,10 @@ export async function registerRoutes(app: FastifyInstance): Promise<void> {
 			team1Side: "BLUE" | "RED";
 			winningTeam: "TEAM_1" | "TEAM_2";
 			durationMin?: number;
-			picks: { TEAM_1: { role: string; championId: number }[]; TEAM_2: { role: string; championId: number }[] };
+			picks: {
+				TEAM_1: { role: string; championId: number }[];
+				TEAM_2: { role: string; championId: number }[];
+			};
 			bans: { TEAM_1: number[]; TEAM_2: number[] };
 		};
 	}>("/api/series/:id/games", async (req, reply) => {
@@ -438,9 +416,7 @@ export async function registerRoutes(app: FastifyInstance): Promise<void> {
 		const games = await db.listGamesInSeries(id);
 		const completed = new Set<number>(games.map((g) => g.game_number));
 		if (gameNumber > 1 && !completed.has(gameNumber - 1)) {
-			return reply
-				.code(409)
-				.send({ error: `Game ${gameNumber - 1} 결과를 먼저 입력해야 합니다.` });
+			return reply.code(409).send({ error: `Game ${gameNumber - 1} 결과를 먼저 입력해야 합니다.` });
 		}
 		if (completed.has(gameNumber)) {
 			return reply.code(409).send({ error: `Game ${gameNumber} 은(는) 이미 기록됨` });
@@ -458,9 +434,7 @@ export async function registerRoutes(app: FastifyInstance): Promise<void> {
 			for (const pick of body.picks[team]) {
 				const userId = userByTeamRole.get(`${team}_${pick.role}`);
 				if (!userId) {
-					return reply
-						.code(400)
-						.send({ error: `${team}/${pick.role} 슬롯에 참가자 없음` });
+					return reply.code(400).send({ error: `${team}/${pick.role} 슬롯에 참가자 없음` });
 				}
 				stats.push({ userId, championId: pick.championId });
 				picksFlat.push({
@@ -529,54 +503,49 @@ export async function registerRoutes(app: FastifyInstance): Promise<void> {
 	});
 
 	// 직전 게임 되돌리기 — 마지막으로 기록된 game DELETE (cascade)
-	app.delete<{ Params: { id: string } }>(
-		"/api/series/:id/games/last",
-		async (req, reply) => {
-			const sid = await requireEditor(req, reply);
-			if (!sid) return;
+	app.delete<{ Params: { id: string } }>("/api/series/:id/games/last", async (req, reply) => {
+		const sid = await requireEditor(req, reply);
+		if (!sid) return;
 
-			const id = Number(req.params.id);
-			if (!Number.isFinite(id)) return reply.code(400).send({ error: "invalid id" });
-			const s = await db.getSeries(id);
-			if (!s) return reply.code(404).send({ error: "not found" });
+		const id = Number(req.params.id);
+		if (!Number.isFinite(id)) return reply.code(400).send({ error: "invalid id" });
+		const s = await db.getSeries(id);
+		if (!s) return reply.code(404).send({ error: "not found" });
 
-			const games = await db.listGamesInSeries(id);
-			if (games.length === 0) {
-				return reply.code(409).send({ error: "되돌릴 게임이 없습니다." });
-			}
-			const last = games[games.length - 1]!;
+		const games = await db.listGamesInSeries(id);
+		if (games.length === 0) {
+			return reply.code(409).send({ error: "되돌릴 게임이 없습니다." });
+		}
+		const last = games[games.length - 1]!;
 
-			// game DELETE 시 cascade 로 stats/picks/bans/mmr_changes 정리.
-			// user_lane_mmr 차감은 recordGame 에서만 처리하므로 직접 보정 필요.
-			const mmrChanges = await cloudflare.query<{
-				user_id: string;
-				role: string;
-				delta: number;
-				season_id: number;
-			}>(`SELECT user_id, role, delta, season_id FROM mmr_changes WHERE game_id = ?`, [
-				last.id,
-			]);
-			await cloudflare.execute(`DELETE FROM games WHERE id = ?`, [last.id]);
-			for (const c of mmrChanges) {
-				await cloudflare.execute(
-					`UPDATE user_lane_mmr SET mmr = mmr - ? WHERE user_id = ? AND role = ? AND season_id = ?`,
-					[c.delta, c.user_id, c.role, c.season_id],
-				);
-			}
+		// game DELETE 시 cascade 로 stats/picks/bans/mmr_changes 정리.
+		// user_lane_mmr 차감은 recordGame 에서만 처리하므로 직접 보정 필요.
+		const mmrChanges = await cloudflare.query<{
+			user_id: string;
+			role: string;
+			delta: number;
+			season_id: number;
+		}>(`SELECT user_id, role, delta, season_id FROM mmr_changes WHERE game_id = ?`, [last.id]);
+		await cloudflare.execute(`DELETE FROM games WHERE id = ?`, [last.id]);
+		for (const c of mmrChanges) {
+			await cloudflare.execute(
+				`UPDATE user_lane_mmr SET mmr = mmr - ? WHERE user_id = ? AND role = ? AND season_id = ?`,
+				[c.delta, c.user_id, c.role, c.season_id],
+			);
+		}
 
-			// 시리즈가 COMPLETED 였으면 IN_PROGRESS 로 복원
-			if (s.status === "COMPLETED") {
-				await cloudflare.execute(
-					`UPDATE series SET status = 'IN_PROGRESS', winning_team = NULL, ended_at = NULL WHERE id = ?`,
-					[id],
-				);
-			}
+		// 시리즈가 COMPLETED 였으면 IN_PROGRESS 로 복원
+		if (s.status === "COMPLETED") {
+			await cloudflare.execute(
+				`UPDATE series SET status = 'IN_PROGRESS', winning_team = NULL, ended_at = NULL WHERE id = ?`,
+				[id],
+			);
+		}
 
-			invalidate(`series:${id}`);
-			invalidate("dashboard");
-			return { ok: true, deletedGame: last.game_number };
-		},
-	);
+		invalidate(`series:${id}`);
+		invalidate("dashboard");
+		return { ok: true, deletedGame: last.game_number };
+	});
 
 	// 픽/밴 draft 저장 (full replace) — guild_kv 에 JSON 으로 보관
 	app.put<{ Params: { id: string }; Body: unknown }>(
@@ -601,47 +570,44 @@ export async function registerRoutes(app: FastifyInstance): Promise<void> {
 	);
 
 	// 시리즈를 엔트리 수정 대기 상태로 되돌리기 — 게임이 하나도 없을 때만 허용
-	app.post<{ Params: { id: string } }>(
-		"/api/series/:id/revert",
-		async (req, reply) => {
-			const sid = await requireEditor(req, reply);
-			if (!sid) return;
+	app.post<{ Params: { id: string } }>("/api/series/:id/revert", async (req, reply) => {
+		const sid = await requireEditor(req, reply);
+		if (!sid) return;
 
-			const id = Number(req.params.id);
-			if (!Number.isFinite(id)) return reply.code(400).send({ error: "invalid id" });
-			const s = await db.getSeries(id);
-			if (!s) return reply.code(404).send({ error: "not found" });
-			if (s.status !== "IN_PROGRESS") {
-				return reply.code(409).send({ error: `series status is ${s.status}` });
-			}
-			const games = await db.listGamesInSeries(id);
-			if (games.length > 0) {
-				return reply.code(409).send({
-					error: `이미 ${games.length}개 게임이 기록된 시리즈는 되돌릴 수 없습니다.`,
-				});
-			}
+		const id = Number(req.params.id);
+		if (!Number.isFinite(id)) return reply.code(400).send({ error: "invalid id" });
+		const s = await db.getSeries(id);
+		if (!s) return reply.code(404).send({ error: "not found" });
+		if (s.status !== "IN_PROGRESS") {
+			return reply.code(409).send({ error: `series status is ${s.status}` });
+		}
+		const games = await db.listGamesInSeries(id);
+		if (games.length > 0) {
+			return reply.code(409).send({
+				error: `이미 ${games.length}개 게임이 기록된 시리즈는 되돌릴 수 없습니다.`,
+			});
+		}
 
-			// 모집 찾기 (converted_series_id = id)
-			const recRow = await cloudflare.queryOne<{ id: number }>(
-				`SELECT id FROM recruitments WHERE converted_series_id = ?`,
-				[id],
-			);
+		// 모집 찾기 (converted_series_id = id)
+		const recRow = await cloudflare.queryOne<{ id: number }>(
+			`SELECT id FROM recruitments WHERE converted_series_id = ?`,
+			[id],
+		);
 
-			// 순서 중요 — recruitments.converted_series_id 가 series.id 를 FK 로 참조하므로
-			// 1) 모집 status 복원 + converted_series_id NULL 로 설정 (FK 해제)
-			// 2) 그 다음 시리즈 DELETE (CASCADE 로 series_participants 정리)
-			if (recRow) {
-				await db.setRecruitmentStatus(recRow.id, "CLOSED");
-			}
-			await cloudflare.execute(`DELETE FROM series WHERE id = ?`, [id]);
-			await db.deleteKv(`pickban:${id}`);
+		// 순서 중요 — recruitments.converted_series_id 가 series.id 를 FK 로 참조하므로
+		// 1) 모집 status 복원 + converted_series_id NULL 로 설정 (FK 해제)
+		// 2) 그 다음 시리즈 DELETE (CASCADE 로 series_participants 정리)
+		if (recRow) {
+			await db.setRecruitmentStatus(recRow.id, "CLOSED");
+		}
+		await cloudflare.execute(`DELETE FROM series WHERE id = ?`, [id]);
+		await db.deleteKv(`pickban:${id}`);
 
-			invalidate(`series:${id}`);
-			invalidate("dashboard");
-			if (recRow) invalidate(`recruitment:${recRow.id}`);
-			return { ok: true, recruitmentId: recRow?.id ?? null };
-		},
-	);
+		invalidate(`series:${id}`);
+		invalidate("dashboard");
+		if (recRow) invalidate(`recruitment:${recRow.id}`);
+		return { ok: true, recruitmentId: recRow?.id ?? null };
+	});
 
 	// Champion 전체 리스트 (Data Dragon) — iconUrl 은 /dd/ 프록시 경로로 변환
 	app.get("/api/champions", async (req, reply) => {
@@ -649,9 +615,7 @@ export async function registerRoutes(app: FastifyInstance): Promise<void> {
 		if (!sid) return;
 
 		return {
-			champions: datadragon
-				.getAllChampions()
-				.map((c) => ({ ...c, iconUrl: rewriteDD(c.iconUrl) })),
+			champions: datadragon.getAllChampions().map((c) => ({ ...c, iconUrl: rewriteDD(c.iconUrl) })),
 		};
 	});
 
@@ -738,7 +702,7 @@ interface RolePlay extends WL {
 interface PlayHistory {
 	total: WL;
 	topChampions: ChampionPlay[]; // 가장 많이 플레이한 챔프 top 5
-	rolePlays: RolePlay[];        // 라인별 W/L (count 기준 desc)
+	rolePlays: RolePlay[]; // 라인별 W/L (count 기준 desc)
 	topRole: RolePlay | null;
 }
 

@@ -1,31 +1,31 @@
 {
-  "name": "@mookbot/core",
-  "private": true,
-  "version": "0.0.0",
-  "type": "module",
-  "main": "dist/index.js",
-  "types": "dist/index.d.ts",
-  "exports": {
-    ".": "./dist/index.js",
-    "./db": "./dist/db/index.js",
-    "./riot": "./dist/riot/index.js",
-    "./mmr": "./dist/mmr/index.js",
-    "./datadragon": "./dist/datadragon/index.js"
-  },
-  "scripts": {
-    "build": "tsc",
-    "typecheck": "tsc --noEmit",
-    "db:migrate": "tsx src/db/migrate.ts",
-    "db:migrate:drop": "tsx src/db/migrate.ts --drop"
-  },
-  "dependencies": {
-    "dotenv": "^17.4.1",
-    "pino": "^10.3.1",
-    "pino-abstract-transport": "^2.0.0"
-  },
-  "devDependencies": {
-    "@types/node": "^25.5.2",
-    "tsx": "^4.21.0",
-    "typescript": "^6.0.2"
-  }
+	"name": "@mookbot/core",
+	"private": true,
+	"version": "0.0.0",
+	"type": "module",
+	"main": "dist/index.js",
+	"types": "dist/index.d.ts",
+	"exports": {
+		".": "./dist/index.js",
+		"./db": "./dist/db/index.js",
+		"./riot": "./dist/riot/index.js",
+		"./mmr": "./dist/mmr/index.js",
+		"./datadragon": "./dist/datadragon/index.js"
+	},
+	"scripts": {
+		"build": "tsc",
+		"typecheck": "tsc --noEmit",
+		"db:migrate": "tsx src/db/migrate.ts",
+		"db:migrate:drop": "tsx src/db/migrate.ts --drop"
+	},
+	"dependencies": {
+		"dotenv": "^17.4.1",
+		"pino": "^10.3.1",
+		"pino-abstract-transport": "^2.0.0"
+	},
+	"devDependencies": {
+		"@types/node": "^25.5.2",
+		"tsx": "^4.21.0",
+		"typescript": "^6.0.2"
+	}
 }

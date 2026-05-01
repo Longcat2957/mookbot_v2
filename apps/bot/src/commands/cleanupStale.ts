@@ -1,3 +1,4 @@
+import { db } from "@mookbot/core";
 import {
 	ActionRowBuilder,
 	ButtonBuilder,
@@ -7,7 +8,6 @@ import {
 	EmbedBuilder,
 	SlashCommandBuilder,
 } from "discord.js";
-import { db } from "@mookbot/core";
 import { requireOperator } from "../utils/operator.js";
 
 const {

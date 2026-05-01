@@ -37,9 +37,7 @@ export function assertNear(actual: number, expected: number, eps: number, label:
 		console.log(`  ✓ ${label}  →  ${actual.toFixed(3)} (≈ ${expected})`);
 		_pass++;
 	} else {
-		console.log(
-			`  ✗ ${label}  →  expected ≈${expected} (±${eps}), got ${actual.toFixed(3)}`,
-		);
+		console.log(`  ✗ ${label}  →  expected ≈${expected} (±${eps}), got ${actual.toFixed(3)}`);
 		_fail++;
 		_failures.push(`${label} (expected ≈${expected}, got ${actual.toFixed(3)})`);
 	}

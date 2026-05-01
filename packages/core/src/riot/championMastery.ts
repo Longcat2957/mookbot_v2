@@ -11,7 +11,10 @@ export async function getChampionMasteries(puuid: string): Promise<ChampionMaste
 /**
  * Get top N champion masteries for a player.
  */
-export async function getTopMasteries(puuid: string, count: number = 5): Promise<ChampionMasteryDto[]> {
+export async function getTopMasteries(
+	puuid: string,
+	count: number = 5,
+): Promise<ChampionMasteryDto[]> {
 	const masteries = await getChampionMasteries(puuid);
 	return masteries.slice(0, count);
 }

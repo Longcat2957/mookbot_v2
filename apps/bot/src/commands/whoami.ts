@@ -1,9 +1,5 @@
-import {
-	type ChatInputCommandInteraction,
-	EmbedBuilder,
-	SlashCommandBuilder,
-} from "discord.js";
 import { db } from "@mookbot/core";
+import { type ChatInputCommandInteraction, EmbedBuilder, SlashCommandBuilder } from "discord.js";
 
 const ROLE_LABEL: Record<string, string> = {
 	TOP: "탑",
@@ -36,9 +32,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
 	const main = await db.getMainRiotAccount(target.id);
 	const season = await db.getCurrentSeason();
 
-	const eb = new EmbedBuilder()
-		.setTitle(`📇 ${user.display_name} 의 정보`)
-		.setColor(0x5b6df2);
+	const eb = new EmbedBuilder().setTitle(`📇 ${user.display_name} 의 정보`).setColor(0x5b6df2);
 
 	if (riotAccounts.length === 0) {
 		eb.addFields({

@@ -39,10 +39,10 @@ export interface CurrentGameParticipantDto {
 // --- Summoner v4 ---
 
 export interface SummonerDto {
-	id?: string;      // deprecated — may be missing
+	id?: string; // deprecated — may be missing
 	accountId?: string; // deprecated — may be missing
 	puuid: string;
-	name?: string;    // deprecated — may be missing
+	name?: string; // deprecated — may be missing
 	profileIconId: number;
 	revisionDate: number;
 	summonerLevel: number;
@@ -202,7 +202,7 @@ export interface MatchParticipantDto {
 	riotIdTagline: string;
 	role: string;
 	sightWardsBoughtInGame: number;
- spell1Casts: number;
+	spell1Casts: number;
 	spell2Casts: number;
 	spell3Casts: number;
 	spell4Casts: number;

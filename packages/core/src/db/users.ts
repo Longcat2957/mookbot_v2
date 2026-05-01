@@ -33,10 +33,7 @@ export async function getUser(discordId: string): Promise<UserRow | undefined> {
 export async function listUsers(discordIds: readonly string[]): Promise<UserRow[]> {
 	if (discordIds.length === 0) return [];
 	const { placeholders, params } = inClause(discordIds);
-	return query<UserRow>(
-		`SELECT * FROM users WHERE discord_id IN ${placeholders}`,
-		params,
-	);
+	return query<UserRow>(`SELECT * FROM users WHERE discord_id IN ${placeholders}`, params);
 }
 
 /**
@@ -83,9 +80,7 @@ export async function getMainRiotAccount(userId: string): Promise<RiotAccountRow
 	);
 }
 
-export async function listMainRiotAccounts(
-	userIds: readonly string[],
-): Promise<RiotAccountRow[]> {
+export async function listMainRiotAccounts(userIds: readonly string[]): Promise<RiotAccountRow[]> {
 	if (userIds.length === 0) return [];
 	const { placeholders, params } = inClause(userIds);
 	return query<RiotAccountRow>(

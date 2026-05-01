@@ -1,9 +1,5 @@
-import {
-	type ChatInputCommandInteraction,
-	EmbedBuilder,
-	SlashCommandBuilder,
-} from "discord.js";
 import { datadragon, db, riot } from "@mookbot/core";
+import { type ChatInputCommandInteraction, EmbedBuilder, SlashCommandBuilder } from "discord.js";
 
 export const data = new SlashCommandBuilder()
 	.setName("지금게임")
@@ -11,9 +7,7 @@ export const data = new SlashCommandBuilder()
 	.addStringOption((o) =>
 		o.setName("riot_id").setDescription("(선택) GameName#TagLine. 비우면 본인 메인 계정"),
 	)
-	.addUserOption((o) =>
-		o.setName("user").setDescription("(선택) 다른 사용자의 메인 계정"),
-	);
+	.addUserOption((o) => o.setName("user").setDescription("(선택) 다른 사용자의 메인 계정"));
 
 export async function execute(interaction: ChatInputCommandInteraction): Promise<void> {
 	const riotIdInput = interaction.options.getString("riot_id");

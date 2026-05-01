@@ -21,10 +21,9 @@ async function fetchGuildMember(userId: string): Promise<{ roles: string[] } | n
 	const botToken = process.env.DISCORD_TOKEN;
 	if (!guildId || !botToken) return null;
 
-	const res = await fetch(
-		`https://discord.com/api/v10/guilds/${guildId}/members/${userId}`,
-		{ headers: { Authorization: `Bot ${botToken}` } },
-	);
+	const res = await fetch(`https://discord.com/api/v10/guilds/${guildId}/members/${userId}`, {
+		headers: { Authorization: `Bot ${botToken}` },
+	});
 	if (!res.ok) return null;
 	const data = (await res.json()) as { roles: string[] };
 	return { roles: data.roles ?? [] };

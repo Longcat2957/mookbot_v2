@@ -1,11 +1,11 @@
-import { config } from "dotenv";
 import { fileURLToPath } from "node:url";
-import { Client, GatewayIntentBits } from "discord.js";
 import { log } from "@mookbot/core";
-import { ready } from "./events/ready.js";
+import { Client, GatewayIntentBits } from "discord.js";
+import { config } from "dotenv";
 import { interactionCreate } from "./events/interactionCreate.js";
-import { startHeartbeat, stopHeartbeat } from "./heartbeat.js";
+import { ready } from "./events/ready.js";
 import { startHealthServer, stopHealthServer } from "./healthServer.js";
+import { startHeartbeat, stopHeartbeat } from "./heartbeat.js";
 
 config({ path: fileURLToPath(new URL("../../../.env", import.meta.url)) });
 

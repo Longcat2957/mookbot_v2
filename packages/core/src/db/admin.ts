@@ -217,10 +217,9 @@ export async function forceDeleteSeriesWithRollback(
 
 	// recruitments.converted_series_id 는 REFERENCES series(id) 인데 ON DELETE 정책이
 	// 없어서 series 삭제 시 FK 위반 (SQLITE_CONSTRAINT_FOREIGNKEY). 먼저 SET NULL.
-	await execute(
-		`UPDATE recruitments SET converted_series_id = NULL WHERE converted_series_id = ?`,
-		[seriesId],
-	);
+	await execute(`UPDATE recruitments SET converted_series_id = NULL WHERE converted_series_id = ?`, [
+		seriesId,
+	]);
 
 	// CASCADE 로 series_participants / games / game_stats / mmr_changes 모두 삭제됨
 	await execute(`DELETE FROM series WHERE id = ?`, [seriesId]);

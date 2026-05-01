@@ -38,16 +38,7 @@ function formatStack(stack: string, maxChars = 3500): string {
 	return [...head, `… (${omitted} lines truncated) …`, ...tail].join("\n");
 }
 
-const STRIP_KEYS = new Set([
-	"level",
-	"time",
-	"msg",
-	"err",
-	"app",
-	"hostname",
-	"pid",
-	"v",
-]);
+const STRIP_KEYS = new Set(["level", "time", "msg", "err", "app", "hostname", "pid", "v"]);
 
 interface DiscordEmbed {
 	title: string;
@@ -127,9 +118,7 @@ export default async function discordTransport(opts: DiscordTransportOptions) {
 						body: JSON.stringify({ embeds: [embed] }),
 					});
 					if (!res.ok) {
-						process.stderr.write(
-							`[discord-transport] webhook POST ${res.status}\n`,
-						);
+						process.stderr.write(`[discord-transport] webhook POST ${res.status}\n`);
 					}
 				} catch (e) {
 					const msg = e instanceof Error ? e.message : String(e);

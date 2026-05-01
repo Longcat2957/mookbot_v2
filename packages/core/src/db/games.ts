@@ -32,25 +32,17 @@ export async function getGame(id: number): Promise<GameRow | undefined> {
 }
 
 export async function listGamesInSeries(seriesId: number): Promise<GameRow[]> {
-	return query<GameRow>(
-		`SELECT * FROM games WHERE series_id = ? ORDER BY game_number`,
-		[seriesId],
-	);
+	return query<GameRow>(`SELECT * FROM games WHERE series_id = ? ORDER BY game_number`, [seriesId]);
 }
 
 export async function getGameStats(gameId: number): Promise<GameStatRow[]> {
-	return query<GameStatRow>(
-		`SELECT * FROM game_stats WHERE game_id = ?`,
-		[gameId],
-	);
+	return query<GameStatRow>(`SELECT * FROM game_stats WHERE game_id = ?`, [gameId]);
 }
 
 /**
  * Count series wins so far per team. Useful for "Bo3 stop at 2 wins" check.
  */
-export async function countSeriesWins(
-	seriesId: number,
-): Promise<{ team1: number; team2: number }> {
+export async function countSeriesWins(seriesId: number): Promise<{ team1: number; team2: number }> {
 	const rows = await query<{ winning_team: Team; n: number }>(
 		`SELECT winning_team, COUNT(*) AS n FROM games WHERE series_id = ? GROUP BY winning_team`,
 		[seriesId],

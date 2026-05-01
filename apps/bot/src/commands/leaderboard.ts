@@ -1,9 +1,5 @@
-import {
-	type ChatInputCommandInteraction,
-	EmbedBuilder,
-	SlashCommandBuilder,
-} from "discord.js";
 import { db } from "@mookbot/core";
+import { type ChatInputCommandInteraction, EmbedBuilder, SlashCommandBuilder } from "discord.js";
 
 const ROLES = ["TOP", "JUNGLE", "MID", "BOTTOM", "SUPPORT"] as const;
 const ROLE_LABEL: Record<(typeof ROLES)[number], string> = {

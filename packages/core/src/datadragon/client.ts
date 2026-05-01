@@ -1,9 +1,9 @@
 import type {
-	ChampionListDto,
 	ChampionData,
-	SummonerSpellListDto,
+	ChampionListDto,
 	ItemListDto,
 	ProfileIconListDto,
+	SummonerSpellListDto,
 } from "./types.js";
 
 // ============================================================
@@ -21,13 +21,13 @@ let version = "";
 let initialized = false;
 
 // Lookup maps: numeric key → data
-const championByKey = new Map<string, ChampionData>();   // "64" → ChampionData
+const championByKey = new Map<string, ChampionData>(); // "64" → ChampionData
 const championByKoName = new Map<string, ChampionData>(); // "뽀삐" → ChampionData
 const championByKoNameNoSpace = new Map<string, ChampionData>(); // "리신" (DD: "리 신") → ChampionData
 const championByIdSlug = new Map<string, ChampionData>(); // "poppy" (lower) → ChampionData
-const spellByKey = new Map<string, string>();             // "4" → spell name
-const itemById = new Map<string, string>();               // "1001" → item name
-const profileIconById = new Map<number, string>();        // 6362 → image filename
+const spellByKey = new Map<string, string>(); // "4" → spell name
+const itemById = new Map<string, string>(); // "1001" → item name
+const profileIconById = new Map<number, string>(); // 6362 → image filename
 
 // ============================================================
 // Initialization
@@ -175,9 +175,7 @@ export function searchChampions(prefix: string, limit = 25): ChampionData[] {
 	const q = prefix.trim().toLowerCase();
 	const all = [...championByKoName.values()];
 	if (!q) {
-		return all
-			.sort((a, b) => a.name.localeCompare(b.name, "ko"))
-			.slice(0, limit);
+		return all.sort((a, b) => a.name.localeCompare(b.name, "ko")).slice(0, limit);
 	}
 	// Korean name 시작/포함 + id slug 시작 매칭
 	const matches = all.filter((c) => {
@@ -190,12 +188,8 @@ export function searchChampions(prefix: string, limit = 25): ChampionData[] {
 		const aExact = a.name.toLowerCase() === q || a.id.toLowerCase() === q ? 0 : 1;
 		const bExact = b.name.toLowerCase() === q || b.id.toLowerCase() === q ? 0 : 1;
 		if (aExact !== bExact) return aExact - bExact;
-		const aPrefix = a.name.toLowerCase().startsWith(q) || a.id.toLowerCase().startsWith(q)
-			? 0
-			: 1;
-		const bPrefix = b.name.toLowerCase().startsWith(q) || b.id.toLowerCase().startsWith(q)
-			? 0
-			: 1;
+		const aPrefix = a.name.toLowerCase().startsWith(q) || a.id.toLowerCase().startsWith(q) ? 0 : 1;
+		const bPrefix = b.name.toLowerCase().startsWith(q) || b.id.toLowerCase().startsWith(q) ? 0 : 1;
 		if (aPrefix !== bPrefix) return aPrefix - bPrefix;
 		return a.name.localeCompare(b.name, "ko");
 	});

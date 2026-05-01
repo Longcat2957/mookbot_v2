@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useMemo } from "react";
 import { api } from "../api/rest.js";
 import { wsClient } from "../api/ws.js";
-import { LineupPreview, type LineupParticipant } from "../components/LineupPreview.js";
 import { EmptyState } from "../components/EmptyState.js";
+import { type LineupParticipant, LineupPreview } from "../components/LineupPreview.js";
 import { showToast } from "../components/Toaster.js";
 import { useStaleWhileRevalidate } from "../state/useStaleWhileRevalidate.js";
 
@@ -86,9 +86,7 @@ export function RecruitmentList({
 					</div>
 					<div className="stat py-2 px-3">
 						<div className="stat-title text-[10px]">진행 중</div>
-						<div className="stat-value text-xl text-info tabular-nums">
-							{series?.length ?? "—"}
-						</div>
+						<div className="stat-value text-xl text-info tabular-nums">{series?.length ?? "—"}</div>
 					</div>
 					<div className="stat py-2 px-3">
 						<div className="stat-title text-[10px]">종료</div>
@@ -163,8 +161,7 @@ export function RecruitmentList({
 							</>,
 							<>
 								정원 도달 시 모집 메시지의{" "}
-								<span className="badge badge-success badge-sm">▶ 엔트리 수정 시작</span>{" "}
-								버튼 클릭
+								<span className="badge badge-success badge-sm">▶ 엔트리 수정 시작</span> 버튼 클릭
 							</>,
 							<>이곳에서 카드 클릭 → 엔트리 수정 → 픽/밴 진행</>,
 						]}
@@ -196,9 +193,7 @@ export function RecruitmentList({
 					<span className="text-base-content/40 text-sm">▼</span>
 					지난 내전
 					{!isLoading && completed.length > 0 && (
-						<span className="text-xs font-normal text-base-content/50 ml-1">
-							({completed.length})
-						</span>
+						<span className="text-xs font-normal text-base-content/50 ml-1">({completed.length})</span>
 					)}
 				</summary>
 				<div className="pt-2">
@@ -212,11 +207,7 @@ export function RecruitmentList({
 					) : (
 						<div className="grid grid-cols-1 md:grid-cols-2 gap-3">
 							{completed.map((s) => (
-								<CompletedSeriesCard
-									key={s.id}
-									series={s}
-									onClick={() => onSelectCompletedSeries(s.id)}
-								/>
+								<CompletedSeriesCard key={s.id} series={s} onClick={() => onSelectCompletedSeries(s.id)} />
 							))}
 						</div>
 					)}
@@ -233,9 +224,14 @@ function CompletedSeriesCard({
 	series: CompletedSeries;
 	onClick: () => void;
 }) {
-	const winner = series.winningTeam === "TEAM_1" ? "1팀" : series.winningTeam === "TEAM_2" ? "2팀" : "—";
+	const winner =
+		series.winningTeam === "TEAM_1" ? "1팀" : series.winningTeam === "TEAM_2" ? "2팀" : "—";
 	const winnerColor =
-		series.winningTeam === "TEAM_1" ? "text-info" : series.winningTeam === "TEAM_2" ? "text-error" : "";
+		series.winningTeam === "TEAM_1"
+			? "text-info"
+			: series.winningTeam === "TEAM_2"
+				? "text-error"
+				: "";
 	return (
 		<button
 			type="button"
@@ -286,9 +282,7 @@ function RecruitmentCard({ rec, onClick }: { rec: Recruitment; onClick: () => vo
 				<div className="text-sm text-base-content/70">
 					모집 #{rec.id} · {formatAgo(rec.createdAt)}
 				</div>
-				<div className="text-xs text-base-content/50 mt-1">
-					→ 클릭하여 엔트리 수정 화면으로
-				</div>
+				<div className="text-xs text-base-content/50 mt-1">→ 클릭하여 엔트리 수정 화면으로</div>
 			</div>
 		</button>
 	);

@@ -14,7 +14,9 @@ if (!file) {
 
 console.log(`[restore] reading ${file}`);
 const dump = loadDumpFile(file);
-console.log(`          schema: ${dump.metadata.schemaVersion} · ${dump.metadata.totalRows}행 (${dump.metadata.timestamp})`);
+console.log(
+	`          schema: ${dump.metadata.schemaVersion} · ${dump.metadata.totalRows}행 (${dump.metadata.timestamp})`,
+);
 
 if (dryRun) {
 	console.log("[restore] dry-run — 다음 행이 INSERT 될 예정:");

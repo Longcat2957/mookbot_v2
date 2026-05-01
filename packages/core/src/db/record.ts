@@ -18,15 +18,15 @@ import { batch, execute, query } from "../cloudflare/d1.js";
 import {
 	applyGameElo,
 	DEFAULT_MMR,
-	ROLES,
 	type LaneMatchup,
+	ROLES,
 	type Role,
 	type Team,
 } from "../mmr/elo.js";
+import type { GameRow, Side } from "./games.js";
+import { getLaneMmrs } from "./mmr.js";
 import { getCurrentSeason } from "./seasons.js";
 import { getSeriesParticipants } from "./series.js";
-import { getLaneMmrs } from "./mmr.js";
-import type { GameRow, Side } from "./games.js";
 import { multiInsert } from "./sql.js";
 
 export interface PlayerStats {
@@ -62,9 +62,7 @@ export interface RecordGameResult {
 	mmrChanges: MmrChangeSummary[];
 }
 
-export async function recordGameAndUpdateMmr(
-	input: RecordGameInput,
-): Promise<RecordGameResult> {
+export async function recordGameAndUpdateMmr(input: RecordGameInput): Promise<RecordGameResult> {
 	const participants = await getSeriesParticipants(input.seriesId);
 	if (participants.length === 0) {
 		throw new Error(`recordGame: series ${input.seriesId} 참가자 없음`);
@@ -79,9 +77,7 @@ export async function recordGameAndUpdateMmr(
 	for (const p of participants) {
 		(p.team === "TEAM_1" ? team1ByRole : team2ByRole).set(p.role, p.user_id);
 	}
-	const activeRoles: Role[] = ROLES.filter(
-		(r) => team1ByRole.has(r) && team2ByRole.has(r),
-	);
+	const activeRoles: Role[] = ROLES.filter((r) => team1ByRole.has(r) && team2ByRole.has(r));
 	if (activeRoles.length === 0) {
 		throw new Error(
 			`recordGame: series ${input.seriesId} 라인 매치업 없음 (t1=${[...team1ByRole.keys()].join(",")}, t2=${[...team2ByRole.keys()].join(",")})`,

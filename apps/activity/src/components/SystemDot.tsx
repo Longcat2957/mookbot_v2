@@ -2,7 +2,7 @@
 // 🟢 정상 = 표시 최소 / 🟡 재연결 = pulse / 🔴 끊김 = 텍스트 동반
 
 import { useEffect, useState } from "react";
-import { wsClient, type WsStatus } from "../api/ws.js";
+import { type WsStatus, wsClient } from "../api/ws.js";
 
 const STATUS_LABEL: Record<WsStatus, string> = {
 	connected: "실시간 연결됨",
@@ -25,18 +25,12 @@ export function useWsStatus(): WsStatus {
 export function SystemDot() {
 	const status = useWsStatus();
 	return (
-		<span
-			className="tooltip tooltip-bottom"
-			data-tip={STATUS_LABEL[status]}
-		>
+		<span className="tooltip tooltip-bottom" data-tip={STATUS_LABEL[status]}>
 			<span
 				className="inline-flex items-center gap-1 px-1.5 py-1 rounded-md hover:bg-base-300/60 cursor-default"
 				aria-label={STATUS_LABEL[status]}
 			>
-				<span
-					className={`inline-block size-2 rounded-full ${STATUS_DOT[status]}`}
-					aria-hidden
-				/>
+				<span className={`inline-block size-2 rounded-full ${STATUS_DOT[status]}`} aria-hidden />
 				{status !== "connected" && (
 					<span className="text-xs text-base-content/70">
 						{status === "reconnecting" ? "재연결 중" : "오프라인"}

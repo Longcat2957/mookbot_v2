@@ -1,14 +1,14 @@
-import type { Interaction } from "discord.js";
 import { log } from "@mookbot/core";
+import type { Interaction } from "discord.js";
+import { handleButton as cleanupStaleButton } from "../commands/cleanupStale.js";
+import { handleButton as forceDeleteSeriesButton } from "../commands/forceDeleteSeries.js";
 import { ALL_COMMANDS } from "../commands/index.js";
 import {
 	handleButton as recruitButton,
 	handleStringSelect as recruitStringSelect,
 	handleUserSelect as recruitUserSelect,
 } from "../commands/recruit.js";
-import { handleButton as forceDeleteSeriesButton } from "../commands/forceDeleteSeries.js";
 import { handleButton as resetSeasonButton } from "../commands/resetSeasonResults.js";
-import { handleButton as cleanupStaleButton } from "../commands/cleanupStale.js";
 
 function findCommand(name: string) {
 	return ALL_COMMANDS.find((c) => c.data.name === name);
@@ -26,9 +26,7 @@ async function reportError(
 	log.error({ err, customId: "customId" in interaction ? interaction.customId : undefined }, tag);
 	if (!interaction.replied && !interaction.deferred) {
 		const msg = err instanceof Error ? err.message : String(err);
-		await interaction
-			.reply({ content: `❌ 오류: ${msg}`, ephemeral: true })
-			.catch(() => undefined);
+		await interaction.reply({ content: `❌ 오류: ${msg}`, ephemeral: true }).catch(() => undefined);
 	}
 }
 

@@ -80,10 +80,7 @@ export async function countLeaderboard(seasonId: number, role: Role): Promise<nu
 	return row?.n ?? 0;
 }
 
-export async function getMmrChangesForUser(
-	userId: string,
-	limit = 20,
-): Promise<MmrChangeRow[]> {
+export async function getMmrChangesForUser(userId: string, limit = 20): Promise<MmrChangeRow[]> {
 	return query<MmrChangeRow>(
 		`SELECT * FROM mmr_changes WHERE user_id = ?
 		 ORDER BY created_at DESC LIMIT ?`,
@@ -92,8 +89,5 @@ export async function getMmrChangesForUser(
 }
 
 export async function getMmrChangesForGame(gameId: number): Promise<MmrChangeRow[]> {
-	return query<MmrChangeRow>(
-		`SELECT * FROM mmr_changes WHERE game_id = ? ORDER BY role`,
-		[gameId],
-	);
+	return query<MmrChangeRow>(`SELECT * FROM mmr_changes WHERE game_id = ? ORDER BY role`, [gameId]);
 }
