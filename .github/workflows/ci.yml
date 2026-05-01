@@ -38,3 +38,6 @@ jobs:
 
       - name: Lint (biome)
         run: pnpm exec biome check .
+
+      - name: Test (vitest)
+        run: pnpm test
