@@ -528,7 +528,7 @@ Activity Backend                        Bot
 | 우선순위 | 항목 | 비고 |
 |---|---|---|
 | ✅ 완료 | ~~Cloudflare SSL Full(strict) 전환~~ | 2026-05-01 적용. Origin Cert(`*.mooklol.com`, ~2041) + nginx 443 listen + http2. CF→Origin 평문 구간 제거 |
-| 🟥 높음 | D1 자동 백업 GHA | v1 의 매일 03:00 KST artifact 백업 이식 |
+| ✅ 완료 | ~~D1 자동 백업 GHA~~ | 2026-05-01 적용. `.github/workflows/d1-backup.yml` — wrangler `d1 export --remote` cron 18:00 UTC(03:00 KST) + 90d artifact. 첫 dump 16 tables / 362 INSERT 검증 |
 | 🟧 중간 | 운영자 admin 슬래시 | `/시리즈강제삭제`, `/MMR수정`, `/시즌결과리셋`, `/오래된내전정리` (v1 코드 단순 이식) |
 | 🟧 중간 | 헬스체크 + 모니터링 | api/bot 컨테이너 `HEALTHCHECK`, 외부 모니터링 (UptimeRobot 등) |
 | 🟧 중간 | 에러 알림 — Discord webhook | pino fatal/error 로그 → 운영자 채널. 외부 SaaS 의존 X |
