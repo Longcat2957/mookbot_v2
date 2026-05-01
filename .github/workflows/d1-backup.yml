@@ -1,0 +1,54 @@
+name: D1 Backup
+
+on:
+  schedule:
+    - cron: '0 18 * * *'    # 03:00 KST (next day)
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+concurrency:
+  group: d1-backup
+  cancel-in-progress: false
+
+env:
+  DB_NAME: mookbot_dev
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      CLOUDFLARE_API_TOKEN:  ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install wrangler
+        run: npm i -g wrangler@latest
+
+      - name: Export D1 database
+        run: |
+          STAMP=$(date -u +%Y%m%d-%H%M%S)
+          OUT="d1-backup-${DB_NAME}-${STAMP}.sql"
+          wrangler d1 export "${DB_NAME}" --remote --output="$OUT"
+          test -s "$OUT"
+          head -3 "$OUT"
+          gzip -9 "$OUT"
+          ls -lah "${OUT}.gz"
+          echo "STAMP=$STAMP"       >> "$GITHUB_ENV"
+          echo "ARTIFACT=${OUT}.gz" >> "$GITHUB_ENV"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: d1-backup-${{ env.STAMP }}
+          path: ${{ env.ARTIFACT }}
+          retention-days: 90
+          if-no-files-found: error

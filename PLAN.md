@@ -527,7 +527,7 @@ Activity Backend                        Bot
 
 | 우선순위 | 항목 | 비고 |
 |---|---|---|
-| 🟥 높음 | Cloudflare SSL Full(strict) 전환 | 현재 Flexible. Cloudflare → Origin 평문 구간 제거. Origin Cert 발급 + nginx 443 listen |
+| ✅ 완료 | ~~Cloudflare SSL Full(strict) 전환~~ | 2026-05-01 적용. Origin Cert(`*.mooklol.com`, ~2041) + nginx 443 listen + http2. CF→Origin 평문 구간 제거 |
 | 🟥 높음 | D1 자동 백업 GHA | v1 의 매일 03:00 KST artifact 백업 이식 |
 | 🟧 중간 | 운영자 admin 슬래시 | `/시리즈강제삭제`, `/MMR수정`, `/시즌결과리셋`, `/오래된내전정리` (v1 코드 단순 이식) |
 | 🟧 중간 | 헬스체크 + 모니터링 | api/bot 컨테이너 `HEALTHCHECK`, 외부 모니터링 (UptimeRobot 등) |
