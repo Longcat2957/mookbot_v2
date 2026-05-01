@@ -1,7 +1,19 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { createTestDb, installDbDriver, type TestDb } from "../test-utils/db-harness.js";
 
-import { getMainRiotAccount, getUser, linkRiotAccount, listUsers, upsertUser } from "./users.js";
+import {
+	getMainRiotAccount,
+	getRiotAccountByPuuid,
+	getRiotAccountsByUser,
+	getUser,
+	getUserByPuuid,
+	linkRiotAccount,
+	listMainRiotAccounts,
+	listUsers,
+	setMainRiotAccount,
+	upsertRiotAccountIdentity,
+	upsertUser,
+} from "./users.js";
 
 let db: TestDb;
 beforeEach(() => {
@@ -117,5 +129,99 @@ describe("linkRiotAccount", () => {
 		});
 		const main = await getMainRiotAccount("u1");
 		expect(main?.game_name).toBe("Renamed");
+	});
+});
+
+describe("riot account 추가 조회", () => {
+	beforeEach(async () => {
+		await upsertUser("u1", "Alice");
+		await upsertUser("u2", "Bob");
+		await linkRiotAccount({ userId: "u1", puuid: "p-1m", gameName: "M1", tagLine: "KR1" });
+		await linkRiotAccount({
+			userId: "u1",
+			puuid: "p-1s",
+			gameName: "S1",
+			tagLine: "KR1",
+			setMain: false,
+		});
+		await linkRiotAccount({ userId: "u2", puuid: "p-2m", gameName: "M2", tagLine: "NA1" });
+	});
+
+	it("getRiotAccountsByUser 정렬 (main first)", async () => {
+		const list = await getRiotAccountsByUser("u1");
+		expect(list).toHaveLength(2);
+		expect(list[0]?.is_main).toBe(1);
+		expect(list[0]?.puuid).toBe("p-1m");
+		expect(list[1]?.is_main).toBe(0);
+	});
+
+	it("listMainRiotAccounts 가 다건 main 만 반환", async () => {
+		const mains = await listMainRiotAccounts(["u1", "u2"]);
+		expect(mains.map((m) => m.puuid).sort()).toEqual(["p-1m", "p-2m"]);
+	});
+
+	it("listMainRiotAccounts 빈 배열 → []", async () => {
+		expect(await listMainRiotAccounts([])).toEqual([]);
+	});
+
+	it("getRiotAccountByPuuid + getUserByPuuid", async () => {
+		expect((await getRiotAccountByPuuid("p-1m"))?.user_id).toBe("u1");
+		expect((await getUserByPuuid("p-2m"))?.discord_id).toBe("u2");
+		expect(await getUserByPuuid("ghost")).toBeUndefined();
+	});
+});
+
+describe("upsertRiotAccountIdentity / setMainRiotAccount", () => {
+	beforeEach(async () => {
+		await upsertUser("u1", "Alice");
+	});
+
+	it("upsertRiotAccountIdentity — 신규는 is_main=0", async () => {
+		await upsertRiotAccountIdentity({
+			userId: "u1",
+			puuid: "p-x",
+			gameName: "X",
+			tagLine: "KR1",
+		});
+		const a = await getRiotAccountByPuuid("p-x");
+		expect(a?.is_main).toBe(0);
+	});
+
+	it("upsertRiotAccountIdentity — 기존은 is_main 안 건드림 (메인 보존)", async () => {
+		await linkRiotAccount({ userId: "u1", puuid: "p-main", gameName: "M", tagLine: "KR1" });
+		await upsertRiotAccountIdentity({
+			userId: "u1",
+			puuid: "p-main",
+			gameName: "M-renamed",
+			tagLine: "KR1",
+		});
+		const a = await getRiotAccountByPuuid("p-main");
+		expect(a?.is_main).toBe(1); // 보존
+		expect(a?.game_name).toBe("M-renamed");
+	});
+
+	it("setMainRiotAccount — 메인 토글", async () => {
+		await linkRiotAccount({ userId: "u1", puuid: "p-1", gameName: "A", tagLine: "KR1" });
+		await linkRiotAccount({
+			userId: "u1",
+			puuid: "p-2",
+			gameName: "B",
+			tagLine: "KR1",
+			setMain: false,
+		});
+		expect((await getMainRiotAccount("u1"))?.puuid).toBe("p-1");
+
+		await setMainRiotAccount("u1", "p-2");
+		expect((await getMainRiotAccount("u1"))?.puuid).toBe("p-2");
+	});
+
+	it("setMainRiotAccount — 존재하지 않는 puuid 면 main 사라짐 (현재 구현)", async () => {
+		// NOTE: JSDoc 에는 "아무 효과 없음" 이지만 실제 구현은 두 단계 batch:
+		//   1) 기존 main demote (is_main=0)
+		//   2) 타깃 puuid promote (matching row 없으면 0 rows)
+		// → 결과: 사용자에게 main 없음. 향후 단일 트랜잭션으로 수정 검토.
+		await linkRiotAccount({ userId: "u1", puuid: "p-1", gameName: "A", tagLine: "KR1" });
+		await setMainRiotAccount("u1", "p-ghost");
+		expect(await getMainRiotAccount("u1")).toBeUndefined();
 	});
 });
