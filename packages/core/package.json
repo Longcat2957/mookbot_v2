@@ -10,7 +10,8 @@
 		"./db": "./dist/db/index.js",
 		"./riot": "./dist/riot/index.js",
 		"./mmr": "./dist/mmr/index.js",
-		"./datadragon": "./dist/datadragon/index.js"
+		"./datadragon": "./dist/datadragon/index.js",
+		"./test-utils/db-harness": "./dist/test-utils/db-harness.js"
 	},
 	"scripts": {
 		"build": "tsc",

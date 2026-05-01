@@ -1,6 +1,25 @@
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { defineConfig } from "vitest/config";
 
+const here = path.dirname(fileURLToPath(import.meta.url));
+
 export default defineConfig({
+	resolve: {
+		alias: [
+			// 테스트는 source 경로로 통일 — api 가 import 하는 @mookbot/core 가
+			// dist/ 가 아닌 src/ 모듈을 가리키게 해야 driver swap 이 같은 모듈
+			// 인스턴스에 적용됨. subpath 도 매핑.
+			{
+				find: /^@mookbot\/core\/test-utils\/db-harness$/,
+				replacement: path.resolve(here, "packages/core/src/test-utils/db-harness.ts"),
+			},
+			{
+				find: /^@mookbot\/core$/,
+				replacement: path.resolve(here, "packages/core/src/index.ts"),
+			},
+		],
+	},
 	test: {
 		include: ["**/*.{test,spec}.{ts,tsx}"],
 		exclude: ["**/node_modules/**", "**/dist/**", "**/.svelte-kit/**"],
