@@ -1,10 +1,8 @@
 // recordGameAndUpdateMmr + undoLastGame — full game lifecycle 통합 테스트.
 
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 import { K_FACTOR } from "../mmr/elo.js";
-import { createTestDb, installDbMock, type TestDb } from "../test-utils/db-harness.js";
-
-vi.mock("../cloudflare/d1.js");
+import { createTestDb, installDbDriver, type TestDb } from "../test-utils/db-harness.js";
 
 import { listGamesInSeries } from "./games.js";
 import { getLaneMmr, getMmrChangesForGame } from "./mmr.js";
@@ -22,7 +20,7 @@ const T2 = ["t2-top", "t2-mid"];
 
 beforeEach(async () => {
 	db = createTestDb();
-	installDbMock(db);
+	installDbDriver(db);
 	const season = await createSeason("Test Season");
 	seasonId = season.id;
 	for (const id of [...T1, ...T2, "operator"]) await upsertUser(id, id);

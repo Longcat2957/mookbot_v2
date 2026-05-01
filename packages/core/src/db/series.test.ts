@@ -1,7 +1,5 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
-import { createTestDb, installDbMock, type TestDb } from "../test-utils/db-harness.js";
-
-vi.mock("../cloudflare/d1.js");
+import { beforeEach, describe, expect, it } from "vitest";
+import { createTestDb, installDbDriver, type TestDb } from "../test-utils/db-harness.js";
 
 import { createSeason } from "./seasons.js";
 import {
@@ -22,7 +20,7 @@ const OP = "op-id";
 
 beforeEach(async () => {
 	db = createTestDb();
-	installDbMock(db);
+	installDbDriver(db);
 	const s = await createSeason("Test");
 	seasonId = s.id;
 	await upsertUser(OP, "Operator");

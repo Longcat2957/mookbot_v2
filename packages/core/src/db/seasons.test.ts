@@ -1,14 +1,12 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
-import { createTestDb, installDbMock, type TestDb } from "../test-utils/db-harness.js";
-
-vi.mock("../cloudflare/d1.js");
+import { beforeEach, describe, expect, it } from "vitest";
+import { createTestDb, installDbDriver, type TestDb } from "../test-utils/db-harness.js";
 
 import { createSeason, endSeason, getCurrentSeason, getSeason } from "./seasons.js";
 
 let db: TestDb;
 beforeEach(() => {
 	db = createTestDb();
-	installDbMock(db);
+	installDbDriver(db);
 });
 
 describe("seasons", () => {
