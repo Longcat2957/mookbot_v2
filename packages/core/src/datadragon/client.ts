@@ -1,3 +1,4 @@
+import { log } from "../logger.js";
 import type {
 	ChampionData,
 	ChampionListDto,
@@ -54,7 +55,7 @@ export async function initDataDragon(): Promise<void> {
 	if (initialized) return;
 
 	version = await fetchLatestVersion();
-	console.log(`[DataDragon] Version: ${version}`);
+	log.info({ ddVersion: version }, "datadragon version loaded");
 
 	// Load champions
 	const champDto = await fetchJson<ChampionListDto>(
@@ -67,7 +68,7 @@ export async function initDataDragon(): Promise<void> {
 		championByKoNameNoSpace.set(champ.name.replace(/\s+/g, ""), champ);
 		championByIdSlug.set(champ.id.toLowerCase(), champ);
 	}
-	console.log(`[DataDragon] Loaded ${championByKey.size} champions`);
+	log.info({ count: championByKey.size }, "datadragon champions loaded");
 
 	// Load summoner spells
 	const spellDto = await fetchJson<SummonerSpellListDto>(
@@ -76,7 +77,7 @@ export async function initDataDragon(): Promise<void> {
 	for (const spell of Object.values(spellDto.data)) {
 		spellByKey.set(spell.key, spell.name);
 	}
-	console.log(`[DataDragon] Loaded ${spellByKey.size} summoner spells`);
+	log.info({ count: spellByKey.size }, "datadragon spells loaded");
 
 	// Load items
 	const itemDto = await fetchJson<ItemListDto>(
@@ -85,7 +86,7 @@ export async function initDataDragon(): Promise<void> {
 	for (const [id, item] of Object.entries(itemDto.data)) {
 		itemById.set(id, item.name);
 	}
-	console.log(`[DataDragon] Loaded ${itemById.size} items`);
+	log.info({ count: itemById.size }, "datadragon items loaded");
 
 	// Load profile icons
 	const iconDto = await fetchJson<ProfileIconListDto>(
@@ -94,7 +95,7 @@ export async function initDataDragon(): Promise<void> {
 	for (const icon of Object.values(iconDto.data)) {
 		profileIconById.set(icon.id, icon.image.full);
 	}
-	console.log(`[DataDragon] Loaded ${profileIconById.size} profile icons`);
+	log.info({ count: profileIconById.size }, "datadragon profile icons loaded");
 
 	initialized = true;
 }

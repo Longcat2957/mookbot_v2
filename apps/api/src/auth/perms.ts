@@ -2,6 +2,8 @@
 // OPERATOR_ROLE_ID 가 설정된 경우 해당 role 보유자만 쓰기 가능,
 // 미설정 시 모든 인증 사용자 허용 (fallback).
 
+import { log } from "@mookbot/core";
+
 interface MemberCacheEntry {
 	roles: string[];
 	expiresAt: number;
@@ -82,14 +84,12 @@ export function clearPermsCache(userId?: string): void {
 export async function userCanEdit(userId: string): Promise<boolean> {
 	const operatorRoleId = await resolveOperatorRoleId();
 	if (!operatorRoleId) {
-		console.log(`[perms] no operator role configured — all users can edit`);
+		log.debug("perms: no operator role configured — all users can edit");
 		return true;
 	}
 	const roles = await getRoles(userId);
 	const ok = roles.includes(operatorRoleId);
-	console.log(
-		`[perms] user=${userId} operatorRole=${operatorRoleId} userRoles=[${roles.join(",")}] canEdit=${ok}`,
-	);
+	log.debug({ user: userId, operatorRoleId, roles, canEdit: ok }, "perms check");
 	return ok;
 }
 
