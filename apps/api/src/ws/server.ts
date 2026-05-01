@@ -1,3 +1,4 @@
+import { log } from "@mookbot/core";
 import type { FastifyInstance } from "fastify";
 import { joinRoom, leaveAllRooms } from "./rooms.js";
 
@@ -9,7 +10,7 @@ export async function registerWs(app: FastifyInstance): Promise<void> {
 			return;
 		}
 
-		console.log(`[ws] connect user=${sid.value}`);
+		log.info({ user: sid.value }, "ws connect");
 		socket.send(JSON.stringify({ t: "hello", discordId: sid.value }));
 
 		socket.on("message", (raw) => {
@@ -26,7 +27,7 @@ export async function registerWs(app: FastifyInstance): Promise<void> {
 		});
 
 		socket.on("close", (code, reason) => {
-			console.log(`[ws] close user=${sid.value} code=${code} reason=${reason?.toString() ?? ""}`);
+			log.info({ user: sid.value, code, reason: reason?.toString() ?? "" }, "ws close");
 			leaveAllRooms(socket);
 		});
 	});

@@ -3,6 +3,7 @@
 // 서버 측 write 엔드포인트가 변경 후 broadcast(topic, msg) 호출 → 룸 참가자 즉시 invalidate.
 
 import type { WebSocket } from "@fastify/websocket";
+import { log } from "@mookbot/core";
 
 const rooms = new Map<string, Set<WebSocket>>();
 
@@ -13,7 +14,7 @@ export function joinRoom(topic: string, socket: WebSocket): void {
 		rooms.set(topic, room);
 	}
 	room.add(socket);
-	console.log(`[ws] join topic=${topic} subscribers=${room.size}`);
+	log.info({ topic, subscribers: room.size }, "ws join");
 }
 
 export function leaveAllRooms(socket: WebSocket): void {
@@ -24,14 +25,16 @@ export function leaveAllRooms(socket: WebSocket): void {
 			if (room.size === 0) rooms.delete(topic);
 		}
 	}
-	if (leftCount > 0) console.log(`[ws] socket disconnect, left ${leftCount} rooms`);
+	if (leftCount > 0) log.info({ leftCount }, "ws socket disconnect");
 }
 
 export function broadcast(topic: string, msg: unknown): void {
 	const room = rooms.get(topic);
 	const size = room?.size ?? 0;
-	console.log(`[ws] broadcast topic=${topic} subscribers=${size}`);
-	if (!room || size === 0) return;
+	if (!room || size === 0) {
+		log.debug({ topic, subscribers: 0 }, "ws broadcast (no subscribers)");
+		return;
+	}
 	const data = JSON.stringify(msg);
 	let sent = 0;
 	for (const ws of room) {
@@ -42,7 +45,7 @@ export function broadcast(topic: string, msg: unknown): void {
 			// 끊긴 소켓은 무시 — close 핸들러가 정리
 		}
 	}
-	console.log(`[ws] broadcast topic=${topic} sent=${sent}/${size}`);
+	log.info({ topic, sent, subscribers: size }, "ws broadcast");
 }
 
 export function roomStats(): { topic: string; count: number }[] {

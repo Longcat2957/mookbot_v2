@@ -83,6 +83,25 @@
 					}
 				}
 			}
+		},
+		{
+			"includes": [
+				"packages/core/src/db/seed.ts",
+				"packages/core/src/db/migrate.ts",
+				"packages/core/src/db/restore.ts",
+				"packages/core/src/db/reset.ts",
+				"packages/core/src/db/dump.ts",
+				"packages/core/src/db/backup.ts",
+				"packages/core/src/db/_assert.ts",
+				"apps/bot/src/deploy-commands.ts"
+			],
+			"linter": {
+				"rules": {
+					"suspicious": {
+						"noConsole": "off"
+					}
+				}
+			}
 		}
 	]
 }
