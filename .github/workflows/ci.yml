@@ -30,6 +30,9 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
+      - name: Build core (apps consume packages/core/dist for type resolution)
+        run: pnpm --filter @mookbot/core build
+
       - name: Typecheck
         run: pnpm -r typecheck
 
