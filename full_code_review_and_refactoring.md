@@ -283,7 +283,27 @@ Wave 5: 통합 테스트 (api + bot, D1 throwaway)
 
 ---
 
-### Wave 6 (선택) — 모더나이제이션 (예상 1.5h)
+### Wave 6 ✅ (6.1~6.3 완료, 6.4 보류) — 모더나이제이션 (2026-05-01, PR #33 / #34 / #35)
+
+| sub | 내용 | 결과 |
+|---|---|---|
+| 6.1 | Node 20 → 22 (Dockerfile + engines) | PR #33, v0.2.8 deploy ✅ |
+| 6.2 | minor/patch sweep (`pnpm up -r`) | PR #34, 5 workspace 파일 |
+| 6.3 | pino-abstract-transport 2 → 3 | PR #35, build() signature 호환 |
+| 6.4 | vite 7 → 8 + plugin-react 5 → 6 | **보류** — vite 8 의 rolldown + @tailwindcss/vite + daisyui 비호환 (CSS plugin 에러). vite 7 유지 |
+
+**v0.2.8 운영 검증**
+- 4 컨테이너 모두 (healthy)
+- `/api/healthz/deep` 200 OK (db: ok, botHeartbeat: ok 12s)
+
+**측정** (Wave 6 후)
+- 컨테이너 Node: 20 → **22** ✅
+- ESM 정합: ✅ (이미 깨끗했음)
+- outdated major 패키지: 3 → **1** (vite — 호환성 문제로 보류)
+
+---
+
+### (참고) Wave 6 원안
 
 **작업**
 1. Dockerfile baseline `node:20-alpine` → `node:22-alpine` (wrangler 와 정합)
