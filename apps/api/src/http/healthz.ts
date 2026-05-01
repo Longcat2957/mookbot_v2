@@ -40,7 +40,7 @@ interface DeepResponse {
 }
 
 export async function registerHealthzRoutes(app: FastifyInstance): Promise<void> {
-	app.get("/healthz/deep", async (_req, reply) => {
+	app.get("/api/healthz/deep", async (_req, reply) => {
 		const now = Date.now();
 		const uptimeSec = Math.floor((now - apiStartMs) / 1000);
 
