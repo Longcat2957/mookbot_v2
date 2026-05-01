@@ -40,6 +40,9 @@ interface DeepResponse {
 }
 
 export async function registerHealthzRoutes(app: FastifyInstance): Promise<void> {
+	// 얕은 — Docker HEALTHCHECK 용 (DB 안 건드림)
+	app.get("/healthz", async () => ({ ok: true }));
+
 	app.get("/api/healthz/deep", async (_req, reply) => {
 		const now = Date.now();
 		const uptimeSec = Math.floor((now - apiStartMs) / 1000);
