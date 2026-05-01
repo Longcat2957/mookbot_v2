@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1.7
 # build context: monorepo root (mookbot_v2/)
-FROM node:20-alpine AS build
+FROM node:22-alpine AS build
 WORKDIR /app
 RUN corepack enable
 COPY pnpm-workspace.yaml package.json pnpm-lock.yaml ./
