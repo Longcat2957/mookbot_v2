@@ -110,26 +110,26 @@ Wave 5: 통합 테스트 (api + bot, D1 throwaway)
 
 ---
 
-### Wave 2 — 테스트 기반 (예상 3h)
+### Wave 2 ✅ — 테스트 기반 (2026-05-01 완료, PR #15)
 
-**목표**: 핵심 순수 로직에 회귀 안전망 구축.
+**적용**
+- vitest 4.1.5 + @vitest/coverage-v8 + `vitest.config.ts` (root, monorepo 친화)
+- **3 test 파일 / 37 테스트 / 108ms**
+  - `packages/core/src/mmr/elo.test.ts` (15) — expectedScore/updateElo/applyGameElo + zero-sum invariant
+  - `packages/core/src/riot/account.test.ts` (9) — parseRiotId 정상/오류 케이스
+  - `apps/bot/src/utils/riotIdExtract.test.ts` (13) — 별명 → 라이엇 ID 추출
+- root scripts: test / test:watch / test:coverage
+- CI 에 `pnpm test` step 추가
 
-**작업**
-1. `vitest` 도입 — 워크스페이스 root 에 단일 config (per-package 안 함, monorepo 친화)
-2. **packages/core 우선 타깃**:
-   - `mmr/elo.ts` — ELO 계산 케이스 테이블 (승/패, 라인별, 큰 점수 차)
-   - `riot/riotId.ts` — `parseRiotId` 정상/오류 케이스
-   - `db/admin.ts` 의 순수 헬퍼 (계산만 하는 부분)
-   - `datadragon` — fetch 모킹으로 챔피언 룩업 라운드트립
-3. 커버리지 측정: vitest --coverage. 1차 목표 = core 50%
-4. CI 에 `vitest run` 추가 (Wave 1 의 ci.yml 확장)
+**측정**
+- 테스트 통과: 37/37
+- mmr/elo coverage: 100%
+- riot/parseRiotId coverage: 100%
+- 전체 core coverage: 1~3% (db/* 등 미테스트 — Wave 5 통합테스트로 보강)
 
-**산출물**
-- 루트 `vitest.config.ts`
-- `packages/core/src/**/*.test.ts` 약 6~10 파일
-- CI 에 test step
-
-**Exit**: 핵심 도메인 로직 커밋 시 회귀가 자동 잡힘. coverage 리포트 PR 코멘트로.
+**스킵 사유**
+- `db/admin.ts` 순수 헬퍼: 검토 결과 모든 함수가 D1 의존 (async). 통합테스트 (W5) 영역으로 이관
+- datadragon: fetch + 캐시 위주, 단위 테스트 효익 낮음. 통합테스트 영역
 
 ---
 
