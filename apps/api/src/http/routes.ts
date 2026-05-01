@@ -2,6 +2,7 @@ import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import { cloudflare, datadragon, db } from "@mookbot/core";
 import { diagnosePerms, userCanEdit } from "../auth/perms.js";
 import { broadcast } from "../ws/rooms.js";
+import { recordBotHeartbeat, registerHealthzRoutes } from "./healthz.js";
 
 const { listRecruitmentParticipants, getRecruitment } = db;
 
@@ -67,7 +68,16 @@ export async function registerRoutes(app: FastifyInstance): Promise<void> {
 		return { ok: true };
 	});
 
+	// 봇 → api heartbeat (deep healthcheck 용)
+	app.post("/internal/heartbeat", async (req, reply) => {
+		if (!requireInternalKey(req, reply)) return;
+		recordBotHeartbeat();
+		return { ok: true };
+	});
+
 	app.get("/healthz", async () => ({ ok: true }));
+
+	await registerHealthzRoutes(app);
 
 	// OAuth2 token exchange — Activity SDK authorize() 의 code 를 access_token 으로 교환
 	// (Discord Embedded App SDK 표준 흐름: authorize → /api/token → authenticate)

@@ -4,6 +4,8 @@ import { Client, GatewayIntentBits } from "discord.js";
 import { log } from "@mookbot/core";
 import { ready } from "./events/ready.js";
 import { interactionCreate } from "./events/interactionCreate.js";
+import { startHeartbeat, stopHeartbeat } from "./heartbeat.js";
+import { startHealthServer, stopHealthServer } from "./healthServer.js";
 
 config({ path: fileURLToPath(new URL("../../../.env", import.meta.url)) });
 
@@ -14,11 +16,17 @@ const client = new Client({
 	],
 });
 
-client.on("ready", () => ready(client));
+client.on("ready", () => {
+	ready(client);
+	startHealthServer(client);
+	startHeartbeat();
+});
 client.on("interactionCreate", (i) => interactionCreate(i));
 
 const shutdown = (signal: string) => {
 	log.info({ signal }, "shutting down");
+	stopHeartbeat();
+	stopHealthServer();
 	client.destroy().finally(() => process.exit(0));
 };
 process.on("SIGTERM", () => shutdown("SIGTERM"));

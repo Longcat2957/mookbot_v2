@@ -30,5 +30,8 @@ RUN pnpm install --frozen-lockfile --prod \
  && pnpm store prune
 COPY --from=build /app/packages/core/dist packages/core/dist
 COPY --from=build /app/apps/bot/dist apps/bot/dist
+EXPOSE 3001
 WORKDIR /app/apps/bot
+HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
+  CMD wget -qO- http://localhost:3001/healthz >/dev/null 2>&1 || exit 1
 CMD ["node", "dist/index.js"]
