@@ -12,6 +12,7 @@ export default defineConfig({
 				"**/*.test.ts",
 				"**/*.spec.ts",
 				"**/*.d.ts",
+				"**/*.sql",
 				"**/dist/**",
 				"**/index.ts",
 				"**/types.ts",
