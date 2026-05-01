@@ -523,30 +523,33 @@ Activity Backend                        Bot
 
 ---
 
-### Phase 4 — 운영 안정화 (다음 작업)
+### Phase 4 — 운영 안정화 ✅ (5/5 완료, 2026-05-01)
 
-| 우선순위 | 항목 | 비고 |
-|---|---|---|
-| ✅ 완료 | ~~Cloudflare SSL Full(strict) 전환~~ | 2026-05-01 적용. Origin Cert(`*.mooklol.com`, ~2041) + nginx 443 listen + http2. CF→Origin 평문 구간 제거 |
-| ✅ 완료 | ~~D1 자동 백업 GHA~~ | 2026-05-01 적용. `.github/workflows/d1-backup.yml` — wrangler `d1 export --remote` cron 18:00 UTC(03:00 KST) + 90d artifact. 첫 dump 16 tables / 362 INSERT 검증 |
-| ✅ 완료 | ~~운영자 admin 슬래시~~ | 2026-05-01 v0.2.3 deploy. `/시리즈강제삭제` `/mmr수정` `/시즌결과리셋` `/오래된내전정리` — operator role 가드 + 위험 작업은 confirm 버튼 + admin_audit_log 기록 |
-| ✅ 완료 (UptimeRobot 만 잔여) | ~~헬스체크~~ + 외부 모니터링 | 2026-05-01 v0.2.7. api `/api/healthz/deep` (D1 ping + bot heartbeat) + bot 30s heartbeat + 4 컨테이너 HEALTHCHECK (alpine localhost ::1 hazard 회피, 127.0.0.1). UptimeRobot 모니터 2개 등록은 사용자 작업 |
-| ✅ 완료 | ~~에러 알림 — Discord webhook~~ | 2026-05-01 v0.2.3 deploy. pino worker thread transport — error/fatal → 운영자 채널 embed (dedupe 5min + token bucket 6/min). webhook 미설정 시 자동 비활성 |
-| 🟨 낮음 | 모바일 Activity QA | iOS/Android Discord 클라이언트 검증 — 안정 시 Developer Portal Mobile platform 활성화 |
-| 🟨 낮음 | 봇 → 채널 시리즈 종료 알림 | 결과 카드 (3게임 픽밴/MMR 변동 마크다운 표). v0.7 종료 카드를 텍스트로 |
-| 🟨 낮음 | E2E 테스트 | v1 의 `test:scrim` / `test:nvn` 이식. CI에서 D1 throwaway 환경 |
+| 항목 | 결과 |
+|---|---|
+| ~~Cloudflare SSL Full(strict)~~ | Origin Cert(`*.mooklol.com`, ~2041) + nginx 443/http2. CF→Origin 평문 구간 제거 |
+| ~~D1 자동 백업 GHA~~ | `.github/workflows/d1-backup.yml` cron 18:00 UTC + 90d artifact. 첫 dump 16 tables/362 INSERT 검증 |
+| ~~운영자 admin 슬래시~~ | v0.2.3. `/시리즈강제삭제` `/mmr수정` `/시즌결과리셋` `/오래된내전정리` — operator gate + confirm 버튼 + admin_audit_log |
+| ~~에러 알림 — Discord webhook~~ | v0.2.4. pino worker transport, dedupe 5min + token bucket 6/min, webhook 미설정 시 비활성 |
+| ~~헬스체크 + 외부 모니터링~~ | v0.2.7. 4 컨테이너 HEALTHCHECK + api `/api/healthz/deep` (D1 ping + bot heartbeat 90s stale) + UptimeRobot 2 monitors (Edge + Deep) |
 
 ### Phase 5 — 후속 개선 (백로그)
 
-- 자동 분배 알고리즘 (MMR + 라인 선호 기반) — 현재 수동 드래그&드롭만
-- SeriesResult 에 BAN 표시 (현재 PICK 만)
-- 시리즈 진행 중 다른 사용자가 픽밴 보고 있으면 cursor presence (활성 입력자 표시)
-- 시즌 전환 / 종료 (현재 단일 시즌 자동 생성)
-- 매치 자동 감지 (Riot Match-V5 폴링) — 운영자 입력 절감
+| 우선순위 | 항목 | 비고 |
+|---|---|---|
+| 🟧 중간 | 봇 → 채널 시리즈 종료 알림 | 결과 카드 (3게임 픽밴 + MMR 변동 마크다운 표). v0.7 종료 카드를 텍스트로 |
+| 🟧 중간 | 모바일 Activity QA | iOS/Android Discord 클라이언트 검증 → 안정 시 Developer Portal Mobile platform 활성화 |
+| 🟨 낮음 | E2E 테스트 | v1 `test:scrim`/`test:nvn` 이식, CI 에서 D1 throwaway |
+| 🟨 낮음 | SeriesResult 에 BAN 표시 | 현재 PICK 만 노출 |
+| 🟨 낮음 | 픽밴 cursor presence | 시리즈 진행 중 다른 사용자가 보고 있으면 활성 입력자 표시 |
+| 🟨 낮음 | 시즌 전환 / 종료 | 현재 단일 시즌 자동 생성. 시즌 컷오프 + 다음 시즌 baseline 정책 |
+| 🟨 낮음 | Riot Match-V5 자동 매치 감지 | 운영자 결과 입력 절감 (폴링 비용/스케줄 검토) |
+
+> **자동 분배 알고리즘 (백로그 제외)**: 운영자 수동 밸런싱이 도메인 핵심 가치. 의도적 비목표.
 
 ---
 
-**현재 상태**: v0.1.1 — Phase 0~3 완료, 실서비스 가능. 핵심 효용(엔트리 작성 + 픽밴 latency 해결) 검증 끝. Phase 4 운영 안정화로 진입.
+**현재 상태**: **v0.2.7 — Phase 0~4 완료**. SSL/백업/admin/에러 알림/모니터링 전 항목 운영 진입.
 
 ---
 
@@ -557,8 +560,8 @@ Activity Backend                        Bot
 - [x] ~~**호스팅**~~ — 현재 VPS 단일 + nginx Docker (2026-04-30)
 - [x] ~~**도메인**~~ — `bot.mooklol.com` 단일 호스트 path-based routing (2026-04-30)
 - [x] ~~**read-only 슬래시 처리**~~ — 봇 유지 + 텍스트 출력 (Components V2). Activity 흡수는 안 함 (잡담 중 즉시 조회 가치 큼)
-- [x] ~~**채널 영속 기록 범위**~~ — 모집 메시지는 V2 컴포넌트로 항상 갱신, 시리즈 종료 알림은 Phase 4 백로그 (텍스트 요약 webhook)
-- [ ] **모바일 지원 우선순위** — Phase 4 QA 후 결정. 안정성 검증되면 Developer Portal Mobile platform 활성화
+- [x] ~~**채널 영속 기록 범위**~~ — 모집 메시지는 V2 컴포넌트로 항상 갱신, 시리즈 종료 알림은 Phase 5 백로그 (텍스트 요약)
+- [ ] **모바일 지원 우선순위** — Phase 5 QA 후 결정. 안정성 검증되면 Developer Portal Mobile platform 활성화
 
 ### 8.2 리스크
 
