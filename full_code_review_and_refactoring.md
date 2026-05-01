@@ -133,7 +133,31 @@ Wave 5: 통합 테스트 (api + bot, D1 throwaway)
 
 ---
 
-### Wave 3 — God-file 분해 (예상 4~6h, **가장 큼**)
+### Wave 3 ✅ — God-file 분해 (2026-05-01 완료, PR #17/#18/#19/#20)
+
+**적용 결과**
+
+| 단계 | 파일 | 이전 LOC | 메인 후 LOC | sub 파일 수 | 가장 큰 sub |
+|---|---|---|---|---|---|
+| 3.1 | apps/activity/src/screens/PickBan.tsx | 1530 | **507** (-67%) | 8 | PickBanBoard 390 |
+| 3.2 | apps/api/src/http/routes.ts | 814 | **22** (-97%) | 9 | series.ts 282 |
+| 3.3 | apps/activity/src/screens/EntryEditing.tsx | 802 | **460** (-43%) | 5 | SlotRow 102 |
+| 3.4 | apps/bot/src/commands/recruit.ts | 664 | **74** (-89%) | 4 | messageBuilder 235 |
+
+**측정** (Wave 0 vs Wave 3 후)
+- LOC > 500 파일: **4 → 1** (PickBan.tsx 507, orchestration ceiling)
+- LOC > 350 파일: 4 → 3 (PickBan/EntryEditing 메인 + PickBanBoard sub)
+- 외부 인터페이스 변경: 0 (App.tsx import / events/interactionCreate.ts dispatch / 라우트 path 모두 동일)
+
+**향후 (선택, Wave 3.x)**
+- PickBan.tsx 507 → ~280: `usePickBanState` 훅 추출
+- EntryEditing.tsx 460 → ~280: `useEntryEditingState` 훅 추출
+- PickBanBoard.tsx 390 → ~250: 챔프 그리드 + 검색 UI 별도 컴포넌트
+- 우선순위 낮음 (orchestration 본질적 복잡도). Wave 4 횡단 정리 우선.
+
+---
+
+### (참고) Wave 3 원안
 
 **원칙**: 한 번에 하나씩. 분해 후 동작·외부 시그니처 검증 → 머지 → 다음.
 
