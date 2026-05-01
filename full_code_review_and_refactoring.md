@@ -206,7 +206,26 @@ Wave 5: 통합 테스트 (api + bot, D1 throwaway)
 
 ---
 
-### Wave 4 — 횡단 정리 (예상 2h)
+### Wave 4 ✅ — 횡단 정리 (2026-05-01 완료, PR #22 / #23 / #24)
+
+**적용**
+
+| 단계 | 항목 | 산출물 |
+|---|---|---|
+| 4.1 | env validation (zod, fail-fast) | `apps/api/src/env.ts` + `apps/bot/src/env.ts`, 부팅 즉시 누락 감지 |
+| 4.2 | Fastify 글로벌 에러 핸들러 + HttpError | `apps/api/src/http/_errors.ts` — series/games catch boilerplate 제거 |
+| 4.3 | runtime console.log → log.X + biome override | 13건 변환 (datadragon/ws/perms), 8 CLI 파일 override |
+
+**스킵** — operator 정책 공유 (api/bot 중복 5줄 수준, 환경 차이로 forced sharing 가치 낮음)
+
+**측정**
+- 부팅 시 env 누락 → 사용 시점 → **부팅 즉시 + 모든 누락 한 번에 표시**
+- biome warnings: 123 → **64** (-48%)
+- 라우트 unhandled throw → 500 + log.error 자동 보장 (Discord webhook forward)
+
+---
+
+### (참고) Wave 4 원안
 
 **작업**
 1. **env 검증 일원화** — `packages/core/src/env.ts` 신규
