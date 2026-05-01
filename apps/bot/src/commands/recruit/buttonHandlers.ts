@@ -204,13 +204,16 @@ async function openAdminUserSelect(
 
 	await interaction.deferReply({ ephemeral: true });
 
+	// 명시적 limit:0 + 60s 타임아웃으로 길드 전체 fetch (캐시 무시).
 	const [current, members] = await Promise.all([
 		listRecruitmentParticipants(id),
-		interaction.guild.members.fetch(),
+		interaction.guild.members.fetch({ limit: 0, time: 60_000 }),
 	]);
 	const currentIds = new Set(current.map((p) => p.user_id));
 
-	const candidates = [...members.values()]
+	const allArr = [...members.values()];
+	const botCount = allArr.filter((m) => m.user.bot).length;
+	const candidates = allArr
 		.filter((m) => !m.user.bot)
 		.sort((a, b) => a.displayName.localeCompare(b.displayName, "ko"));
 
@@ -241,7 +244,7 @@ async function openAdminUserSelect(
 
 	const lines = [
 		`### +/- 멤버 관리 — 모집 #${id}`,
-		`현재 풀 **${currentIds.size}/${targetCount}**.`,
+		`현재 풀 **${currentIds.size}/${targetCount}** · 길드 fetch **${allArr.length}** 명 (봇 ${botCount} 제외 → 표시 ${visible.length})`,
 		"_각 페이지에서 풀에 있어야 할 멤버를 체크 — 다른 페이지 멤버 상태는 유지됩니다._",
 		"_⚠️ 새로 추가된 멤버는 라인 무관 상태. 본인이 라인 선호 셀렉트로 변경 가능._",
 	];
