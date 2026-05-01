@@ -242,7 +242,30 @@ Wave 5: 통합 테스트 (api + bot, D1 throwaway)
 
 ---
 
-### Wave 5 — 통합 테스트 (예상 4h)
+### Wave 5 ✅ (5.1~5.3 완료, 5.4 보류) — 테스트 (2026-05-01, PR #26 / #27 / #28)
+
+**스택 결정**: D1 throwaway 미사용 — better-sqlite3 in-memory + vi.mock 으로 swap.
+
+**적용**
+
+| sub | 내용 | 산출물 | 테스트 추가 |
+|---|---|---|---|
+| 5.1 | 테스트 하네스 + smoke (PR #26) | `packages/core/src/test-utils/db-harness.ts`, `recruitments.test.ts` | +5 |
+| 5.2 | core db 함수 테스트 (PR #27) | `series` (8) / `seasons` (4) / `users` (11) / `admin` (9) / `record` (10) | +42 |
+| 5.3 | Fastify inject smoke + auth/operator gate (PR #28) | `apps/api/src/test-utils/build-app.ts`, `routes.test.ts` (10) | +10 |
+
+**측정**
+- 총 테스트: 37 → **94** (+154%)
+- core db 모듈 coverage: ~3% → ~36%
+- CI gate: typecheck + biome + 94 tests / ~400ms
+
+**보류 / 후속 (선택)**
+- DB-touching api 라우트 통합 (POST /api/series 본문, GET /api/series/:id 등) — cross-package vi.mock 복잡도로 별도 PR 권장
+- 5.4 (bot 명령 스모크) — 우선순위 낮음, 가치 있을 때 진행
+
+---
+
+### (참고) Wave 5 원안
 
 **목표**: 핵심 시리즈 라이프사이클이 회귀 없이 동작함을 자동 보장.
 
