@@ -20,7 +20,7 @@ import { v2Ephemeral, v2Error, v2Reply } from "../utils/v2.js";
 import { renderComponents } from "./recruit/messageBuilder.js";
 
 export { handleButton } from "./recruit/buttonHandlers.js";
-export { handleStringSelect, handleUserSelect } from "./recruit/selectHandlers.js";
+export { handleStringSelect } from "./recruit/selectHandlers.js";
 
 const { createRecruitment, setRecruitmentMessage, upsertUser, getCurrentSeason, createSeason } = db;
 

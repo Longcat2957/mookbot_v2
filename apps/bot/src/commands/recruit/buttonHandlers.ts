@@ -1,7 +1,7 @@
 // 모집 메시지의 버튼 인터랙션 처리 — 참여/취소/멤버관리/엔트리 진입.
 
 import { db } from "@mookbot/core";
-import { ActionRowBuilder, type ButtonInteraction, UserSelectMenuBuilder } from "discord.js";
+import { ActionRowBuilder, type ButtonInteraction, StringSelectMenuBuilder } from "discord.js";
 import { notify } from "../../utils/notify.js";
 import { v2EditReply } from "../../utils/v2.js";
 import { renderComponents } from "./messageBuilder.js";
@@ -178,6 +178,12 @@ async function handleNext(
 	});
 }
 
+// Discord StringSelect: 25 옵션/메뉴, 5 메뉴/메시지 → 한 ephemeral reply 에 최대 125명.
+// UserSelectMenu 는 운영자 클라이언트 캐시 의존이라 일부만 보였음 — 봇이 길드 멤버를 직접
+// fetch 해서 옵션을 박아 렌더하면 캐시와 무관하게 항상 전체 표시.
+const ADDUSER_PAGE_SIZE = 25;
+const ADDUSER_MAX_PAGES = 5;
+
 async function openAdminUserSelect(
 	interaction: ButtonInteraction,
 	id: number,
@@ -191,25 +197,60 @@ async function openAdminUserSelect(
 		});
 		return;
 	}
-	const current = await listRecruitmentParticipants(id);
-	const currentIds = current.map((p) => p.user_id);
-	const maxValues = Math.min(25, Math.max(targetCount, currentIds.length));
+	if (!interaction.guild) {
+		await interaction.reply({ content: "길드 컨텍스트 없음.", ephemeral: true });
+		return;
+	}
 
-	const userSelect = new UserSelectMenuBuilder()
-		.setCustomId(`recruit:adduser_select:${id}`)
-		.setPlaceholder(`풀 멤버 (현재 ${currentIds.length}/${targetCount})`)
-		.setMinValues(0)
-		.setMaxValues(maxValues);
-	if (currentIds.length > 0) userSelect.setDefaultUsers(...currentIds.slice(0, 25));
+	await interaction.deferReply({ ephemeral: true });
 
-	await interaction.reply({
-		content: [
-			`### +/- 멤버 관리 — 모집 #${id}`,
-			`현재 풀 **${currentIds.length}/${targetCount}**.`,
-			"_셀렉트 결과가 새 풀 상태가 됩니다 — 추가는 선택, 제거는 해제._",
-			"_⚠️ 새로 추가된 멤버는 라인 무관 상태. 본인이 라인 선호 셀렉트로 변경 가능._",
-		].join("\n"),
-		components: [new ActionRowBuilder<UserSelectMenuBuilder>().addComponents(userSelect)],
-		ephemeral: true,
+	const [current, members] = await Promise.all([
+		listRecruitmentParticipants(id),
+		interaction.guild.members.fetch(),
+	]);
+	const currentIds = new Set(current.map((p) => p.user_id));
+
+	const candidates = [...members.values()]
+		.filter((m) => !m.user.bot)
+		.sort((a, b) => a.displayName.localeCompare(b.displayName, "ko"));
+
+	const cap = ADDUSER_PAGE_SIZE * ADDUSER_MAX_PAGES;
+	const visible = candidates.slice(0, cap);
+	const truncated = candidates.length > cap;
+
+	const chunks: (typeof visible)[] = [];
+	for (let i = 0; i < visible.length; i += ADDUSER_PAGE_SIZE) {
+		chunks.push(visible.slice(i, i + ADDUSER_PAGE_SIZE));
+	}
+
+	const rows = chunks.map((chunk, page) => {
+		const select = new StringSelectMenuBuilder()
+			.setCustomId(`recruit:adduser_select:${id}:${page}`)
+			.setPlaceholder(`멤버 선택 ${page + 1}/${chunks.length}`)
+			.setMinValues(0)
+			.setMaxValues(chunk.length)
+			.addOptions(
+				chunk.map((m) => ({
+					label: m.displayName.slice(0, 100),
+					value: m.id,
+					default: currentIds.has(m.id),
+				})),
+			);
+		return new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(select);
+	});
+
+	const lines = [
+		`### +/- 멤버 관리 — 모집 #${id}`,
+		`현재 풀 **${currentIds.size}/${targetCount}**.`,
+		"_각 페이지에서 풀에 있어야 할 멤버를 체크 — 다른 페이지 멤버 상태는 유지됩니다._",
+		"_⚠️ 새로 추가된 멤버는 라인 무관 상태. 본인이 라인 선호 셀렉트로 변경 가능._",
+	];
+	if (truncated) {
+		lines.push(`_⚠️ 길드 멤버 ${candidates.length}명 중 ${cap}명만 표시 (가나다순)_`);
+	}
+
+	await interaction.editReply({
+		content: lines.join("\n"),
+		components: rows,
 	});
 }

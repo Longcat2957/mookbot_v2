@@ -6,9 +6,9 @@ import {
 	ButtonBuilder,
 	ButtonStyle,
 	type ContainerBuilder,
+	type MessageComponentInteraction,
 	MessageFlags,
 	StringSelectMenuBuilder,
-	type UserSelectMenuInteraction,
 } from "discord.js";
 import { COLORS, v2Container, v2Sep, v2Text } from "../../utils/v2.js";
 import { ROLE_LABEL, ROLE_SLOTS, type RoleSlot } from "./types.js";
@@ -187,7 +187,7 @@ function buildClosedComponents(id: number): ActionRowBuilder<ButtonBuilder>[] {
  * 2차 폴백: interaction.followUp 으로 새 메시지 게시 + tracking 갱신
  */
 export async function refreshRecruitMessage(
-	interaction: UserSelectMenuInteraction,
+	interaction: MessageComponentInteraction,
 	id: number,
 	channelId: string | null,
 	messageId: string | null,

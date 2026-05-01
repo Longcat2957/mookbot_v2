@@ -6,7 +6,6 @@ import { ALL_COMMANDS } from "../commands/index.js";
 import {
 	handleButton as recruitButton,
 	handleStringSelect as recruitStringSelect,
-	handleUserSelect as recruitUserSelect,
 } from "../commands/recruit.js";
 import { handleButton as resetSeasonButton } from "../commands/resetSeasonResults.js";
 
@@ -55,17 +54,6 @@ export async function interactionCreate(interaction: Interaction) {
 			}
 		} catch (err) {
 			await reportError(interaction, err, "stringSelect error");
-		}
-		return;
-	}
-
-	if (interaction.isUserSelectMenu()) {
-		try {
-			if (prefixOf(interaction.customId) === "recruit") {
-				await recruitUserSelect(interaction);
-			}
-		} catch (err) {
-			await reportError(interaction, err, "userSelect error");
 		}
 		return;
 	}
