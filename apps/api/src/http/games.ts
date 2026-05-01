@@ -3,6 +3,7 @@
 
 import { cloudflare, datadragon, db } from "@mookbot/core";
 import type { FastifyInstance } from "fastify";
+import { HttpError } from "./_errors.js";
 import { invalidate, requireEditor } from "./_helpers.js";
 
 export async function registerGameRoutes(app: FastifyInstance): Promise<void> {
@@ -84,8 +85,9 @@ export async function registerGameRoutes(app: FastifyInstance): Promise<void> {
 			});
 		}
 
+		let result: Awaited<ReturnType<typeof db.recordGameAndUpdateMmr>>;
 		try {
-			const result = await db.recordGameAndUpdateMmr({
+			result = await db.recordGameAndUpdateMmr({
 				seriesId: id,
 				gameNumber,
 				winningTeam: body.winningTeam,
@@ -93,41 +95,40 @@ export async function registerGameRoutes(app: FastifyInstance): Promise<void> {
 				...(body.durationMin ? { durationSec: body.durationMin * 60 } : {}),
 				stats,
 			});
-
-			// picks / bans 별도 INSERT (record.ts 가 처리하지 않음)
-			await db.setGamePicks(
-				result.game.id,
-				picksFlat.map((p) => ({
-					team: p.team,
-					role: p.role as "TOP" | "JUNGLE" | "MID" | "BOTTOM" | "SUPPORT",
-					championName: p.championName,
-				})),
-			);
-			await db.setGameBans(result.game.id, bansFlat);
-
-			// Bo3 종료 — 한 팀이 2승 도달 시 자동 COMPLETED
-			const wins = await db.countSeriesWins(id);
-			let completedSeries = false;
-			if (wins.team1 >= 2) {
-				await db.completeSeries(id, "TEAM_1");
-				completedSeries = true;
-			} else if (wins.team2 >= 2) {
-				await db.completeSeries(id, "TEAM_2");
-				completedSeries = true;
-			}
-
-			invalidate(`series:${id}`);
-			if (completedSeries) invalidate("dashboard");
-			return {
-				gameId: result.game.id,
-				wins,
-				completed: completedSeries,
-			};
 		} catch (err) {
 			req.log.error({ err }, "recordGameAndUpdateMmr failed");
-			const msg = err instanceof Error ? err.message : String(err);
-			return reply.code(400).send({ error: msg });
+			throw new HttpError(400, err instanceof Error ? err.message : String(err));
 		}
+
+		// picks / bans 별도 INSERT (record.ts 가 처리하지 않음)
+		await db.setGamePicks(
+			result.game.id,
+			picksFlat.map((p) => ({
+				team: p.team,
+				role: p.role as "TOP" | "JUNGLE" | "MID" | "BOTTOM" | "SUPPORT",
+				championName: p.championName,
+			})),
+		);
+		await db.setGameBans(result.game.id, bansFlat);
+
+		// Bo3 종료 — 한 팀이 2승 도달 시 자동 COMPLETED
+		const wins = await db.countSeriesWins(id);
+		let completedSeries = false;
+		if (wins.team1 >= 2) {
+			await db.completeSeries(id, "TEAM_1");
+			completedSeries = true;
+		} else if (wins.team2 >= 2) {
+			await db.completeSeries(id, "TEAM_2");
+			completedSeries = true;
+		}
+
+		invalidate(`series:${id}`);
+		if (completedSeries) invalidate("dashboard");
+		return {
+			gameId: result.game.id,
+			wins,
+			completed: completedSeries,
+		};
 	});
 
 	// 직전 게임 되돌리기 — 마지막으로 기록된 game DELETE (cascade)
