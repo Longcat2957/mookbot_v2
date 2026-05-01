@@ -5,6 +5,7 @@ import { datadragon, log } from "@mookbot/core";
 import { config } from "dotenv";
 import Fastify from "fastify";
 import { validateEnv } from "./env.js";
+import { fastifyErrorHandler } from "./http/_errors.js";
 import { registerRoutes } from "./http/routes.js";
 import { registerWs } from "./ws/server.js";
 
@@ -15,6 +16,8 @@ const app = Fastify({
 	logger: { level: process.env.LOG_LEVEL ?? "info" },
 	trustProxy: true,
 });
+
+app.setErrorHandler(fastifyErrorHandler);
 
 await app.register(cookie, {
 	secret: process.env.SESSION_SECRET ?? "dev-only-change-me",

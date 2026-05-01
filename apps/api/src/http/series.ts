@@ -3,6 +3,7 @@
 
 import { cloudflare, datadragon, db } from "@mookbot/core";
 import type { FastifyInstance } from "fastify";
+import { HttpError } from "./_errors.js";
 import { invalidate, requireEditor, requireSession } from "./_helpers.js";
 import { emptyHistory, fetchPlayHistoryFor } from "./_history.js";
 
@@ -34,8 +35,9 @@ export async function registerSeriesRoutes(app: FastifyInstance): Promise<void> 
 			return reply.code(409).send({ error: "취소된 모집입니다." });
 		}
 
+		let series: Awaited<ReturnType<typeof db.createSeries>>;
 		try {
-			const series = await db.createSeries({
+			series = await db.createSeries({
 				seasonId: rec.season_id,
 				createdBy: sid,
 				participants: assignments.map((a) => ({
@@ -44,16 +46,15 @@ export async function registerSeriesRoutes(app: FastifyInstance): Promise<void> 
 					role: a.role as "TOP" | "JUNGLE" | "MID" | "BOTTOM" | "SUPPORT",
 				})),
 			});
-			await db.setRecruitmentStatus(recruitmentId, "CONVERTED", series.id);
-			invalidate("dashboard");
-			invalidate(`recruitment:${recruitmentId}`);
-			invalidate(`series:${series.id}`);
-			return { seriesId: series.id };
 		} catch (err) {
 			req.log.error({ err, recruitmentId }, "createSeries failed");
-			const msg = err instanceof Error ? err.message : String(err);
-			return reply.code(400).send({ error: msg });
+			throw new HttpError(400, err instanceof Error ? err.message : String(err));
 		}
+		await db.setRecruitmentStatus(recruitmentId, "CONVERTED", series.id);
+		invalidate("dashboard");
+		invalidate(`recruitment:${recruitmentId}`);
+		invalidate(`series:${series.id}`);
+		return { seriesId: series.id };
 	});
 
 	// 종료된 시리즈 목록 (status=COMPLETED) — 지난 내전 기록.
