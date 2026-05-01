@@ -1,11 +1,12 @@
-// 테스트용 Fastify app 빌더 — listen 안 함, DB 안 닿음.
-// Wave 5.3: smoke + auth/operator gate 만 다룸. DB 통합은 별도 PR.
+// 테스트용 Fastify app 빌더 — listen 안 함, in-memory SQLite + 모킹.
+// Wave 5.x: d1 driver pattern 활용 → DB-touching 라우트 통합 가능.
 //
 // canEdit 게이팅 — perms 모듈을 mock 하는 대신 env 로 자연 fallback:
 //   - canEdit=true:  OPERATOR_ROLE_ID/NAME 둘 다 unset → "all users can edit"
 //   - canEdit=false: OPERATOR_ROLE_ID 설정 + DISCORD_TOKEN unset → guild fetch 실패 → roles [] → false
 
 import cookie from "@fastify/cookie";
+import { createTestDb, installDbDriver, type TestDb } from "@mookbot/core/test-utils/db-harness";
 import Fastify, { type FastifyInstance } from "fastify";
 import { fastifyErrorHandler } from "../http/_errors.js";
 import { registerRoutes } from "../http/routes.js";
@@ -14,6 +15,7 @@ const SESSION_SECRET = "test-secret-min-32-chars-_____padding";
 
 export interface TestAppCtx {
 	app: FastifyInstance;
+	db: TestDb;
 }
 
 export async function buildTestApp(opts?: { canEdit?: boolean }): Promise<TestAppCtx> {
@@ -31,12 +33,16 @@ export async function buildTestApp(opts?: { canEdit?: boolean }): Promise<TestAp
 	const { clearPermsCache } = await import("../auth/perms.js");
 	clearPermsCache();
 
+	// In-memory SQLite + d1 driver swap → 모든 db.* 호출이 SQLite 위에서 실행
+	const db = createTestDb();
+	installDbDriver(db);
+
 	const app = Fastify({ logger: false, trustProxy: true });
 	app.setErrorHandler(fastifyErrorHandler);
 	await app.register(cookie, { secret: SESSION_SECRET });
 	await registerRoutes(app);
 
-	return { app };
+	return { app, db };
 }
 
 /**
