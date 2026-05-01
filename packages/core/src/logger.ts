@@ -1,3 +1,4 @@
+import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import pino from "pino";
@@ -41,7 +42,13 @@ function buildLogger() {
 				},
 			],
 		});
-		return pino({ level: baseLevel, base: { app: "mookbot" } }, transport);
+		return pino(
+			{
+				level: baseLevel,
+				base: { app: "mookbot", pid: process.pid, hostname: os.hostname() },
+			},
+			transport,
+		);
 	}
 
 	return pino({
@@ -54,7 +61,7 @@ function buildLogger() {
 						options: { destination: 1 },
 					},
 				}),
-		base: { app: "mookbot" },
+		base: { app: "mookbot", pid: process.pid, hostname: os.hostname() },
 	});
 }
 
