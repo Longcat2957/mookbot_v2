@@ -6,8 +6,8 @@ import {
 	ButtonBuilder,
 	ButtonStyle,
 	type ContainerBuilder,
-	type MessageComponentInteraction,
 	MessageFlags,
+	type RepliableInteraction,
 	StringSelectMenuBuilder,
 } from "discord.js";
 import { COLORS, v2Container, v2Sep, v2Text } from "../../utils/v2.js";
@@ -66,7 +66,7 @@ export async function renderComponents(
 			v2Text(
 				full
 					? "_▶ 운영자가 [엔트리 수정 시작] 으로 Activity 진입. 또는 [모집 취소]._"
-					: "_[참석] / [참석 취소] / 라인 선택. 운영자: [+ 멤버 관리] / [모집 취소]._",
+					: "_[참석] / [참석 취소] / 라인 선택. 운영자가 멤버를 직접 추가/제거하려면 `/모집인원추가` · `/모집인원삭제`._",
 			),
 		);
 	} else if (rec.status === "CLOSED") {
@@ -113,10 +113,6 @@ function buildOpenComponents(
 				.setLabel("▶ 엔트리 수정 시작")
 				.setStyle(ButtonStyle.Success),
 			new ButtonBuilder()
-				.setCustomId(`recruit:adduser:${id}`)
-				.setLabel("+ 멤버 관리")
-				.setStyle(ButtonStyle.Secondary),
-			new ButtonBuilder()
 				.setCustomId(`recruit:cancel:${id}`)
 				.setLabel("모집 취소")
 				.setStyle(ButtonStyle.Danger),
@@ -137,10 +133,6 @@ function buildOpenComponents(
 	);
 
 	const operatorRow = new ActionRowBuilder<ButtonBuilder>().addComponents(
-		new ButtonBuilder()
-			.setCustomId(`recruit:adduser:${id}`)
-			.setLabel("+ 멤버 관리")
-			.setStyle(ButtonStyle.Secondary),
 		new ButtonBuilder()
 			.setCustomId(`recruit:cancel:${id}`)
 			.setLabel("모집 취소")
@@ -169,10 +161,6 @@ function buildOpenComponents(
 function buildClosedComponents(id: number): ActionRowBuilder<ButtonBuilder>[] {
 	const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
 		new ButtonBuilder()
-			.setCustomId(`recruit:adduser:${id}`)
-			.setLabel("+ 멤버 관리")
-			.setStyle(ButtonStyle.Secondary),
-		new ButtonBuilder()
 			.setCustomId(`recruit:cancel:${id}`)
 			.setLabel("모집 취소")
 			.setStyle(ButtonStyle.Danger),
@@ -187,7 +175,7 @@ function buildClosedComponents(id: number): ActionRowBuilder<ButtonBuilder>[] {
  * 2차 폴백: interaction.followUp 으로 새 메시지 게시 + tracking 갱신
  */
 export async function refreshRecruitMessage(
-	interaction: MessageComponentInteraction,
+	interaction: RepliableInteraction,
 	id: number,
 	channelId: string | null,
 	messageId: string | null,

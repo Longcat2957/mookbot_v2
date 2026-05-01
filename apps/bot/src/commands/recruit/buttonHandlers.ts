@@ -1,7 +1,7 @@
-// 모집 메시지의 버튼 인터랙션 처리 — 참여/취소/멤버관리/엔트리 진입.
+// 모집 메시지의 버튼 인터랙션 처리 — 참여/취소/엔트리 진입.
 
 import { db } from "@mookbot/core";
-import { ActionRowBuilder, type ButtonInteraction, StringSelectMenuBuilder } from "discord.js";
+import type { ButtonInteraction } from "discord.js";
 import { notify } from "../../utils/notify.js";
 import { v2EditReply } from "../../utils/v2.js";
 import { renderComponents } from "./messageBuilder.js";
@@ -37,7 +37,7 @@ export async function handleButton(interaction: ButtonInteraction): Promise<void
 		await interaction.reply({ content: `모집이 ${rec.status} 상태입니다.`, ephemeral: true });
 		return;
 	}
-	// 운영자 액션은 OPEN/CLOSED 모두 허용 (취소·멤버 관리 사후 가능)
+	// 운영자 액션 (cancel) 은 OPEN/CLOSED 모두 허용
 	if (!isOpen && !isClosed) {
 		await interaction.reply({ content: `모집이 ${rec.status} 상태입니다.`, ephemeral: true });
 		return;
@@ -50,8 +50,6 @@ export async function handleButton(interaction: ButtonInteraction): Promise<void
 			return await handleJoin(interaction, id, rec.target_count);
 		case "leave":
 			return await handleLeave(interaction, id);
-		case "adduser":
-			return await openAdminUserSelect(interaction, id, rec.created_by, rec.target_count);
 		case "cancel":
 			return await handleCancel(interaction, id, rec.created_by);
 		case "next":
@@ -154,7 +152,7 @@ async function handleNext(
 	if (!rec) return;
 	if (participants.length < rec.target_count) {
 		await interaction.reply({
-			content: `정원 미달 (${participants.length}/${rec.target_count}). 멤버 관리로 채우세요.`,
+			content: `정원 미달 (${participants.length}/${rec.target_count}). \`/모집인원추가 모집:${id} 멤버:@xxx\` 로 채우세요.`,
 			ephemeral: true,
 		});
 		return;
@@ -178,82 +176,3 @@ async function handleNext(
 	});
 }
 
-// Discord StringSelect: 25 옵션/메뉴, 5 메뉴/메시지 → 한 ephemeral reply 에 최대 125명.
-// UserSelectMenu 는 운영자 클라이언트 캐시 의존이라 일부만 보였음 — 봇이 길드 멤버를 직접
-// fetch 해서 옵션을 박아 렌더하면 캐시와 무관하게 항상 전체 표시.
-const ADDUSER_PAGE_SIZE = 25;
-const ADDUSER_MAX_PAGES = 5;
-
-async function openAdminUserSelect(
-	interaction: ButtonInteraction,
-	id: number,
-	createdBy: string,
-	targetCount: number,
-): Promise<void> {
-	if (interaction.user.id !== createdBy) {
-		await interaction.reply({
-			content: "멤버 관리는 모집을 만든 운영자만 가능합니다.",
-			ephemeral: true,
-		});
-		return;
-	}
-	if (!interaction.guild) {
-		await interaction.reply({ content: "길드 컨텍스트 없음.", ephemeral: true });
-		return;
-	}
-
-	await interaction.deferReply({ ephemeral: true });
-
-	// 명시적 limit:0 + 60s 타임아웃으로 길드 전체 fetch (캐시 무시).
-	const [current, members] = await Promise.all([
-		listRecruitmentParticipants(id),
-		interaction.guild.members.fetch({ limit: 0, time: 60_000 }),
-	]);
-	const currentIds = new Set(current.map((p) => p.user_id));
-
-	const allArr = [...members.values()];
-	const botCount = allArr.filter((m) => m.user.bot).length;
-	const candidates = allArr
-		.filter((m) => !m.user.bot)
-		.sort((a, b) => a.displayName.localeCompare(b.displayName, "ko"));
-
-	const cap = ADDUSER_PAGE_SIZE * ADDUSER_MAX_PAGES;
-	const visible = candidates.slice(0, cap);
-	const truncated = candidates.length > cap;
-
-	const chunks: (typeof visible)[] = [];
-	for (let i = 0; i < visible.length; i += ADDUSER_PAGE_SIZE) {
-		chunks.push(visible.slice(i, i + ADDUSER_PAGE_SIZE));
-	}
-
-	const rows = chunks.map((chunk, page) => {
-		const select = new StringSelectMenuBuilder()
-			.setCustomId(`recruit:adduser_select:${id}:${page}`)
-			.setPlaceholder(`멤버 선택 ${page + 1}/${chunks.length}`)
-			.setMinValues(0)
-			.setMaxValues(chunk.length)
-			.addOptions(
-				chunk.map((m) => ({
-					label: m.displayName.slice(0, 100),
-					value: m.id,
-					default: currentIds.has(m.id),
-				})),
-			);
-		return new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(select);
-	});
-
-	const lines = [
-		`### +/- 멤버 관리 — 모집 #${id}`,
-		`현재 풀 **${currentIds.size}/${targetCount}** · 길드 fetch **${allArr.length}** 명 (봇 ${botCount} 제외 → 표시 ${visible.length})`,
-		"_각 페이지에서 풀에 있어야 할 멤버를 체크 — 다른 페이지 멤버 상태는 유지됩니다._",
-		"_⚠️ 새로 추가된 멤버는 라인 무관 상태. 본인이 라인 선호 셀렉트로 변경 가능._",
-	];
-	if (truncated) {
-		lines.push(`_⚠️ 길드 멤버 ${candidates.length}명 중 ${cap}명만 표시 (가나다순)_`);
-	}
-
-	await interaction.editReply({
-		content: lines.join("\n"),
-		components: rows,
-	});
-}
