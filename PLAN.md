@@ -533,23 +533,40 @@ Activity Backend                        Bot
 | ~~에러 알림 — Discord webhook~~ | v0.2.4. pino worker transport, dedupe 5min + token bucket 6/min, webhook 미설정 시 비활성 |
 | ~~헬스체크 + 외부 모니터링~~ | v0.2.7. 4 컨테이너 HEALTHCHECK + api `/api/healthz/deep` (D1 ping + bot heartbeat 90s stale) + UptimeRobot 2 monitors (Edge + Deep) |
 
-### Phase 5 — 후속 개선 (백로그)
+### Phase Q — 코드 품질 강화 (현재 워크스트림)
 
-| 우선순위 | 항목 | 비고 |
+> 신규 기능 동결, **코드 리뷰 + 리팩토링 + 테스트 + 모더나이제이션** 에 집중.
+> 상세 계획: [`full_code_review_and_refactoring.md`](./full_code_review_and_refactoring.md)
+
+| Wave | 내용 | 산출물 |
 |---|---|---|
-| 🟧 중간 | 봇 → 채널 시리즈 종료 알림 | 결과 카드 (3게임 픽밴 + MMR 변동 마크다운 표). v0.7 종료 카드를 텍스트로 |
-| 🟧 중간 | 모바일 Activity QA | iOS/Android Discord 클라이언트 검증 → 안정 시 Developer Portal Mobile platform 활성화 |
-| 🟨 낮음 | E2E 테스트 | v1 `test:scrim`/`test:nvn` 이식, CI 에서 D1 throwaway |
-| 🟨 낮음 | SeriesResult 에 BAN 표시 | 현재 PICK 만 노출 |
-| 🟨 낮음 | 픽밴 cursor presence | 시리즈 진행 중 다른 사용자가 보고 있으면 활성 입력자 표시 |
-| 🟨 낮음 | 시즌 전환 / 종료 | 현재 단일 시즌 자동 생성. 시즌 컷오프 + 다음 시즌 baseline 정책 |
-| 🟨 낮음 | Riot Match-V5 자동 매치 감지 | 운영자 결과 입력 절감 (폴링 비용/스케줄 검토) |
+| W1 | 정적 도구 기반 (biome + CI) | `biome.json`, `.github/workflows/ci.yml` |
+| W2 | 테스트 기반 (vitest + core 순수 로직) | `vitest.config.ts`, core test 6~10건 |
+| W3 | God-file 분해 (PickBan 1530, routes 850, EntryEditing 826, recruit 664) | 4 PR |
+| W4 | 횡단 정리 (env 검증, error handler, operator 정책 공유) | core/env, error boundary |
+| W5 | 통합 테스트 (api/bot, D1 throwaway) | E2E harness |
+| W6 (선택) | 모더나이제이션 (Node 22, deps, ESM 정합) | Dockerfile, deps 업데이트 |
 
-> **자동 분배 알고리즘 (백로그 제외)**: 운영자 수동 밸런싱이 도메인 핵심 가치. 의도적 비목표.
+**측정 지표 (before → after)**: LOC>500 파일 4 → 0, test 0 → 20+, core coverage 0% → ≥60%, 부팅 시 env 누락 즉시 감지.
+
+### Phase 5 — 후속 기능 (백로그, 모두 보류)
+
+> Phase Q 완료 후 재평가. 현재는 **신규 기능 동결**.
+
+| 항목 | 비고 |
+|---|---|
+| 봇 → 채널 시리즈 종료 알림 | 결과 카드 (3게임 픽밴 + MMR 변동 텍스트 표) |
+| 모바일 Activity QA | iOS/Android Discord 검증 → Developer Portal Mobile 활성화 |
+| SeriesResult 에 BAN 표시 | 현재 PICK 만 노출 |
+| 픽밴 cursor presence | 동시 보고 있는 사용자 표시 |
+| 시즌 전환 / 종료 | 시즌 컷오프 + 다음 시즌 baseline 정책 |
+| Riot Match-V5 자동 매치 감지 | 운영자 결과 입력 절감 |
+
+> **자동 분배 알고리즘**: 영구 비목표 — 운영자 수동 밸런싱이 도메인 핵심 가치.
 
 ---
 
-**현재 상태**: **v0.2.7 — Phase 0~4 완료**. SSL/백업/admin/에러 알림/모니터링 전 항목 운영 진입.
+**현재 상태**: **v0.2.7 — Phase 0~4 완료**. SSL/백업/admin/에러 알림/모니터링 운영 진입. **Phase Q (코드 품질) 진행 중**.
 
 ---
 
