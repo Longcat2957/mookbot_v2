@@ -1,0 +1,7 @@
+# Lines listed here are ignored by `git blame --ignore-revs-file`.
+# IDE plugins (GitLens, JetBrains, etc.) and `git config blame.ignoreRevsFile`
+# pick this up automatically. The squash commits below are mass formatting /
+# tooling baselines — actual authorship lives in the prior commits.
+
+# Wave 1 — biome + GHA CI baseline (2026-05-01)
+630a99c4532253dd46191ecd5308ff69b5be160a

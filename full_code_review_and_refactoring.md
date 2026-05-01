@@ -93,24 +93,20 @@ Wave 5: 통합 테스트 (api + bot, D1 throwaway)
 
 ## 4. 각 Wave 상세
 
-### Wave 1 — 정적 도구 기반 (예상 1.5h)
+### Wave 1 ✅ — 정적 도구 기반 (2026-05-01 완료, PR #13)
 
-**목표**: 모든 PR 이 자동으로 typecheck + lint + format 검증되는 상태.
+**적용**
+- `@biomejs/biome` 2.4.13 + `biome.json` (tab/100/double/semi/trailing-all — 현 스타일 보존)
+- linter recommended + 조정 (a11y/noConsole/noNonNullAssertion/useExhaustiveDependencies 는 warn 으로 점진 정리)
+- `.github/workflows/ci.yml` — pnpm + node 22, **build core → typecheck → lint** (build 가드 필수: 앱이 core/dist 의 .d.ts 에 의존)
+- baseline `biome check --write` 적용 (79 files mechanical), 4 manual fix (unused var/import + implicit any 2건)
+- `.git-blame-ignore-revs` 등록 (squash sha `630a99c`)
 
-**작업**
-1. `biome.json` 도입 (단일 도구 = lint + formatter, 빠름, ESM 친화)
-   - rules: recommended + 도메인 맞춤 (any 금지, unused vars 금지, 일관 import 순서)
-   - format: 2-space indent / single quotes / trailing comma all (현 코드 패턴에 맞춤)
-2. 전 워크스페이스 baseline `biome check --write` 1회 적용
-3. 루트 `package.json` 에 `lint`, `format`, `check` 스크립트 추가
-4. `.github/workflows/ci.yml` 신규 — push/PR 시 typecheck + biome check 실행
-
-**산출물**
-- `biome.json` (root)
-- `.github/workflows/ci.yml`
-- baseline 적용 PR (대량 diff 예상 — 별도 머지)
-
-**Exit**: PR 열면 typecheck + lint 자동 실행. 둘 다 green 아니면 머지 차단.
+**측정**
+- lint errors 196 → **0**
+- lint warnings 38 → 123 (a11y/noConsole 등 — Wave 4 점진 정리)
+- typecheck 통과
+- CI 첫 PR 가드 동작 검증 ✓
 
 ---
 
