@@ -13,8 +13,13 @@
 		"format": "biome format --write .",
 		"check": "biome check .",
 		"check:fix": "biome check --write .",
+		"dev": "pnpm --filter \"./apps/*\" --parallel run dev",
+		"dev:web": "pnpm --filter @mookbot/activity dev",
+		"dev:api": "pnpm --filter @mookbot/api dev",
+		"dev:bot": "pnpm --filter @mookbot/bot dev",
 		"test": "vitest run",
 		"test:watch": "vitest",
+		"test:ui": "vitest --ui",
 		"test:coverage": "vitest run --coverage",
 		"version:patch": "pnpm version patch --no-git-tag-version",
 		"version:minor": "pnpm version minor --no-git-tag-version",
@@ -26,6 +31,7 @@
 	"devDependencies": {
 		"@biomejs/biome": "^2.4.13",
 		"@vitest/coverage-v8": "^4.1.5",
+		"@vitest/ui": "^4.1.5",
 		"vitest": "^4.1.5"
 	},
 	"pnpm": {
