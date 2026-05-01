@@ -1,15 +1,18 @@
 // In-memory SQLite (better-sqlite3) 테스트 하네스.
-// production 의 cloudflare/d1.ts 4 export 를 vi.mock 으로 swap 하면
-// db/* 의 모든 함수가 in-memory SQLite 위에서 실행됨.
+// d1.ts 의 driver indirection 을 활용 — vi.mock 불필요, cross-package 사용 가능.
 //
-// schema 는 packages/core/src/db/schema.sql 을 매번 읽음 → 스키마 드리프트 0.
+// 패턴:
+//   beforeEach(() => {
+//     const db = createTestDb();
+//     installDbDriver(db);   // d1.ts driver 를 SQLite 백엔드로 swap
+//   });
+//   afterEach(() => __resetDriver());
 
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import Database from "better-sqlite3";
-import { vi } from "vitest";
-import * as d1 from "../cloudflare/d1.js";
+import { __resetDriver, __setDriver, type D1Driver } from "../cloudflare/d1.js";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const SCHEMA_PATH = path.join(here, "..", "db", "schema.sql");
@@ -42,75 +45,64 @@ export function createTestDb(): TestDb {
 }
 
 /**
- * `cloudflare/d1.ts` 의 4 export (query/queryOne/execute/batch) 를
- * 주어진 SQLite 인스턴스로 위임하도록 vi.mock 동작을 install.
- *
- * 사용법:
- *   import { vi } from "vitest";
- *   vi.mock("../cloudflare/d1.js");          // top-level (hoisted)
- *
- *   beforeEach(() => {
- *     const db = createTestDb();
- *     installDbMock(db);
- *   });
- *
- * D1 의 meta 필드는 better-sqlite3 의 RunResult 에서 매핑:
- *   - last_row_id: lastInsertRowid (BigInt|number → number)
- *   - changes:     changes
+ * 주어진 SQLite 인스턴스를 d1.ts driver 로 install.
+ * production 의 HTTP driver 를 대체 — `__resetDriver()` 로 복구 가능.
  */
-export function installDbMock(db: TestDb): void {
-	vi.mocked(d1.query).mockImplementation(<T>(sql: string, params: unknown[] = []): Promise<T[]> => {
-		const stmt = db.prepare(sql);
-		const rows = stmt.all(...(params as never[])) as T[];
-		return Promise.resolve(rows);
-	});
-
-	vi
-		.mocked(d1.queryOne)
-		.mockImplementation(<T>(sql: string, params: unknown[] = []): Promise<T | undefined> => {
+export function installDbDriver(db: TestDb): void {
+	const driver: D1Driver = {
+		async query<T>(sql: string, params: unknown[]): Promise<T[]> {
 			const stmt = db.prepare(sql);
-			const row = stmt.get(...(params as never[])) as T | undefined;
-			return Promise.resolve(row);
-		});
-
-	vi.mocked(d1.execute).mockImplementation((sql: string, params: unknown[] = []) => {
-		const stmt = db.prepare(sql);
-		const result = stmt.run(...(params as never[]));
-		return Promise.resolve({
-			duration: 0,
-			rows_read: 0,
-			rows_written: result.changes,
-			last_row_id: Number(result.lastInsertRowid),
-			changes: result.changes,
-		});
-	});
-
-	vi.mocked(d1.batch).mockImplementation(async (statements) => {
-		const out: {
-			results: unknown[];
-			success: true;
-			meta: { duration: number; rows_read: number; rows_written: number };
-		}[] = [];
-		for (const stmt of statements) {
-			const prepared = db.prepare(stmt.sql);
-			const params = (stmt.params ?? []) as never[];
-			// SELECT vs write 구분 — better-sqlite3 의 readonly 플래그 사용
-			if (prepared.reader) {
-				const rows = prepared.all(...params);
-				out.push({
-					results: rows,
-					success: true,
-					meta: { duration: 0, rows_read: rows.length, rows_written: 0 },
-				});
-			} else {
-				const r = prepared.run(...params);
-				out.push({
-					results: [],
-					success: true,
-					meta: { duration: 0, rows_read: 0, rows_written: r.changes },
-				});
+			return stmt.all(...(params as never[])) as T[];
+		},
+		async queryOne<T>(sql: string, params: unknown[]): Promise<T | undefined> {
+			const stmt = db.prepare(sql);
+			return stmt.get(...(params as never[])) as T | undefined;
+		},
+		async execute(sql: string, params: unknown[]) {
+			const stmt = db.prepare(sql);
+			const r = stmt.run(...(params as never[]));
+			return {
+				duration: 0,
+				rows_read: 0,
+				rows_written: r.changes,
+				last_row_id: Number(r.lastInsertRowid),
+				changes: r.changes,
+			};
+		},
+		async batch(statements) {
+			const out: {
+				results: unknown[];
+				success: true;
+				meta: { duration: number; rows_read: number; rows_written: number };
+			}[] = [];
+			for (const stmt of statements) {
+				const prepared = db.prepare(stmt.sql);
+				const params = (stmt.params ?? []) as never[];
+				if (prepared.reader) {
+					const rows = prepared.all(...params);
+					out.push({
+						results: rows,
+						success: true,
+						meta: { duration: 0, rows_read: rows.length, rows_written: 0 },
+					});
+				} else {
+					const r = prepared.run(...params);
+					out.push({
+						results: [],
+						success: true,
+						meta: { duration: 0, rows_read: 0, rows_written: r.changes },
+					});
+				}
 			}
-		}
-		return out;
-	});
+			return out;
+		},
+	};
+	__setDriver(driver);
 }
+
+export { __resetDriver };
+
+/**
+ * @deprecated installDbDriver 사용. 호환성 유지.
+ */
+export const installDbMock = installDbDriver;

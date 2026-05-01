@@ -1,5 +1,5 @@
 // ============================================================
-// Cloudflare D1 — minimal HTTP client
+// Cloudflare D1 — minimal HTTP client + swappable driver
 // ============================================================
 //
 // D1 REST API:
@@ -7,6 +7,10 @@
 //   body: { sql, params? }   or   [{ sql, params? }, ...] for batch
 //
 // Required env: CF_ACCOUNT_ID, CLOUDFLARE_D1_DATABASE_ID, CLOUDFLARE_API_TOKEN
+//
+// Driver indirection: prod 코드는 항상 default HTTP driver 를 사용한다.
+// 테스트는 `__setDriver()` 로 in-memory SQLite 등으로 swap 가능. prod 영향 0
+// (driver 함수 호출 1번 추가 — HTTP fetch latency 대비 무시 가능).
 
 interface D1Meta {
 	duration: number;
@@ -40,6 +44,17 @@ export interface D1Statement {
 }
 
 // ------------------------------------------------------------
+// Driver (테스트 swap 용 indirection)
+// ------------------------------------------------------------
+
+export interface D1Driver {
+	query<T>(sql: string, params: unknown[]): Promise<T[]>;
+	queryOne<T>(sql: string, params: unknown[]): Promise<T | undefined>;
+	execute(sql: string, params: unknown[]): Promise<D1Meta>;
+	batch(statements: D1Statement[]): Promise<D1Result<unknown>[]>;
+}
+
+// ------------------------------------------------------------
 // Lazy config (so dotenv can run before this is read)
 // ------------------------------------------------------------
 
@@ -63,10 +78,10 @@ function getConfig(): { endpoint: string; token: string } {
 }
 
 // ------------------------------------------------------------
-// Core request
+// HTTP driver (production)
 // ------------------------------------------------------------
 
-async function call<T>(body: D1Statement): Promise<D1Result<T>[]> {
+async function httpCall<T>(body: D1Statement): Promise<D1Result<T>[]> {
 	const { endpoint, token } = getConfig();
 	const res = await fetch(endpoint, {
 		method: "POST",
@@ -90,8 +105,50 @@ async function call<T>(body: D1Statement): Promise<D1Result<T>[]> {
 	return env.result;
 }
 
+const httpDriver: D1Driver = {
+	async query<T>(sql: string, params: unknown[]): Promise<T[]> {
+		const result = await httpCall<T>({ sql, params });
+		return result[0]?.results ?? [];
+	},
+	async queryOne<T>(sql: string, params: unknown[]): Promise<T | undefined> {
+		const result = await httpCall<T>({ sql, params });
+		return result[0]?.results?.[0];
+	},
+	async execute(sql: string, params: unknown[]): Promise<D1Meta> {
+		const result = await httpCall<unknown>({ sql, params });
+		if (!result[0]) throw new Error("D1 execute returned no result");
+		return result[0].meta;
+	},
+	async batch(statements: D1Statement[]): Promise<D1Result<unknown>[]> {
+		if (statements.length === 0) return [];
+		const results: D1Result<unknown>[] = [];
+		for (const stmt of statements) {
+			const r = await httpCall<unknown>(stmt);
+			if (r[0]) results.push(r[0]);
+		}
+		return results;
+	},
+};
+
+let driver: D1Driver = httpDriver;
+
+/**
+ * 테스트 전용 — driver 를 swap. production 은 import-time 의 HTTP driver 사용.
+ * 테스트가 끝나면 `__resetDriver()` 또는 `__setDriver(httpDriver)` 로 복구.
+ */
+export function __setDriver(d: D1Driver): void {
+	driver = d;
+}
+
+/**
+ * 테스트 전용 — driver 를 default HTTP driver 로 복구.
+ */
+export function __resetDriver(): void {
+	driver = httpDriver;
+}
+
 // ------------------------------------------------------------
-// Public API
+// Public API (driver 위임)
 // ------------------------------------------------------------
 
 /**
@@ -102,8 +159,7 @@ export async function query<T = Record<string, unknown>>(
 	sql: string,
 	params: unknown[] = [],
 ): Promise<T[]> {
-	const result = await call<T>({ sql, params });
-	return result[0]?.results ?? [];
+	return driver.query<T>(sql, params);
 }
 
 /**
@@ -113,17 +169,14 @@ export async function queryOne<T = Record<string, unknown>>(
 	sql: string,
 	params: unknown[] = [],
 ): Promise<T | undefined> {
-	const rows = await query<T>(sql, params);
-	return rows[0];
+	return driver.queryOne<T>(sql, params);
 }
 
 /**
  * Run an INSERT/UPDATE/DELETE/DDL. Returns the meta (last_row_id, changes).
  */
 export async function execute(sql: string, params: unknown[] = []): Promise<D1Meta> {
-	const result = await call<unknown>({ sql, params });
-	if (!result[0]) throw new Error("D1 execute returned no result");
-	return result[0].meta;
+	return driver.execute(sql, params);
 }
 
 /**
@@ -138,11 +191,5 @@ export async function execute(sql: string, params: unknown[] = []): Promise<D1Me
  * still applies — it commits all rows or none.
  */
 export async function batch(statements: D1Statement[]): Promise<D1Result<unknown>[]> {
-	if (statements.length === 0) return [];
-	const results: D1Result<unknown>[] = [];
-	for (const stmt of statements) {
-		const r = await call<unknown>(stmt);
-		if (r[0]) results.push(r[0]);
-	}
-	return results;
+	return driver.batch(statements);
 }
