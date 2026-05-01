@@ -2,12 +2,14 @@ import { fileURLToPath } from "node:url";
 import { log } from "@mookbot/core";
 import { Client, GatewayIntentBits } from "discord.js";
 import { config } from "dotenv";
+import { validateEnv } from "./env.js";
 import { interactionCreate } from "./events/interactionCreate.js";
 import { ready } from "./events/ready.js";
 import { startHealthServer, stopHealthServer } from "./healthServer.js";
 import { startHeartbeat, stopHeartbeat } from "./heartbeat.js";
 
 config({ path: fileURLToPath(new URL("../../../.env", import.meta.url)) });
+validateEnv();
 
 const client = new Client({
 	intents: [

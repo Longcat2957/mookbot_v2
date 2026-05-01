@@ -4,10 +4,12 @@ import websocket from "@fastify/websocket";
 import { datadragon, log } from "@mookbot/core";
 import { config } from "dotenv";
 import Fastify from "fastify";
+import { validateEnv } from "./env.js";
 import { registerRoutes } from "./http/routes.js";
 import { registerWs } from "./ws/server.js";
 
 config({ path: fileURLToPath(new URL("../../../.env", import.meta.url)) });
+validateEnv();
 
 const app = Fastify({
 	logger: { level: process.env.LOG_LEVEL ?? "info" },
