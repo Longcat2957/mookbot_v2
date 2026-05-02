@@ -1,5 +1,6 @@
 import { db } from "@mookbot/core";
 import { type ChatInputCommandInteraction, EmbedBuilder, SlashCommandBuilder } from "discord.js";
+import { resolveGuildDisplayName } from "../utils/displayName.js";
 import { requireOperator } from "../utils/operator.js";
 
 const { adjustLaneMmr, recordAudit, getCurrentSeason, upsertUser, ROLE_SLOTS } = db;
@@ -44,10 +45,8 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
 		return;
 	}
 
-	const member = interaction.guild
-		? await interaction.guild.members.fetch(targetUser.id).catch(() => null)
-		: null;
-	const displayName = member?.displayName ?? targetUser.displayName ?? targetUser.username;
+	// GuildMember.displayName 우선
+	const displayName = await resolveGuildDisplayName(interaction.guild, targetUser);
 	await upsertUser(targetUser.id, displayName);
 
 	const { before, after } = await adjustLaneMmr({

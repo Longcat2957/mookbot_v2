@@ -2,6 +2,7 @@
 
 import { db } from "@mookbot/core";
 import type { StringSelectMenuInteraction } from "discord.js";
+import { resolveGuildDisplayName } from "../../utils/displayName.js";
 import { notify } from "../../utils/notify.js";
 import { v2EditReply } from "../../utils/v2.js";
 import { renderComponents } from "./messageBuilder.js";
@@ -36,7 +37,9 @@ async function handleRoleSelect(
 	}
 
 	const roles = interaction.values as RoleSlot[];
-	await upsertUser(interaction.user.id, interaction.user.displayName);
+	// GuildMember.displayName 우선 — interaction.user.displayName (글로벌) 직접 사용 금지
+	const memberName = await resolveGuildDisplayName(interaction.guild, interaction.user);
+	await upsertUser(interaction.user.id, memberName);
 
 	// 비참가자가 라인 선택 → 자동으로 참가 처리
 	const already = await isRecruitmentParticipant(id, interaction.user.id);

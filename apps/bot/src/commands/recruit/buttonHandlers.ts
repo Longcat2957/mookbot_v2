@@ -2,6 +2,7 @@
 
 import { db } from "@mookbot/core";
 import type { ButtonInteraction } from "discord.js";
+import { resolveGuildDisplayName } from "../../utils/displayName.js";
 import { notify } from "../../utils/notify.js";
 import { v2EditReply } from "../../utils/v2.js";
 import { renderComponents } from "./messageBuilder.js";
@@ -43,8 +44,7 @@ export async function handleButton(interaction: ButtonInteraction): Promise<void
 		return;
 	}
 
-	await upsertUser(interaction.user.id, interaction.user.displayName);
-
+	// upsertUser 는 각 액션 핸들러 내부에서 — 항상 GuildMember.displayName 우선.
 	switch (action) {
 		case "join":
 			return await handleJoin(interaction, id, rec.target_count);
@@ -83,8 +83,8 @@ async function handleJoin(
 	}
 	// 디스코드 3초 ack 윈도우 회피 — 무거운 D1 쿼리 전 deferUpdate 로 먼저 응답
 	await interaction.deferUpdate();
-	// 참가자가 길드 멤버이면 닉네임으로 갱신 (User.displayName 은 글로벌 이름이라 부정확)
-	const memberName = await fetchGuildMemberName(interaction);
+	// GuildMember.displayName 우선 — interaction.user.displayName (글로벌) 직접 사용 금지
+	const memberName = await resolveGuildDisplayName(interaction.guild, interaction.user);
 	await upsertUser(interaction.user.id, memberName);
 	await addRecruitmentParticipant({ recruitmentId: id, userId: interaction.user.id });
 	const components = await renderComponents(id);
@@ -105,14 +105,6 @@ async function handleLeave(interaction: ButtonInteraction, id: number): Promise<
 	await interaction.editReply(v2EditReply(...components));
 	void notify(`recruitment:${id}`);
 	void notify("dashboard");
-}
-
-async function fetchGuildMemberName(interaction: ButtonInteraction): Promise<string> {
-	if (!interaction.guild) {
-		return interaction.user.displayName ?? interaction.user.username;
-	}
-	const member = await interaction.guild.members.fetch(interaction.user.id).catch(() => null);
-	return member?.displayName ?? interaction.user.displayName ?? interaction.user.username;
 }
 
 async function handleCancel(
@@ -175,4 +167,3 @@ async function handleNext(
 		ephemeral: true,
 	});
 }
-

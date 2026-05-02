@@ -142,6 +142,7 @@ function pushField(
 
 async function processMember(member: GuildMember, dryRun: boolean): Promise<Outcome> {
 	const userId = member.id;
+	// GuildMember.displayName — 닉 → globalName → username chain (resolveGuildDisplayName 1순위와 동일)
 	const displayName = member.displayName;
 	const mention = `<@${userId}>`;
 

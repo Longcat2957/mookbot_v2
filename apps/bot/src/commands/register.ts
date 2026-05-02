@@ -1,5 +1,6 @@
 import { db, riot } from "@mookbot/core";
 import { type ChatInputCommandInteraction, EmbedBuilder, SlashCommandBuilder } from "discord.js";
+import { resolveGuildDisplayName } from "../utils/displayName.js";
 
 export const data = new SlashCommandBuilder()
 	.setName("등록")
@@ -15,11 +16,8 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
 	const riotIdInput = interaction.options.getString("riot_id");
 	await interaction.deferReply({ ephemeral: true });
 
-	const member = interaction.guild
-		? await interaction.guild.members.fetch(interaction.user.id).catch(() => null)
-		: null;
-	const displayName =
-		member?.displayName ?? interaction.user.displayName ?? interaction.user.username;
+	// GuildMember.displayName 우선
+	const displayName = await resolveGuildDisplayName(interaction.guild, interaction.user);
 	await db.upsertUser(interaction.user.id, displayName);
 
 	if (!riotIdInput) {

@@ -1,6 +1,8 @@
 import { log } from "@mookbot/core";
 import type { Interaction } from "discord.js";
 import { handleButton as cleanupStaleButton } from "../commands/cleanupStale.js";
+import { handleButton as earlyCompleteSeriesButton } from "../commands/earlyCompleteSeries.js";
+import { handleButton as forceDeleteRecruitmentButton } from "../commands/forceDeleteRecruitment.js";
 import { handleButton as forceDeleteSeriesButton } from "../commands/forceDeleteSeries.js";
 import { ALL_COMMANDS } from "../commands/index.js";
 import {
@@ -38,6 +40,8 @@ export async function interactionCreate(interaction: Interaction) {
 			} else if (prefix === "admin") {
 				const action = interaction.customId.split(":")[2];
 				if (action === "series_force_delete") await forceDeleteSeriesButton(interaction);
+				else if (action === "recruitment_force_delete") await forceDeleteRecruitmentButton(interaction);
+				else if (action === "series_early_complete") await earlyCompleteSeriesButton(interaction);
 				else if (action === "season_reset") await resetSeasonButton(interaction);
 				else if (action === "cleanup_stale") await cleanupStaleButton(interaction);
 			}

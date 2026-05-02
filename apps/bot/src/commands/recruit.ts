@@ -16,6 +16,7 @@ import {
 	InteractionContextType,
 	SlashCommandBuilder,
 } from "discord.js";
+import { resolveGuildDisplayName } from "../utils/displayName.js";
 import { v2Ephemeral, v2Error, v2Reply } from "../utils/v2.js";
 import { renderComponents } from "./recruit/messageBuilder.js";
 
@@ -58,7 +59,8 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
 	}
 	const targetCount = interaction.options.getInteger("정원", true);
 
-	await upsertUser(interaction.user.id, interaction.user.displayName);
+	const displayName = await resolveGuildDisplayName(interaction.guild, interaction.user);
+	await upsertUser(interaction.user.id, displayName);
 	const seasonId = await ensureSeasonId();
 
 	const rec = await createRecruitment({

@@ -7,6 +7,7 @@ import {
 	InteractionContextType,
 	SlashCommandBuilder,
 } from "discord.js";
+import { resolveGuildDisplayName } from "../utils/displayName.js";
 import { notify } from "../utils/notify.js";
 import { refreshRecruitMessage } from "./recruit/messageBuilder.js";
 
@@ -27,9 +28,7 @@ export const data = new SlashCommandBuilder()
 	.addIntegerOption((o) =>
 		o.setName("모집").setDescription("모집 ID").setRequired(true).setMinValue(1),
 	)
-	.addUserOption((o) =>
-		o.setName("멤버").setDescription("추가할 디스코드 멤버").setRequired(true),
-	);
+	.addUserOption((o) => o.setName("멤버").setDescription("추가할 디스코드 멤버").setRequired(true));
 
 export async function execute(interaction: ChatInputCommandInteraction): Promise<void> {
 	if (!interaction.inGuild() || !interaction.guild) {
@@ -80,20 +79,14 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
 		return;
 	}
 
-	const member = await interaction.guild.members.fetch(targetUser.id).catch(() => null);
-	const displayName =
-		member?.displayName ?? targetUser.displayName ?? targetUser.username ?? targetUser.id;
+	// GuildMember.displayName 우선
+	const displayName = await resolveGuildDisplayName(interaction.guild, targetUser);
 
 	await upsertUser(targetUser.id, displayName);
 	await addRecruitmentParticipant({ recruitmentId: id, userId: targetUser.id });
 	await setRecruitmentRoles(id, targetUser.id, []);
 
-	const refreshError = await refreshRecruitMessage(
-		interaction,
-		id,
-		rec.channel_id,
-		rec.message_id,
-	);
+	const refreshError = await refreshRecruitMessage(interaction, id, rec.channel_id, rec.message_id);
 	void notify(`recruitment:${id}`);
 	void notify("dashboard");
 

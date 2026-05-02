@@ -2,6 +2,8 @@ import * as adjustMmr from "./adjustMmr.js";
 import * as bulkRegister from "./bulkRegister.js";
 import * as cleanupStale from "./cleanupStale.js";
 import * as currentGame from "./currentGame.js";
+import * as earlyCompleteSeries from "./earlyCompleteSeries.js";
+import * as forceDeleteRecruitment from "./forceDeleteRecruitment.js";
 import * as forceDeleteSeries from "./forceDeleteSeries.js";
 import * as history from "./history.js";
 import * as leaderboard from "./leaderboard.js";
@@ -25,6 +27,8 @@ export const ALL_COMMANDS = [
 	lookup,
 	currentGame,
 	forceDeleteSeries,
+	forceDeleteRecruitment,
+	earlyCompleteSeries,
 	adjustMmr,
 	resetSeasonResults,
 	cleanupStale,
