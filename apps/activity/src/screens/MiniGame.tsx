@@ -7,9 +7,10 @@
 import { useState } from "react";
 import { CoinFlip } from "./MiniGame/CoinFlip.js";
 import { Ladder } from "./MiniGame/Ladder.js";
+import { Roulette } from "./MiniGame/Roulette.js";
 import "./MiniGame/styles.css";
 
-type Tool = "coin" | "ladder";
+type Tool = "coin" | "ladder" | "roulette";
 
 export function MiniGame({ onBack }: { onBack: () => void }) {
 	const [tool, setTool] = useState<Tool>("coin");
@@ -47,10 +48,23 @@ export function MiniGame({ onBack }: { onBack: () => void }) {
 				>
 					🪜 사다리타기
 				</button>
+				<button
+					type="button"
+					role="tab"
+					className={`tab ${tool === "roulette" ? "tab-active" : ""}`}
+					onClick={() => setTool("roulette")}
+					aria-selected={tool === "roulette"}
+				>
+					🎡 원판 돌리기
+				</button>
 			</div>
 
 			<div className="card bg-base-200/40 border border-base-300">
-				<div className="card-body p-4 sm:p-6">{tool === "coin" ? <CoinFlip /> : <Ladder />}</div>
+				<div className="card-body p-4 sm:p-6">
+					{tool === "coin" && <CoinFlip />}
+					{tool === "ladder" && <Ladder />}
+					{tool === "roulette" && <Roulette />}
+				</div>
 			</div>
 
 			<p className="text-xs text-base-content/50 text-center">
