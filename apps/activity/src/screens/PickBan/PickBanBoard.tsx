@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { usePerms } from "../../state/perms.js";
+import { BulkInput } from "./BulkInput.js";
 import { ChampCell } from "./ChampCell.js";
 import { TeamColumn } from "./TeamColumn.js";
 import {
@@ -30,6 +31,21 @@ export function PickBanBoard({
 	fearlessUsedIds: Set<number>;
 	onChange: (g: GameDraft) => void;
 }) {
+	// 일괄 입력 — 콤마 split 후 슬롯에 차례로 채움.
+	// null = 빈 토큰 또는 매칭 실패 → 기존 슬롯 값 유지 (불필요한 clear 회피).
+	const handleApplyBulk = (team: Team, kind: "ban" | "pick", championIds: (number | null)[]) => {
+		const next: GameDraft = {
+			...gameDraft,
+			bans: { TEAM_1: [...gameDraft.bans.TEAM_1], TEAM_2: [...gameDraft.bans.TEAM_2] },
+			picks: { TEAM_1: [...gameDraft.picks.TEAM_1], TEAM_2: [...gameDraft.picks.TEAM_2] },
+		};
+		const arr = kind === "ban" ? next.bans[team] : next.picks[team];
+		for (let j = 0; j < championIds.length && j < arr.length; j++) {
+			const cid = championIds[j];
+			if (cid !== null && cid !== undefined) arr[j] = cid;
+		}
+		onChange(next);
+	};
 	const perms = usePerms();
 	const [search, setSearch] = useState("");
 	const [activeSlot, setActiveSlot] = useState<{
@@ -217,6 +233,11 @@ export function PickBanBoard({
 						✕
 					</button>
 				</div>
+			)}
+
+			{/* 일괄 입력 — 운영자만, 닫혀 있는 게 기본 */}
+			{perms.canEdit && (
+				<BulkInput champions={champions} teamSize={teamSize} onApply={handleApplyBulk} />
 			)}
 
 			{/* 픽/밴 보드 — 1팀 | 2팀 */}
