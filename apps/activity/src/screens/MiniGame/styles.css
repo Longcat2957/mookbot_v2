@@ -151,6 +151,15 @@
 	stroke: color-mix(in oklch, var(--color-base-content), transparent 50%);
 	stroke-width: 5;
 	stroke-linecap: round;
+	/* 시작 전 결과 예측 차단 — 가로대는 클릭 후 dot 가 그 row 에 도달할 때 fade-in.
+	 * inline transition-delay 로 row 별 등장 타이밍 결정.
+	 */
+	opacity: 0;
+	transition: opacity 280ms ease-out;
+}
+
+.mg-ladder-rung.revealed {
+	opacity: 1;
 }
 
 /* 추적선 — class toggle 로 stroke-dashoffset transition */

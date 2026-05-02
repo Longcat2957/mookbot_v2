@@ -15,6 +15,9 @@ const ROWS = 10; // 가로단 수 (시각적 풍부함)
 const RUNG_PROB = 0.55;
 const ANIM_DURATION_MS = 1800;
 const STAGGER_MS = 150;
+// dot 가 한 row 통과하는 데 걸리는 평균 시간 — rung 등장 delay 산출용.
+// (실제 path 는 가로 jog 가 있어 비균일 속도지만, 시각 동기화에는 충분히 가까움)
+const ROW_TIME_MS = ANIM_DURATION_MS / (ROWS + 1);
 
 type InputState = "idle" | "running" | "done";
 
@@ -105,6 +108,36 @@ function buildPath(startCol: number, rungs: Rung[], geom: Geom): string {
 	return parts.join(" ");
 }
 
+/**
+ * 입력 startCol 의 path 가 통과하는 rung 의 indices.
+ * row 순으로 정렬됨 (path 진행 순서 그대로) → row * ROW_TIME 으로 reveal delay 산출 가능.
+ */
+function rungsAlongPath(startCol: number, rungs: Rung[]): number[] {
+	const byCoord = new Map<string, number>();
+	for (let i = 0; i < rungs.length; i++) {
+		const r = rungs[i];
+		if (r) byCoord.set(`${r.row}:${r.col}`, i);
+	}
+	const indices: number[] = [];
+	let col = startCol;
+	for (let r = 0; r < ROWS; r++) {
+		const rightIdx = byCoord.get(`${r}:${col}`);
+		if (rightIdx !== undefined) {
+			indices.push(rightIdx);
+			col += 1;
+			continue;
+		}
+		if (col > 0) {
+			const leftIdx = byCoord.get(`${r}:${col - 1}`);
+			if (leftIdx !== undefined) {
+				indices.push(leftIdx);
+				col -= 1;
+			}
+		}
+	}
+	return indices;
+}
+
 export function Ladder() {
 	const [count, setCount] = useState(2);
 	const [inputLabels, setInputLabels] = useState<string[]>(() =>
@@ -116,6 +149,9 @@ export function Ladder() {
 	const [rungs, setRungs] = useState<Rung[]>(() => generateRungs(2));
 	const [results, setResults] = useState<number[]>(() => simulate(2, rungs));
 	const [inputStates, setInputStates] = useState<Record<number, InputState>>({});
+	// rung idx → reveal delay (ms, class 추가 시점 기준).
+	// 시작 전 예측 차단 — 가로대는 입력 클릭 후 dot 진행과 동기화되어 등장.
+	const [rungDelays, setRungDelays] = useState<Map<number, number>>(new Map());
 	// rungsKey 변경 시 SVG 자식 elements 가 React key 로 unmount/mount → CSS transition 잔재 0.
 	const [rungsKey, setRungsKey] = useState(0);
 	// 진행 중 setTimeout 들을 reset 시 모두 취소
@@ -133,6 +169,7 @@ export function Ladder() {
 		setRungs(r);
 		setResults(simulate(count, r));
 		setInputStates({});
+		setRungDelays(new Map());
 		setRungsKey((k) => k + 1);
 		setInputLabels((prev) =>
 			Array.from({ length: count }, (_, i) => prev[i] ?? defaultInputLabel(i, count)),
@@ -163,6 +200,19 @@ export function Ladder() {
 	function startInput(i: number) {
 		if (inputStates[i] === "running" || inputStates[i] === "done") return;
 		setInputStates((prev) => ({ ...prev, [i]: "running" }));
+		// path 가 통과하는 rung 들에 row 기반 delay 부여 — dot 진행과 동기화.
+		// 이미 다른 입력으로 revealed 된 rung 은 기존 delay 유지 (먼저 클릭한 쪽 우선).
+		setRungDelays((prev) => {
+			const next = new Map(prev);
+			const indices = rungsAlongPath(i, rungs);
+			for (const idx of indices) {
+				if (next.has(idx)) continue;
+				const r = rungs[idx];
+				if (!r) continue;
+				next.set(idx, r.row * ROW_TIME_MS);
+			}
+			return next;
+		});
 		const id = window.setTimeout(() => {
 			setInputStates((prev) => ({ ...prev, [i]: "done" }));
 		}, ANIM_DURATION_MS);
@@ -192,6 +242,7 @@ export function Ladder() {
 		setRungs(r);
 		setResults(simulate(count, r));
 		setInputStates({});
+		setRungDelays(new Map());
 		setRungsKey((k) => k + 1);
 	}
 
@@ -278,17 +329,22 @@ export function Ladder() {
 						/>
 					))}
 
-					{/* 가로대 */}
-					{rungs.map((r, idx) => (
-						<line
-							key={`rung-${rungsKey}-${idx}`}
-							className="mg-ladder-rung"
-							x1={geom.x(r.col)}
-							y1={geom.rowY(r.row)}
-							x2={geom.x(r.col + 1)}
-							y2={geom.rowY(r.row)}
-						/>
-					))}
+					{/* 가로대 — 클릭 전엔 hidden, 클릭 후 row 별 delay 로 fade-in */}
+					{rungs.map((r, idx) => {
+						const delay = rungDelays.get(idx);
+						const revealed = delay !== undefined;
+						return (
+							<line
+								key={`rung-${rungsKey}-${idx}`}
+								className={`mg-ladder-rung ${revealed ? "revealed" : ""}`}
+								x1={geom.x(r.col)}
+								y1={geom.rowY(r.row)}
+								x2={geom.x(r.col + 1)}
+								y2={geom.rowY(r.row)}
+								style={revealed ? { transitionDelay: `${delay}ms` } : undefined}
+							/>
+						);
+					})}
 
 					{/* 추적선 — class active 토글로 stroke-dashoffset transition */}
 					{inputs.map((i) => {
