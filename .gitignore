@@ -11,3 +11,4 @@ dist
 *.tsbuildinfo
 .pnpm-store
 coverage/
+.claude/settings.local.json
