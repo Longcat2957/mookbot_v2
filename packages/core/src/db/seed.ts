@@ -80,9 +80,8 @@ console.log(`  season: ${season.name} (id=${season.id})`);
 
 // 2. 사용자 + 첫 15명 라이엇 연결
 const userIds: string[] = [];
-for (let i = 0; i < NAMES.length; i++) {
+for (const [i, name] of NAMES.entries()) {
 	const id = `test_${String(i + 1).padStart(3, "0")}`;
-	const name = NAMES[i]!;
 	await upsertUser(id, name);
 	userIds.push(id);
 	if (i < 15) {

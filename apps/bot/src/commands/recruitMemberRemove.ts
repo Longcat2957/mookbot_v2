@@ -20,9 +20,7 @@ export const data = new SlashCommandBuilder()
 	.addIntegerOption((o) =>
 		o.setName("모집").setDescription("모집 ID").setRequired(true).setMinValue(1),
 	)
-	.addUserOption((o) =>
-		o.setName("멤버").setDescription("제거할 디스코드 멤버").setRequired(true),
-	);
+	.addUserOption((o) => o.setName("멤버").setDescription("제거할 디스코드 멤버").setRequired(true));
 
 export async function execute(interaction: ChatInputCommandInteraction): Promise<void> {
 	if (!interaction.inGuild() || !interaction.guild) {
@@ -63,19 +61,11 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
 
 	await removeRecruitmentParticipant(id, targetUser.id);
 
-	const refreshError = await refreshRecruitMessage(
-		interaction,
-		id,
-		rec.channel_id,
-		rec.message_id,
-	);
+	const refreshError = await refreshRecruitMessage(interaction, id, rec.channel_id, rec.message_id);
 	void notify(`recruitment:${id}`);
 	void notify("dashboard");
 
-	const lines = [
-		`### ✗ 제거 — 모집 #${id}`,
-		`<@${targetUser.id}> → 풀에서 제외`,
-	];
+	const lines = [`### ✗ 제거 — 모집 #${id}`, `<@${targetUser.id}> → 풀에서 제외`];
 	if (refreshError) {
 		lines.push("", `⚠️ 모집 메시지 갱신 실패: \`${refreshError}\``);
 	}
