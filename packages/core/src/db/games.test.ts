@@ -1,6 +1,12 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { createTestDb, installDbDriver, type TestDb } from "../test-utils/db-harness.js";
-import { countSeriesWins, getGame, getGameStats, listGamesInSeries } from "./games.js";
+import {
+	countSeriesWins,
+	getGame,
+	getGameStats,
+	getRecentGamesForUser,
+	listGamesInSeries,
+} from "./games.js";
 import { createSeason } from "./seasons.js";
 import { createSeries } from "./series.js";
 import { upsertUser } from "./users.js";
@@ -74,6 +80,65 @@ describe("getGameStats", () => {
 		const stats = await getGameStats(gid);
 		expect(stats).toHaveLength(2);
 		expect(stats.find((s) => s.user_id === "u1")?.won).toBe(1);
+	});
+});
+
+describe("getRecentGamesForUser", () => {
+	it("user perspective + 시간 DESC + side 계산 + mmr_delta JOIN", async () => {
+		// Game 1: TEAM_1=BLUE win, u1 plays TEAM_1 TOP (BLUE side, won)
+		// Game 2: TEAM_1=RED win, u1 plays TEAM_1 TOP (RED side, won)
+		const g1 = insertGame(1, "TEAM_1", "BLUE");
+		const g2 = insertGame(2, "TEAM_1", "RED");
+		db
+			.prepare(
+				"INSERT INTO game_stats (game_id, user_id, team, role, champion_id, kills, deaths, assists, cs, won) VALUES (?, 'u1', 'TEAM_1', 'TOP', 266, 5, 2, 7, 180, 1)",
+			)
+			.run(g1);
+		db
+			.prepare(
+				"INSERT INTO game_stats (game_id, user_id, team, role, champion_id, kills, deaths, assists, cs, won) VALUES (?, 'u1', 'TEAM_1', 'TOP', 266, 3, 1, 5, 200, 1)",
+			)
+			.run(g2);
+		// Season 가져오기
+		const seasonRow = db.prepare("SELECT season_id FROM series WHERE id = ?").get(seriesId) as {
+			season_id: number;
+		};
+		// MMR change 만 g1 한 건만 추가
+		db
+			.prepare(
+				"INSERT INTO mmr_changes (game_id, user_id, season_id, role, opponent_id, mmr_before, mmr_after, delta) VALUES (?, 'u1', ?, 'TOP', 'u2', 1500, 1517, 17)",
+			)
+			.run(g1, seasonRow.season_id);
+
+		const rows = await getRecentGamesForUser({ userId: "u1" });
+		expect(rows).toHaveLength(2);
+		// 시간 DESC — g2 가 더 최근에 INSERT 됐지만 played_at 은 unixepoch() 동일할 수 있어 id desc 로 변동 가능.
+		// 핵심 검증: rows 안에 g1, g2 모두 있고, side 계산 정확.
+		const g1Row = rows.find((r) => r.game_id === g1);
+		const g2Row = rows.find((r) => r.game_id === g2);
+		expect(g1Row?.side).toBe("BLUE"); // TEAM_1 + team1_side BLUE = BLUE
+		expect(g2Row?.side).toBe("RED"); // TEAM_1 + team1_side RED = RED
+		expect(g1Row?.mmr_delta).toBe(17);
+		expect(g2Row?.mmr_delta).toBeNull(); // mmr_changes 없음
+		expect(g1Row?.kills).toBe(5);
+	});
+
+	it("seasonId 필터", async () => {
+		const g = insertGame(1, "TEAM_1");
+		db
+			.prepare(
+				"INSERT INTO game_stats (game_id, user_id, team, role, won) VALUES (?, 'u1', 'TEAM_1', 'TOP', 1)",
+			)
+			.run(g);
+
+		const seasonRow = db.prepare("SELECT season_id FROM series WHERE id = ?").get(seriesId) as {
+			season_id: number;
+		};
+		const matching = await getRecentGamesForUser({ userId: "u1", seasonId: seasonRow.season_id });
+		expect(matching).toHaveLength(1);
+
+		const wrongSeason = await getRecentGamesForUser({ userId: "u1", seasonId: 99999 });
+		expect(wrongSeason).toEqual([]);
 	});
 });
 

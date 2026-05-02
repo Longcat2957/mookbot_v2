@@ -48,9 +48,11 @@ const LANE_ORDER = ["TOP", "JUNGLE", "MID", "BOTTOM", "SUPPORT"] as const;
 export function SeriesResult({
 	seriesId,
 	onBack,
+	onSelectUser,
 }: {
 	seriesId: number | null;
 	onBack: () => void;
+	onSelectUser?: (userId: string) => void;
 }) {
 	// SWR — read-only 화면이라 dirty 보호 불필요. setDetail(null) 제거로 플리커
 	// 만 차단 (hot_fix.md §3.5).
@@ -148,7 +150,10 @@ export function SeriesResult({
 			<details className="collapse collapse-arrow bg-base-200">
 				<summary className="collapse-title text-sm font-medium py-2 min-h-0 px-4">라인업 보기</summary>
 				<div className="collapse-content px-4">
-					<LineupPreview participants={detail.participants} />
+					<LineupPreview
+						participants={detail.participants}
+						{...(onSelectUser ? { onSelectUser } : {})}
+					/>
 				</div>
 			</details>
 
