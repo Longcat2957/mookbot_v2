@@ -16,6 +16,32 @@ const SHORTCUTS: { key: string; label: string }[] = [
 	{ key: "1 / 2 / 3", label: "게임 탭 전환 (픽/밴)" },
 ];
 
+const NAVBAR_ITEMS: { icon: string; title: string; body: string }[] = [
+	{
+		icon: "🏆",
+		title: "리더보드",
+		body:
+			"라인별 (탑/정글/미드/원딜/서폿) + 통합 (가중평균 MMR) 6 탭. 본인 row 는 YOU 배지 + 하이라이트. 행 클릭 → 그 사람 프로필.",
+	},
+	{
+		icon: "🎲",
+		title: "미니게임 / 보조 도구",
+		body:
+			"동전 던지기 (BLUE/RED) · 사다리타기 (2~10명) · 원판 돌리기 (2~8 segment). 1경기 진영 뽑기 / 즉석 팀 분배 등 시리즈 외 보조용. 결과는 자동 기록 X.",
+	},
+	{
+		icon: "📇",
+		title: "내 프로필 (우상단 닉네임 → dropdown)",
+		body:
+			"라인별 MMR 카드 · MMR 시계열 그래프 · 주력 챔프 top 5 · 최근 20 게임. 시리즈 라인업의 멤버 이름을 클릭해도 그 사람 프로필로 이동.",
+	},
+	{
+		icon: "?",
+		title: "도움말",
+		body: "이 모달. ? 키로도 열림.",
+	},
+];
+
 const SCREEN_TIPS: { title: string; body: string }[] = [
 	{
 		title: "대시보드",
@@ -30,12 +56,17 @@ const SCREEN_TIPS: { title: string; body: string }[] = [
 	{
 		title: "픽 / 밴",
 		body:
-			"슬롯 클릭 → 활성화 → 챔프 그리드에서 챔프 클릭. 활성 슬롯의 픽 라인 플레이어 주력 챔프가 ‘🌟 주력’ 섹션으로 우선 표시됩니다. 위험 액션은 우상단 ⋯ 메뉴.",
+			"슬롯 클릭 → 활성화 → 챔프 그리드에서 챔프 클릭. 활성 슬롯의 픽 라인 플레이어 주력 챔프가 ‘🌟 주력’ 섹션으로 우선 표시됩니다. 위험 액션은 우상단 ⋯ 메뉴. 운영자는 [📋 일괄 입력] 패널로 콤마 입력 가능.",
 	},
 	{
 		title: "시리즈 결과",
 		body:
-			"게임별 collapse 를 펼쳐 픽 / 밴 / 라인업 확인. 우승팀은 border-success 와 WIN 뱃지로 표시.",
+			"게임별 collapse 를 펼쳐 픽 / 밴 / 라인업 확인. 우승팀은 border-success 와 WIN 뱃지로 표시. 라인업 멤버 클릭 → 그 사람 프로필.",
+	},
+	{
+		title: "리더보드 / 프로필",
+		body:
+			"리더보드 행을 클릭하면 그 사람의 프로필 (라인별 MMR + 그래프 + 최근 게임) 로 이동. 게임 결과 입력 시 실시간 자동 갱신.",
 	},
 ];
 
@@ -68,6 +99,23 @@ export function HelpModal({ open, onClose }: Props) {
 						</button>
 					</form>
 				</div>
+
+				<section className="space-y-2 mb-4">
+					<h4 className="font-bold text-sm text-base-content/70 uppercase tracking-wide">
+						우상단 도구바
+					</h4>
+					<div className="space-y-1.5">
+						{NAVBAR_ITEMS.map((n) => (
+							<div key={n.title} className="bg-base-200 rounded-md p-2.5 flex gap-2.5">
+								<span className="text-xl leading-none mt-0.5">{n.icon}</span>
+								<div className="flex-1 min-w-0">
+									<div className="font-bold text-sm">{n.title}</div>
+									<div className="text-xs text-base-content/70 leading-snug">{n.body}</div>
+								</div>
+							</div>
+						))}
+					</div>
+				</section>
 
 				<section className="space-y-2 mb-4">
 					<h4 className="font-bold text-sm text-base-content/70 uppercase tracking-wide">단축키</h4>
