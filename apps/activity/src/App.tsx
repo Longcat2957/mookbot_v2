@@ -5,6 +5,7 @@ import { type StageKey, Steps } from "./components/Steps.js";
 import { SystemDot } from "./components/SystemDot.js";
 import { Toaster } from "./components/Toaster.js";
 import { EntryEditing } from "./screens/EntryEditing.js";
+import { MiniGame } from "./screens/MiniGame.js";
 import { PickBan } from "./screens/PickBan.js";
 import { RecruitmentList } from "./screens/RecruitmentList.js";
 import { SeriesResult } from "./screens/SeriesResult.js";
@@ -110,6 +111,17 @@ function AppInner() {
 				</div>
 				<div className="flex-none px-4 flex items-center gap-2">
 					<SystemDot />
+					<span className="tooltip tooltip-bottom" data-tip="미니게임 / 보조 도구">
+						<button
+							type="button"
+							className={`btn btn-sm btn-ghost btn-circle ${stage === "MINIGAME" ? "btn-active" : ""}`}
+							onClick={() => setStage(stage === "MINIGAME" ? "LIST" : "MINIGAME")}
+							aria-label="도구 열기"
+							aria-pressed={stage === "MINIGAME"}
+						>
+							🎲
+						</button>
+					</span>
 					<span className="tooltip tooltip-bottom" data-tip="도움말 (?)">
 						<button
 							type="button"
@@ -142,12 +154,14 @@ function AppInner() {
 				</div>
 			</div>
 
-			{/* 진행 단계 표시 */}
-			<div className="bg-base-200/40 border-b border-base-300">
-				<div className="max-w-screen-xl mx-auto py-2 px-4">
-					<Steps current={stage} />
+			{/* 진행 단계 표시 — 시리즈 라이프사이클 stage 일 때만 (MINIGAME 등 도구는 제외) */}
+			{stage !== "MINIGAME" && (
+				<div className="bg-base-200/40 border-b border-base-300">
+					<div className="max-w-screen-xl mx-auto py-2 px-4">
+						<Steps current={stage} />
+					</div>
 				</div>
-			</div>
+			)}
 
 			<main className="max-w-screen-xl mx-auto p-3 lg:p-4">
 				{stage === "LIST" && (
@@ -191,6 +205,11 @@ function AppInner() {
 				{stage === "COMPLETED" && (
 					<ErrorBoundary key={`result-${seriesId}`} label="시리즈 결과" onReset={goHome}>
 						<SeriesResult seriesId={seriesId} onBack={goHome} />
+					</ErrorBoundary>
+				)}
+				{stage === "MINIGAME" && (
+					<ErrorBoundary key="minigame" label="도구" onReset={goHome}>
+						<MiniGame onBack={goHome} />
 					</ErrorBoundary>
 				)}
 			</main>
