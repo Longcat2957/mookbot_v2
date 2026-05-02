@@ -1,5 +1,10 @@
 // 동전 던지기 — BLUE / RED 2면.
 // 결과는 던지기 직전에 결정 → target rotation 으로 환산해 자연스러운 정지.
+//
+// 버그 수정 (v0.2.15):
+//   - bob 효과는 outer wrapper 의 translateY only 로 분리. 내부 .mg-coin 의 inline rotateY 와 충돌 X.
+//   - .mg-coin 의 transition: transform 은 styles.css 에서 항상-on. phase 별 toggle 안 함 →
+//     첫 번째 변화에 transition 안 걸리는 CSS edge case 회피.
 
 import { useState } from "react";
 
@@ -33,21 +38,17 @@ export function CoinFlip() {
 	function reset() {
 		setPhase("idle");
 		setSide(null);
-		// rotation 은 유지 — 다음 flip 도 자연스럽게 이어짐
 	}
-
-	const transition =
-		phase === "flipping" ? `transform ${FLIP_DURATION_MS}ms cubic-bezier(0.2, 0.8, 0.2, 1)` : "none";
 
 	return (
 		<div className="flex flex-col items-center justify-center py-6 gap-8">
 			<div className="mg-coin-stage">
-				<div
-					className={`mg-coin ${phase === "idle" ? "mg-coin-idle" : ""}`}
-					style={{ transform: `rotateY(${rotation}deg)`, transition }}
-				>
-					<div className="mg-coin-face mg-coin-face-blue">B</div>
-					<div className="mg-coin-face mg-coin-face-red">R</div>
+				{/* outer: bob (translateY only). inner: rotateY (inline). 분리해서 keyframe vs inline transform 충돌 회피. */}
+				<div className={`mg-coin-bob ${phase === "idle" ? "mg-coin-bob-active" : ""}`}>
+					<div className="mg-coin" style={{ transform: `rotateY(${rotation}deg)` }}>
+						<div className="mg-coin-face mg-coin-face-blue">B</div>
+						<div className="mg-coin-face mg-coin-face-red">R</div>
+					</div>
 				</div>
 				<div className={`mg-coin-shadow ${phase === "flipping" ? "mg-coin-shadow-flipping" : ""}`} />
 			</div>
