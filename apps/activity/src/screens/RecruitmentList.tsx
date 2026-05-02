@@ -4,6 +4,7 @@ import { wsClient } from "../api/ws.js";
 import { EmptyState } from "../components/EmptyState.js";
 import { type LineupParticipant, LineupPreview } from "../components/LineupPreview.js";
 import { showToast } from "../components/Toaster.js";
+import { WelcomeCard } from "../components/WelcomeCard.js";
 import { useStaleWhileRevalidate } from "../state/useStaleWhileRevalidate.js";
 
 interface Recruitment {
@@ -36,10 +37,16 @@ export function RecruitmentList({
 	onSelectRecruitment,
 	onSelectSeries,
 	onSelectCompletedSeries,
+	onOpenLeaderboard,
+	onOpenMinigame,
+	onOpenHelp,
 }: {
 	onSelectRecruitment: (id: number) => void;
 	onSelectSeries: (id: number) => void;
 	onSelectCompletedSeries: (id: number) => void;
+	onOpenLeaderboard: () => void;
+	onOpenMinigame: () => void;
+	onOpenHelp: () => void;
 }) {
 	const fetchAll = useCallback(async () => {
 		const [r, s, c] = await Promise.all([
@@ -137,6 +144,13 @@ export function RecruitmentList({
 	return (
 		<section className="space-y-6">
 			{header}
+
+			{/* 신규 사용자 안내 — 한 번만 표시 (localStorage dismiss) */}
+			<WelcomeCard
+				onOpenLeaderboard={onOpenLeaderboard}
+				onOpenMinigame={onOpenMinigame}
+				onOpenHelp={onOpenHelp}
+			/>
 
 			{/* 처리 대기 — 모집 + 진행중 통합 (시간순 — 오래된 것 위) */}
 			<div className="space-y-2">

@@ -220,6 +220,9 @@ function AppInner() {
 								setRecruitmentId(null);
 								setStage("COMPLETED");
 							}}
+							onOpenLeaderboard={() => setStage("LEADERBOARD")}
+							onOpenMinigame={() => setStage("MINIGAME")}
+							onOpenHelp={() => setHelpOpen(true)}
 						/>
 					</ErrorBoundary>
 				)}
