@@ -2,10 +2,12 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { createTestDb, installDbDriver, type TestDb } from "../test-utils/db-harness.js";
 import {
 	countLeaderboard,
+	getCompositeLeaderboard,
 	getLaneMmrs,
 	getLeaderboard,
 	getMmrChangesForGame,
 	getMmrChangesForUser,
+	getMmrHistoryForUser,
 } from "./mmr.js";
 import { createSeason } from "./seasons.js";
 import { upsertUser } from "./users.js";
@@ -119,5 +121,34 @@ describe("getMmrChangesForUser / getMmrChangesForGame", () => {
 		const changes = await getMmrChangesForGame(gameId);
 		expect(changes).toHaveLength(2);
 		expect(changes.map((c) => c.user_id).sort()).toEqual(["u1", "u2"]);
+	});
+
+	it("getMmrHistoryForUser 시간 ASC + 시즌·라인 필터", async () => {
+		const u1 = await getMmrHistoryForUser({ userId: "u1", seasonId, role: "TOP" });
+		expect(u1).toHaveLength(1);
+		expect(u1[0]?.delta).toBe(16);
+
+		const u1Mid = await getMmrHistoryForUser({ userId: "u1", seasonId, role: "MID" });
+		expect(u1Mid).toEqual([]);
+	});
+});
+
+describe("getCompositeLeaderboard", () => {
+	it("가중평균 MMR DESC, games_played ≥ 1 만, 멀티 라인 합산", async () => {
+		// u1 추가: MID 1400, 5G — TOP 1700×5 + MID 1400×5 / 10 = 1550 (가중)
+		db
+			.prepare(
+				"INSERT INTO user_lane_mmr (user_id, season_id, role, mmr, games_played, wins, updated_at) VALUES ('u1', ?, 'MID', 1400, 5, 2, unixepoch())",
+			)
+			.run(seasonId);
+		// u2 는 TOP 만 1500×3 — 가중평균 = 1500
+		// u3 는 0G 라 제외
+
+		const lb = await getCompositeLeaderboard(seasonId);
+		expect(lb.map((r) => r.user_id)).toEqual(["u1", "u2"]);
+		expect(Math.round(lb[0]?.weighted_mmr ?? 0)).toBe(1550);
+		expect(lb[0]?.total_games).toBe(10);
+		expect(lb[1]?.weighted_mmr).toBe(1500);
+		expect(lb[1]?.total_games).toBe(3);
 	});
 });

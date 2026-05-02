@@ -124,6 +124,11 @@ export async function registerGameRoutes(app: FastifyInstance): Promise<void> {
 
 		invalidate(`series:${id}`);
 		if (completedSeries) invalidate("dashboard");
+		// 리더보드 / 영향 받은 유저 프로필 invalidate
+		const affectedRoles = new Set(parts.map((p) => p.role));
+		for (const r of affectedRoles) invalidate(`leaderboard:${r}`);
+		invalidate("leaderboard:COMPOSITE");
+		for (const p of parts) invalidate(`user:${p.user_id}`);
 		return {
 			gameId: result.game.id,
 			wins,
@@ -173,6 +178,12 @@ export async function registerGameRoutes(app: FastifyInstance): Promise<void> {
 
 		invalidate(`series:${id}`);
 		invalidate("dashboard");
+		// 리더보드 + 영향 받은 유저 invalidate
+		const affectedRoles = new Set(mmrChanges.map((c) => c.role));
+		for (const r of affectedRoles) invalidate(`leaderboard:${r}`);
+		invalidate("leaderboard:COMPOSITE");
+		const affectedUsers = new Set(mmrChanges.map((c) => c.user_id));
+		for (const u of affectedUsers) invalidate(`user:${u}`);
 		return { ok: true, deletedGame: last.game_number };
 	});
 }

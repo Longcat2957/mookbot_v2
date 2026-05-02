@@ -25,7 +25,15 @@ import {
 	sideTextColor,
 } from "./PickBan/types.js";
 
-export function PickBan({ seriesId, onBack }: { seriesId: number | null; onBack: () => void }) {
+export function PickBan({
+	seriesId,
+	onBack,
+	onSelectUser,
+}: {
+	seriesId: number | null;
+	onBack: () => void;
+	onSelectUser?: (userId: string) => void;
+}) {
 	const [draft, setDraft] = useState<PickBanDraft | null>(null);
 	// 2-click confirm 은 ConfirmButton 컴포넌트가 내부 state 로 처리.
 	// (Discord Activity iframe sandbox 가 native confirm 차단)
@@ -366,7 +374,11 @@ export function PickBan({ seriesId, onBack }: { seriesId: number | null; onBack:
 							라인업 보기
 						</summary>
 						<div className="collapse-content px-3">
-							<LineupPreview participants={detail.participants} compact />
+							<LineupPreview
+								participants={detail.participants}
+								compact
+								{...(onSelectUser ? { onSelectUser } : {})}
+							/>
 						</div>
 					</details>
 				</div>

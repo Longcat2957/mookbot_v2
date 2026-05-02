@@ -8,8 +8,10 @@ import { registerChampionsRoutes } from "./champions.js";
 import { registerGameRoutes } from "./games.js";
 import { registerHealthzRoutes } from "./healthz.js";
 import { registerInternalRoutes } from "./internal.js";
+import { registerLeaderboardRoutes } from "./leaderboard.js";
 import { registerRecruitRoutes } from "./recruit.js";
 import { registerSeriesRoutes } from "./series.js";
+import { registerUsersRoutes } from "./users.js";
 
 export async function registerRoutes(app: FastifyInstance): Promise<void> {
 	await registerInternalRoutes(app);
@@ -19,4 +21,6 @@ export async function registerRoutes(app: FastifyInstance): Promise<void> {
 	await registerSeriesRoutes(app);
 	await registerGameRoutes(app);
 	await registerChampionsRoutes(app);
+	await registerLeaderboardRoutes(app);
+	await registerUsersRoutes(app);
 }

@@ -88,6 +88,69 @@ export async function getMmrChangesForUser(userId: string, limit = 20): Promise<
 	);
 }
 
+/**
+ * 시즌·라인 별 MMR 변동 시계열 — 시간 순 (오래된 → 최신).
+ * Profile 화면의 그래프용. seasonId / role 필터 옵션.
+ */
+export async function getMmrHistoryForUser(input: {
+	userId: string;
+	seasonId?: number;
+	role?: Role;
+	limit?: number;
+}): Promise<MmrChangeRow[]> {
+	const limit = input.limit ?? 100;
+	const conditions = ["user_id = ?"];
+	const params: unknown[] = [input.userId];
+	if (input.seasonId !== undefined) {
+		conditions.push("season_id = ?");
+		params.push(input.seasonId);
+	}
+	if (input.role !== undefined) {
+		conditions.push("role = ?");
+		params.push(input.role);
+	}
+	params.push(limit);
+	return query<MmrChangeRow>(
+		`SELECT * FROM mmr_changes WHERE ${conditions.join(" AND ")}
+		 ORDER BY created_at ASC
+		 LIMIT ?`,
+		params,
+	);
+}
+
+export interface CompositeLeaderboardRow {
+	user_id: string;
+	weighted_mmr: number;
+	total_games: number;
+	total_wins: number;
+	roles_played: number;
+}
+
+/**
+ * 통합 랭킹 — 라인 가중평균 MMR (Σ(mmr × games) / Σ(games)).
+ * 각 라인별 MMR 의 비중을 그 라인 G 수로 가중 → specialist / generalist 절충.
+ * 한 라인이라도 games_played ≥ 1 인 사용자만 집계.
+ */
+export async function getCompositeLeaderboard(
+	seasonId: number,
+	limit = 50,
+): Promise<CompositeLeaderboardRow[]> {
+	return query<CompositeLeaderboardRow>(
+		`SELECT
+		   user_id,
+		   SUM(mmr * games_played) * 1.0 / NULLIF(SUM(games_played), 0) AS weighted_mmr,
+		   SUM(games_played) AS total_games,
+		   SUM(wins) AS total_wins,
+		   COUNT(*) AS roles_played
+		 FROM user_lane_mmr
+		 WHERE season_id = ? AND games_played >= 1
+		 GROUP BY user_id
+		 ORDER BY weighted_mmr DESC
+		 LIMIT ?`,
+		[seasonId, limit],
+	);
+}
+
 export async function getMmrChangesForGame(gameId: number): Promise<MmrChangeRow[]> {
 	return query<MmrChangeRow>(`SELECT * FROM mmr_changes WHERE game_id = ? ORDER BY role`, [gameId]);
 }
