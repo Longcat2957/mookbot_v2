@@ -1,7 +1,8 @@
 // 시리즈 라이프사이클 스테퍼 — daisyUI steps.
 // 대시보드 / 엔트리 수정 / 픽/밴 / 완료 4 단계.
+// MINIGAME 은 라이프사이클 외 보조 도구 — App.tsx 가 stepper 자체를 숨김.
 
-export type StageKey = "LIST" | "ENTRY_EDITING" | "IN_GAME" | "COMPLETED";
+export type StageKey = "LIST" | "ENTRY_EDITING" | "IN_GAME" | "COMPLETED" | "MINIGAME";
 
 const STEPS: { key: StageKey; label: string }[] = [
 	{ key: "LIST", label: "대시보드" },
