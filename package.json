@@ -24,7 +24,7 @@
 		"docker:release": "scripts/docker-build.sh && scripts/docker-push.sh"
 	},
 	"devDependencies": {
-		"@biomejs/biome": "^2.4.13",
+		"@biomejs/biome": "^2.4.14",
 		"@vitest/coverage-v8": "^4.1.5",
 		"vitest": "^4.1.5"
 	},
