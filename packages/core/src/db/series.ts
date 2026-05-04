@@ -160,6 +160,38 @@ export async function listAllOpenSeries(): Promise<SeriesRow[]> {
 	);
 }
 
+export interface ListSeriesParams {
+	status?: SeriesStatus;
+	seasonId?: number;
+	limit?: number;
+}
+
+/**
+ * 시리즈 일반 listing — /시리즈목록 등에서 사용. 최신순 (started_at DESC).
+ * status 미지정 시 모든 상태 포함. limit 기본 10, 최대 50.
+ */
+export async function listSeries(params: ListSeriesParams = {}): Promise<SeriesRow[]> {
+	const limit = Math.min(50, Math.max(1, params.limit ?? 10));
+	const filters: string[] = [];
+	const args: unknown[] = [];
+	if (params.status) {
+		filters.push("status = ?");
+		args.push(params.status);
+	}
+	if (params.seasonId !== undefined) {
+		filters.push("season_id = ?");
+		args.push(params.seasonId);
+	}
+	const where = filters.length > 0 ? `WHERE ${filters.join(" AND ")}` : "";
+	args.push(limit);
+	// id DESC tie-break — 같은 unixepoch() 안에 여러 INSERT 가 들어왔을 때
+	// 결정적 순서를 보장 (테스트 + UX 일관성).
+	return query<SeriesRow>(
+		`SELECT * FROM series ${where} ORDER BY started_at DESC, id DESC LIMIT ?`,
+		args,
+	);
+}
+
 /**
  * IN_PROGRESS 상태로 `cutoffUnixSec` 이전에 시작된 오래된 시리즈.
  */

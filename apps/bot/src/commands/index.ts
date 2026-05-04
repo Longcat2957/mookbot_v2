@@ -14,6 +14,7 @@ import * as recruitMemberAdd from "./recruitMemberAdd.js";
 import * as recruitMemberRemove from "./recruitMemberRemove.js";
 import * as register from "./register.js";
 import * as resetSeasonResults from "./resetSeasonResults.js";
+import * as seriesList from "./seriesList.js";
 import * as whoami from "./whoami.js";
 
 export const ALL_COMMANDS = [
@@ -34,4 +35,5 @@ export const ALL_COMMANDS = [
 	resetSeasonResults,
 	cleanupStale,
 	logs,
+	seriesList,
 ] as const;
