@@ -7,6 +7,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api } from "../api/rest.js";
 import { wsClient } from "../api/ws.js";
+import { BalancePreview } from "../components/BalancePreview.js";
 import { ConfirmButton } from "../components/ConfirmButton.js";
 import { LineupPreview } from "../components/LineupPreview.js";
 import { type SaveStatus, SaveStatusIndicator } from "../components/SaveStatus.js";
@@ -476,6 +477,11 @@ export function PickBan({
 						</div>
 					</div>
 				</div>
+			)}
+
+			{/* Game 1 사이드 결정 + 첫 게임 미기록 + 시리즈 진행중 일 때만 밸런스 이미지 노출 */}
+			{team1Side && draft.currentGame === 1 && !completedGames.has(1) && !seriesCompleted && (
+				<BalancePreview seriesId={seriesId!} team1Side={team1Side} />
 			)}
 
 			{team1Side && (

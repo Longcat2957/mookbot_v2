@@ -4,6 +4,7 @@
 
 import type { FastifyInstance } from "fastify";
 import { registerAuthRoutes } from "./auth.js";
+import { registerBalanceSvgRoute } from "./balance-svg.js";
 import { registerChampionsRoutes } from "./champions.js";
 import { registerGameRoutes } from "./games.js";
 import { registerHealthzRoutes } from "./healthz.js";
@@ -25,4 +26,5 @@ export async function registerRoutes(app: FastifyInstance): Promise<void> {
 	await registerLeaderboardRoutes(app);
 	await registerUsersRoutes(app);
 	await registerLogsRoutes(app);
+	await registerBalanceSvgRoute(app);
 }
