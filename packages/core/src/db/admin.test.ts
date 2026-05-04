@@ -102,7 +102,7 @@ describe("listAuditLog / listAuditActions", () => {
 	it("cursor 페이지네이션 — id < cursor", async () => {
 		const first = await listAuditLog({ limit: 4 });
 		expect(first.map((r) => r.id)).toEqual([10, 9, 8, 7]);
-		const cursor = first[first.length - 1]?.id;
+		const cursor = first[first.length - 1]?.id ?? 0;
 		const second = await listAuditLog({ limit: 4, cursor });
 		expect(second.map((r) => r.id)).toEqual([6, 5, 4, 3]);
 	});
