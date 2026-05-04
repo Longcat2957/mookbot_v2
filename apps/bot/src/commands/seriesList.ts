@@ -83,7 +83,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
 		const wins = winsAll[i] ?? { team1: 0, team2: 0 };
 		const parts = partsAll[i] ?? [];
 		const teamSize = parts.length / 2;
-		const creator = s.created_by ? nameById.get(s.created_by) ?? s.created_by : "—";
+		const creator = s.created_by ? (nameById.get(s.created_by) ?? s.created_by) : "—";
 		const score = `${wins.team1}-${wins.team2}`;
 		const winSuffix =
 			s.status === "COMPLETED" && s.winning_team
