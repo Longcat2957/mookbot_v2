@@ -16,3 +16,4 @@ coverage/
 # rotation backups
 .env.bak*
 *.bak-[0-9]*
+prompt.md
