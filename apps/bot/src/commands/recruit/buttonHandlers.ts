@@ -161,7 +161,7 @@ async function handleNext(
 	await interaction.followUp({
 		content: [
 			`### ▶ 엔트리 수정 시작 — 모집 #${id} 마감`,
-			"보이스 채널에서 **Activity** 를 시작한 뒤 **mookbot** 을 선택하세요.",
+			"보이스 채널에서 **Activity** 를 시작한 뒤 **monkey** 를 선택하세요.",
 			"Activity 첫 화면에 마감된 모집 목록이 표시되며, 클릭하면 엔트리 수정 화면이 열립니다.",
 		].join("\n"),
 		ephemeral: true,

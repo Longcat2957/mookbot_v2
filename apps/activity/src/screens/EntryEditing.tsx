@@ -164,7 +164,7 @@ export function EntryEditing({
 	if (recruitmentId === null) {
 		return (
 			<div className="alert alert-warning">
-				<span>모집을 먼저 선택해주세요. (좌측 상단 mookbot 클릭 → 대시보드)</span>
+				<span>모집을 먼저 선택해주세요. (좌측 상단 monkey 클릭 → 대시보드)</span>
 			</div>
 		);
 	}
