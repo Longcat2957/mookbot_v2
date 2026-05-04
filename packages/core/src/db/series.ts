@@ -15,6 +15,7 @@ export interface SeriesRow {
 	created_by: string | null;
 	channel_id: string | null;
 	message_id: string | null;
+	deleted_at: number | null;
 }
 
 export interface SeriesParticipantRow {
@@ -25,6 +26,11 @@ export interface SeriesParticipantRow {
 }
 
 export interface CreateSeriesInput {
+	/**
+	 * 시리즈 ID — 운영 흐름은 모집 ID 와 동일하게 명시 부여한다 (사용자 혼동 방지).
+	 * 미지정 시 AUTOINCREMENT 가 부여 (seed / 테스트 fallback).
+	 */
+	id?: number;
 	seasonId: number;
 	createdBy: string;
 	participants: ReadonlyArray<{ userId: string; team: Team; role: Role }>;
@@ -33,6 +39,9 @@ export interface CreateSeriesInput {
 /**
  * Bo3 시리즈 생성. 1v1 ~ 5v5 까지 N v N 지원 (참가자 = 짝수, 2~10).
  * 양 팀 라인 수 일치 + 같은 라인이 양 팀에 존재해야 라인 매치업 ELO 가능.
+ *
+ * 같은 id 의 soft-deleted 행이 있으면 자동 revive (deleted_at=NULL + 상태 초기화 + 참가자 교체).
+ * revert 후 운영자가 같은 모집을 다시 엔트리 확정하는 경로를 자연스럽게 처리.
  *
  * 비-atomic: series + series_participants 가 분리 트랜잭션. participant insert 실패 시
  * series row 가 IN_PROGRESS 0인 으로 남음 — cleanup 잡이 정리.
@@ -63,10 +72,43 @@ export async function createSeries(input: CreateSeriesInput): Promise<SeriesRow>
 		}
 	}
 
-	const [series] = await query<SeriesRow>(
-		`INSERT INTO series (season_id, created_by) VALUES (?, ?) RETURNING *`,
-		[input.seasonId, input.createdBy],
-	);
+	let series: SeriesRow | undefined;
+	if (input.id !== undefined) {
+		// 명시 id 경로 — soft-deleted 행이 있으면 revive, 살아있는 행과 충돌이면 에러.
+		const existing = await queryOne<SeriesRow>(`SELECT * FROM series WHERE id = ?`, [input.id]);
+		if (existing && existing.deleted_at == null) {
+			throw new Error(
+				`createSeries: 시리즈 #${input.id} 가 이미 존재합니다 (status=${existing.status})`,
+			);
+		}
+		if (existing && existing.deleted_at != null) {
+			// revive — 상태 초기화 + 기존 참가자 정리 (아래에서 다시 INSERT)
+			await execute(
+				`UPDATE series
+				 SET season_id = ?, status = 'IN_PROGRESS', winning_team = NULL,
+				     started_at = unixepoch(), ended_at = NULL, created_by = ?,
+				     channel_id = NULL, message_id = NULL,
+				     activity_instance_id = NULL, activity_started_at = NULL,
+				     end_card_message_id = NULL, end_card_channel_id = NULL,
+				     deleted_at = NULL
+				 WHERE id = ?`,
+				[input.seasonId, input.createdBy, input.id],
+			);
+			await execute(`DELETE FROM series_participants WHERE series_id = ?`, [input.id]);
+			series = await queryOne<SeriesRow>(`SELECT * FROM series WHERE id = ?`, [input.id]);
+		} else {
+			[series] = await query<SeriesRow>(
+				`INSERT INTO series (id, season_id, created_by) VALUES (?, ?, ?) RETURNING *`,
+				[input.id, input.seasonId, input.createdBy],
+			);
+		}
+	} else {
+		// AUTOINCREMENT fallback (seed / 테스트)
+		[series] = await query<SeriesRow>(
+			`INSERT INTO series (season_id, created_by) VALUES (?, ?) RETURNING *`,
+			[input.seasonId, input.createdBy],
+		);
+	}
 	if (!series) throw new Error("createSeries: failed to insert series");
 
 	const insert = multiInsert(
@@ -80,6 +122,13 @@ export async function createSeries(input: CreateSeriesInput): Promise<SeriesRow>
 }
 
 export async function getSeries(id: number): Promise<SeriesRow | undefined> {
+	return queryOne<SeriesRow>(`SELECT * FROM series WHERE id = ? AND deleted_at IS NULL`, [id]);
+}
+
+/**
+ * soft-deleted 포함 조회 — admin / audit 용. 일반 흐름은 getSeries 사용.
+ */
+export async function getSeriesIncludingDeleted(id: number): Promise<SeriesRow | undefined> {
 	return queryOne<SeriesRow>(`SELECT * FROM series WHERE id = ?`, [id]);
 }
 
@@ -92,7 +141,7 @@ export async function getSeriesParticipants(seriesId: number): Promise<SeriesPar
 export async function completeSeries(id: number, winningTeam: Team): Promise<void> {
 	await execute(
 		`UPDATE series SET status = 'COMPLETED', winning_team = ?, ended_at = unixepoch()
-		 WHERE id = ? AND status = 'IN_PROGRESS'`,
+		 WHERE id = ? AND status = 'IN_PROGRESS' AND deleted_at IS NULL`,
 		[winningTeam, id],
 	);
 }
@@ -100,14 +149,14 @@ export async function completeSeries(id: number, winningTeam: Team): Promise<voi
 export async function cancelSeries(id: number): Promise<void> {
 	await execute(
 		`UPDATE series SET status = 'CANCELLED', ended_at = unixepoch()
-		 WHERE id = ? AND status = 'IN_PROGRESS'`,
+		 WHERE id = ? AND status = 'IN_PROGRESS' AND deleted_at IS NULL`,
 		[id],
 	);
 }
 
 export async function listAllOpenSeries(): Promise<SeriesRow[]> {
 	return query<SeriesRow>(
-		`SELECT * FROM series WHERE status = 'IN_PROGRESS' ORDER BY started_at DESC`,
+		`SELECT * FROM series WHERE status = 'IN_PROGRESS' AND deleted_at IS NULL ORDER BY started_at DESC`,
 	);
 }
 
@@ -116,17 +165,42 @@ export async function listAllOpenSeries(): Promise<SeriesRow[]> {
  */
 export async function listStaleOpenSeries(cutoffUnixSec: number): Promise<SeriesRow[]> {
 	return query<SeriesRow>(
-		`SELECT * FROM series WHERE status = 'IN_PROGRESS' AND started_at < ? ORDER BY started_at`,
+		`SELECT * FROM series WHERE status = 'IN_PROGRESS' AND started_at < ? AND deleted_at IS NULL ORDER BY started_at`,
 		[cutoffUnixSec],
 	);
 }
 
 /**
- * 시리즈 행과 종속 데이터 전체 물리 삭제. CASCADE 로 series_participants/games/game_stats/mmr_changes 도 함께 삭제.
- * recruitments.converted_series_id 는 ON DELETE 정책이 없어서 먼저 SET NULL 처리.
- * 단, user_lane_mmr 의 누적값은 자동으로 되돌리지 않음 — 별도 rollback 필요.
+ * Soft-delete 시리즈 — 모든 운영 삭제 경로 (revert / cleanup-stale / force-delete / season-reset)
+ * 의 공통 종착지. recruitments.converted_series_id 는 별도 caller 가 NULL 처리.
+ *
+ * 종속 series_participants / games / game_stats / mmr_changes 행은 그대로 유지 — read 쿼리가
+ * `series.deleted_at IS NULL` 필터로 가려준다. 같은 id 로 createSeries 호출 시 revive 됨.
+ */
+export async function softDeleteSeries(seriesId: number): Promise<void> {
+	await execute(`UPDATE series SET deleted_at = unixepoch() WHERE id = ? AND deleted_at IS NULL`, [
+		seriesId,
+	]);
+}
+
+/**
+ * @deprecated softDeleteSeries 사용. 호출자 마이그레이션 후 제거.
+ *
+ * 기존 hard-delete 시그니처 유지 — 내부적으로 soft-delete 로 라우팅.
+ * recruitments.converted_series_id 는 caller 가 별도 정리.
  */
 export async function deleteSeriesPhysical(seriesId: number): Promise<void> {
+	await execute(`UPDATE recruitments SET converted_series_id = NULL WHERE converted_series_id = ?`, [
+		seriesId,
+	]);
+	await softDeleteSeries(seriesId);
+}
+
+/**
+ * 진짜 물리 삭제 — admin 응급 / 데이터 정리 한정. 일반 흐름은 softDeleteSeries 사용.
+ * CASCADE 로 series_participants/games/game_stats/mmr_changes 도 함께 삭제.
+ */
+export async function purgeSeries(seriesId: number): Promise<void> {
 	await execute(`UPDATE recruitments SET converted_series_id = NULL WHERE converted_series_id = ?`, [
 		seriesId,
 	]);
@@ -153,20 +227,20 @@ export async function listOpenSeriesByUser(userId: string): Promise<SeriesRow[]>
 	return query<SeriesRow>(
 		`SELECT s.* FROM series s
 		 JOIN series_participants sp ON sp.series_id = s.id
-		 WHERE sp.user_id = ? AND s.status = 'IN_PROGRESS'
+		 WHERE sp.user_id = ? AND s.status = 'IN_PROGRESS' AND s.deleted_at IS NULL
 		 ORDER BY s.started_at DESC`,
 		[userId],
 	);
 }
 
 /**
- * 사용자가 참가했거나 운영한 최근 시리즈 (모든 status). /내전반복 자동완성용.
+ * 사용자가 참가했거나 운영한 최근 시리즈 (모든 status, soft-deleted 제외). /내전반복 자동완성용.
  */
 export async function listRecentSeriesForUser(userId: string, limit = 25): Promise<SeriesRow[]> {
 	return query<SeriesRow>(
 		`SELECT DISTINCT s.* FROM series s
 		 LEFT JOIN series_participants sp ON sp.series_id = s.id
-		 WHERE sp.user_id = ? OR s.created_by = ?
+		 WHERE (sp.user_id = ? OR s.created_by = ?) AND s.deleted_at IS NULL
 		 ORDER BY s.started_at DESC
 		 LIMIT ?`,
 		[userId, userId, limit],

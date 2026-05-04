@@ -96,7 +96,7 @@ export async function getRecentGamesForUser(input: {
 		 JOIN games g ON g.id = gs.game_id
 		 JOIN series s ON s.id = g.series_id
 		 LEFT JOIN mmr_changes mc ON mc.game_id = g.id AND mc.user_id = gs.user_id AND mc.role = gs.role
-		 WHERE ${conditions.join(" AND ")}
+		 WHERE ${conditions.join(" AND ")} AND s.deleted_at IS NULL
 		 ORDER BY g.played_at DESC
 		 LIMIT ?`,
 		params,

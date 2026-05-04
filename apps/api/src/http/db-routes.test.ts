@@ -436,7 +436,7 @@ describe("DELETE /api/series/:id/games/last", () => {
 });
 
 describe("POST /api/series/:id/revert", () => {
-	it("게임 0개 + IN_PROGRESS → 모집 CLOSED 복귀 + 시리즈 삭제", async () => {
+	it("게임 0개 + IN_PROGRESS → 모집 CLOSED 복귀 + 시리즈 soft-delete + audit log", async () => {
 		const { app, db } = await buildTestApp({ canEdit: true });
 		const { seasonId, recruitmentId } = seedRecruitment(db, "CONVERTED");
 		const sid = (
@@ -456,11 +456,28 @@ describe("POST /api/series/:id/revert", () => {
 		expect(res.statusCode).toBe(200);
 		expect(res.json()).toMatchObject({ ok: true, recruitmentId });
 
-		expect(db.prepare("SELECT id FROM series WHERE id = ?").get(sid)).toBeUndefined();
+		// soft-delete: 행 보존 + deleted_at set
+		const sRow = db.prepare("SELECT deleted_at FROM series WHERE id = ?").get(sid) as
+			| { deleted_at: number | null }
+			| undefined;
+		expect(sRow).toBeDefined();
+		expect(sRow?.deleted_at).not.toBeNull();
+
 		const rec = db
 			.prepare("SELECT status, converted_series_id FROM recruitments WHERE id = ?")
 			.get(recruitmentId) as { status: string; converted_series_id: number | null };
 		expect(rec.status).toBe("CLOSED");
+		expect(rec.converted_series_id).toBeNull();
+
+		// audit log 1건 — series.revert
+		const audit = db
+			.prepare(
+				"SELECT operator_id, action, target_id FROM admin_audit_log WHERE action = 'series.revert'",
+			)
+			.get() as { operator_id: string; action: string; target_id: string } | undefined;
+		expect(audit).toBeDefined();
+		expect(audit?.operator_id).toBe(OP);
+		expect(audit?.target_id).toBe(String(sid));
 	});
 });
 

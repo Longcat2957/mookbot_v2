@@ -215,26 +215,35 @@ describe("inspectSeriesForDelete + forceDeleteSeriesWithRollback", () => {
 		expect(u1Plan?.wins).toBe(1);
 	});
 
-	it("forceDeleteSeriesWithRollback rollback=true → mmr 차감 + series 삭제", async () => {
+	it("forceDeleteSeriesWithRollback rollback=true → mmr 차감 + series soft-delete", async () => {
 		const { seriesId } = await setupSeriesWithGame();
 		const result = await forceDeleteSeriesWithRollback(seriesId, true);
 
 		expect(result.rollbackRows).toBe(2);
-		expect(db.prepare("SELECT id FROM series WHERE id = ?").get(seriesId)).toBeUndefined();
+		// soft-delete: 행은 남아있고 deleted_at 만 set
+		const row = db.prepare("SELECT deleted_at FROM series WHERE id = ?").get(seriesId) as
+			| { deleted_at: number | null }
+			| undefined;
+		expect(row).toBeDefined();
+		expect(row?.deleted_at).not.toBeNull();
 		// MMR 차감 — u1: 1516 - 16 = 1500
 		expect((await getLaneMmr("u1", seasonId, "TOP"))?.mmr).toBe(1500);
 		// u2: 1484 - (-16) = 1500
 		expect((await getLaneMmr("u2", seasonId, "TOP"))?.mmr).toBe(1500);
 	});
 
-	it("forceDeleteSeriesWithRollback rollback=false → mmr 그대로 + series 삭제", async () => {
+	it("forceDeleteSeriesWithRollback rollback=false → mmr 그대로 + series soft-delete", async () => {
 		const { seriesId } = await setupSeriesWithGame();
 		const result = await forceDeleteSeriesWithRollback(seriesId, false);
 
 		expect(result.rollbackRows).toBe(0);
 		// MMR 안 건드림
 		expect((await getLaneMmr("u1", seasonId, "TOP"))?.mmr).toBe(1516);
-		// 시리즈는 삭제됨
-		expect(db.prepare("SELECT id FROM series WHERE id = ?").get(seriesId)).toBeUndefined();
+		// 시리즈는 soft-delete
+		const row = db.prepare("SELECT deleted_at FROM series WHERE id = ?").get(seriesId) as
+			| { deleted_at: number | null }
+			| undefined;
+		expect(row).toBeDefined();
+		expect(row?.deleted_at).not.toBeNull();
 	});
 });
