@@ -17,6 +17,9 @@ const schema = z.object({
 	// 봇 → api heartbeat / notify 인증
 	INTERNAL_API_KEY: z.string().min(1, "INTERNAL_API_KEY 필수"),
 
+	// /로그 슬래시 → /logs 웹뷰 JWT 서명. 봇/api 공유 secret. 미설정 시 /로그 명령어 503.
+	LOGS_JWT_SECRET: z.string().min(16, "LOGS_JWT_SECRET 최소 16자 필요").optional(),
+
 	// Discord guild member fetch (perms.ts) — 운영자 role 검증에 필요
 	DISCORD_TOKEN: z.string().min(1, "DISCORD_TOKEN 필수 (perms guild fetch)"),
 	GUILD_ID: z.string().min(1, "GUILD_ID 필수"),

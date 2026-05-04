@@ -33,6 +33,78 @@ export async function recordAudit(entry: AuditEntry): Promise<void> {
 	);
 }
 
+export interface AuditLogRow {
+	id: number;
+	operator_id: string;
+	action: string;
+	target_type: string | null;
+	target_id: string | null;
+	payload: string | null;
+	note: string | null;
+	created_at: number;
+}
+
+export interface ListAuditLogParams {
+	action?: string;
+	operatorId?: string;
+	since?: number;
+	until?: number;
+	limit?: number;
+	cursor?: number; // id < cursor (역시간 페이지네이션)
+}
+
+/**
+ * audit log 페이지네이션 조회 — 최신순. cursor < id 로 다음 페이지.
+ * limit 기본 50, 최대 200.
+ */
+export async function listAuditLog(params: ListAuditLogParams = {}): Promise<AuditLogRow[]> {
+	const limit = Math.min(200, Math.max(1, params.limit ?? 50));
+	const filters: string[] = [];
+	const args: unknown[] = [];
+
+	if (params.action) {
+		filters.push("action = ?");
+		args.push(params.action);
+	}
+	if (params.operatorId) {
+		filters.push("operator_id = ?");
+		args.push(params.operatorId);
+	}
+	if (params.since !== undefined) {
+		filters.push("created_at >= ?");
+		args.push(params.since);
+	}
+	if (params.until !== undefined) {
+		filters.push("created_at < ?");
+		args.push(params.until);
+	}
+	if (params.cursor !== undefined) {
+		filters.push("id < ?");
+		args.push(params.cursor);
+	}
+	const where = filters.length > 0 ? `WHERE ${filters.join(" AND ")}` : "";
+	args.push(limit);
+
+	return query<AuditLogRow>(
+		`SELECT id, operator_id, action, target_type, target_id, payload, note, created_at
+		 FROM admin_audit_log
+		 ${where}
+		 ORDER BY id DESC
+		 LIMIT ?`,
+		args,
+	);
+}
+
+/**
+ * 사용 중인 distinct action 목록 — 필터 select 채울 때 사용.
+ */
+export async function listAuditActions(): Promise<string[]> {
+	const rows = await query<{ action: string }>(
+		`SELECT DISTINCT action FROM admin_audit_log ORDER BY action`,
+	);
+	return rows.map((r) => r.action);
+}
+
 // ============================================================
 // MMR 수동 보정
 // ============================================================

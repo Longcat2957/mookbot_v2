@@ -7,6 +7,7 @@ import * as forceDeleteRecruitment from "./forceDeleteRecruitment.js";
 import * as forceDeleteSeries from "./forceDeleteSeries.js";
 import * as history from "./history.js";
 import * as leaderboard from "./leaderboard.js";
+import * as logs from "./logs.js";
 import * as lookup from "./lookup.js";
 import * as recruit from "./recruit.js";
 import * as recruitMemberAdd from "./recruitMemberAdd.js";
@@ -32,4 +33,5 @@ export const ALL_COMMANDS = [
 	adjustMmr,
 	resetSeasonResults,
 	cleanupStale,
+	logs,
 ] as const;

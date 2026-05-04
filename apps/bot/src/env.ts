@@ -17,6 +17,12 @@ const schema = z.object({
 	// 봇 → api notify / heartbeat
 	INTERNAL_API_KEY: z.string().min(1, "INTERNAL_API_KEY 필수"),
 
+	// /로그 슬래시 — 운영자에게 audit 뷰어 토큰 발급 시 서명. api 와 동일한 값 공유.
+	// 미설정 시 /로그 명령어 비활성 (사용 시 안내 메시지).
+	LOGS_JWT_SECRET: z.string().min(16, "LOGS_JWT_SECRET 최소 16자 필요").optional(),
+	// /로그 응답에 표시되는 base URL. 기본 https://bot.mooklol.com.
+	LOGS_BASE_URL: z.string().url().optional(),
+
 	// Riot API (필수 — /지금게임 spectator + /전적 라이엇 룩업)
 	RIOT_API_KEY: z.string().min(1, "RIOT_API_KEY 필수"),
 
