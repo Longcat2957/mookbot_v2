@@ -77,11 +77,12 @@ export interface SeasonResetSummary {
 
 export async function inspectSeasonForReset(seasonId: number): Promise<SeasonResetSummary> {
 	const [{ n: seriesCount } = { n: 0 }] = await query<{ n: number }>(
-		`SELECT COUNT(*) AS n FROM series WHERE season_id = ?`,
+		`SELECT COUNT(*) AS n FROM series WHERE season_id = ? AND deleted_at IS NULL`,
 		[seasonId],
 	);
 	const [{ n: gamesCount } = { n: 0 }] = await query<{ n: number }>(
-		`SELECT COUNT(*) AS n FROM games g JOIN series s ON s.id = g.series_id WHERE s.season_id = ?`,
+		`SELECT COUNT(*) AS n FROM games g JOIN series s ON s.id = g.series_id
+		 WHERE s.season_id = ? AND s.deleted_at IS NULL`,
 		[seasonId],
 	);
 	const [{ n: mmrChangesCount } = { n: 0 }] = await query<{ n: number }>(
@@ -96,23 +97,28 @@ export async function inspectSeasonForReset(seasonId: number): Promise<SeasonRes
 }
 
 /**
- * 시즌의 모든 시리즈/게임/MMR 데이터 삭제. 시즌 row 자체는 유지.
+ * 시즌의 모든 시리즈/게임/MMR 데이터 리셋. 시즌 row 자체는 유지.
+ *
+ * series 는 soft-delete (deleted_at = unixepoch()) — 모든 read 쿼리에서 가려짐.
+ * user_lane_mmr / mmr_changes 는 hard-delete — 누적 카운터는 진짜 0 으로 돌려야 의미가 있음.
  */
 export async function resetSeasonData(seasonId: number): Promise<SeasonResetSummary> {
 	const summary = await inspectSeasonForReset(seasonId);
 	await batch([
-		// recruitments.converted_series_id 는 ON DELETE 정책이 없어서 먼저 SET NULL.
-		// (이 시즌의 series 를 참조하는 recruit 만 풀어줌)
+		// 이 시즌 series 를 참조하는 recruit 의 converted_series_id 풀어줌
 		{
 			sql: `UPDATE recruitments SET converted_series_id = NULL
 			      WHERE converted_series_id IN (SELECT id FROM series WHERE season_id = ?)`,
 			params: [seasonId],
 		},
-		// CASCADE: series → series_participants, games → game_stats, mmr_changes
-		{ sql: `DELETE FROM series WHERE season_id = ?`, params: [seasonId] },
-		// user_lane_mmr 는 시즌 직접 참조, 별도 삭제
+		// series 는 soft-delete — 모든 read 쿼리에서 가려짐
+		{
+			sql: `UPDATE series SET deleted_at = unixepoch() WHERE season_id = ? AND deleted_at IS NULL`,
+			params: [seasonId],
+		},
+		// user_lane_mmr 는 시즌 직접 참조, hard-delete (누적 0 으로 진짜 리셋)
 		{ sql: `DELETE FROM user_lane_mmr WHERE season_id = ?`, params: [seasonId] },
-		// 안전망: 혹시 시즌 직접 참조하는 mmr_changes (CASCADE 못 탄 것)
+		// mmr_changes 도 hard-delete (시즌 직접 참조)
 		{ sql: `DELETE FROM mmr_changes WHERE season_id = ?`, params: [seasonId] },
 	]);
 	return summary;
@@ -134,11 +140,12 @@ export interface SeriesImpactSummary {
 }
 
 /**
- * 시리즈 강제 삭제 전 영향 요약 — 미리보기용.
+ * 시리즈 강제 삭제 전 영향 요약 — 미리보기용. soft-deleted 시리즈도 포함 (admin 시야).
  */
 export async function inspectSeriesForDelete(seriesId: number): Promise<SeriesImpactSummary> {
 	const [{ n: gamesCount } = { n: 0 }] = await query<{ n: number }>(
-		`SELECT COUNT(*) AS n FROM games WHERE series_id = ?`,
+		`SELECT COUNT(*) AS n FROM games g JOIN series s ON s.id = g.series_id
+		 WHERE g.series_id = ? AND s.deleted_at IS NULL`,
 		[seriesId],
 	);
 	const [{ n: participants } = { n: 0 }] = await query<{ n: number }>(
@@ -146,7 +153,9 @@ export async function inspectSeriesForDelete(seriesId: number): Promise<SeriesIm
 		[seriesId],
 	);
 	const [{ n: mmrChanges } = { n: 0 }] = await query<{ n: number }>(
-		`SELECT COUNT(*) AS n FROM mmr_changes mc JOIN games g ON g.id = mc.game_id WHERE g.series_id = ?`,
+		`SELECT COUNT(*) AS n FROM mmr_changes mc JOIN games g ON g.id = mc.game_id
+		 JOIN series s ON s.id = g.series_id
+		 WHERE g.series_id = ? AND s.deleted_at IS NULL`,
 		[seriesId],
 	);
 
@@ -167,7 +176,8 @@ export async function inspectSeriesForDelete(seriesId: number): Promise<SeriesIm
 		    SUM(CASE WHEN mc.delta > 0 THEN 1 ELSE 0 END) AS wins
 		 FROM mmr_changes mc
 		 JOIN games g ON g.id = mc.game_id
-		 WHERE g.series_id = ?
+		 JOIN series s ON s.id = g.series_id
+		 WHERE g.series_id = ? AND s.deleted_at IS NULL
 		 GROUP BY mc.user_id, mc.season_id, mc.role`,
 		[seriesId],
 	);
@@ -189,10 +199,14 @@ export async function inspectSeriesForDelete(seriesId: number): Promise<SeriesIm
 }
 
 /**
- * 시리즈 + 종속 데이터 물리 삭제, 선택적으로 user_lane_mmr 누적값을 되돌림.
+ * 시리즈 soft-delete + 선택적 user_lane_mmr 누적값 롤백.
  *
  * 주의: 후속 게임이 있을 경우 이 시리즈 게임의 영향만 차감 — 후속 ELO 는 그대로 둠.
  *       엄밀히 정확하려면 후속 게임도 재계산 필요하나, 운영 응급용이라 단순 차감 채택.
+ *
+ * v3: hard-delete → soft-delete 로 변경. 종속 game_stats / picks / bans / mmr_changes
+ * 행은 그대로 유지되지만 read 쿼리들이 series.deleted_at IS NULL 필터로 가려준다.
+ * 진짜 물리 삭제가 필요하면 별도 purgeSeries 호출.
  */
 export async function forceDeleteSeriesWithRollback(
 	seriesId: number,
@@ -215,14 +229,15 @@ export async function forceDeleteSeriesWithRollback(
 		rollbackRows = stmts.length;
 	}
 
-	// recruitments.converted_series_id 는 REFERENCES series(id) 인데 ON DELETE 정책이
-	// 없어서 series 삭제 시 FK 위반 (SQLITE_CONSTRAINT_FOREIGNKEY). 먼저 SET NULL.
+	// 모집의 converted_series_id 풀어줌 — 이 모집이 새로 엔트리 확정 가능하게.
 	await execute(`UPDATE recruitments SET converted_series_id = NULL WHERE converted_series_id = ?`, [
 		seriesId,
 	]);
 
-	// CASCADE 로 series_participants / games / game_stats / mmr_changes 모두 삭제됨
-	await execute(`DELETE FROM series WHERE id = ?`, [seriesId]);
+	// soft-delete — read 쿼리에서 가려짐. 같은 id 로 createSeries 시 자동 revive.
+	await execute(`UPDATE series SET deleted_at = unixepoch() WHERE id = ? AND deleted_at IS NULL`, [
+		seriesId,
+	]);
 
 	return { rollbackRows };
 }

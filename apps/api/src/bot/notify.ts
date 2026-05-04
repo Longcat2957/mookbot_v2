@@ -1,0 +1,36 @@
+// api → bot 내부 HTTP 호출. 같은 docker network 안에서 INTERNAL_API_KEY shared secret 인증.
+//
+// 용도: 모집 D1 status 가 API 측에서 바뀐 뒤 (POST /api/series, revert) 봇이 쥐고 있는
+// Discord 메시지를 다시 그리도록 트리거. 봇 핸들러가 직접 D1 을 바꾸는 경우는 봇이
+// 이미 메시지를 갱신하므로 이 호출이 필요 없다 — API 측 transition 만 보강.
+
+import { log } from "@mookbot/core";
+
+/**
+ * 봇에 모집 메시지 re-render 요청. best-effort — 실패해도 캐치해서 로그만 남기고 무시.
+ * (응답 user-facing 흐름을 봇 health 에 종속시키지 않기 위해)
+ */
+export async function notifyBotRecruitRefresh(recruitmentId: number): Promise<void> {
+	const botBase = process.env.BOT_INTERNAL_BASE ?? "http://bot:3001";
+	const key = process.env.INTERNAL_API_KEY;
+	if (!key) {
+		log.debug({ recruitmentId }, "notifyBotRecruitRefresh: INTERNAL_API_KEY 미설정 — skip");
+		return;
+	}
+
+	const res = await fetch(`${botBase}/internal/recruit-refresh`, {
+		method: "POST",
+		headers: {
+			"Content-Type": "application/json",
+			"X-Internal-Key": key,
+		},
+		body: JSON.stringify({ recruitmentId }),
+		// 봇이 죽어있을 수 있음 — short timeout 으로 실패 fast.
+		signal: AbortSignal.timeout(3000),
+	});
+
+	if (!res.ok) {
+		const text = await res.text().catch(() => "");
+		throw new Error(`bot refresh ${res.status}: ${text}`);
+	}
+}

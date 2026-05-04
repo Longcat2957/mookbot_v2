@@ -3,6 +3,7 @@
 
 import { cloudflare, datadragon, db } from "@mookbot/core";
 import type { FastifyInstance } from "fastify";
+import { notifyBotRecruitRefresh } from "../bot/notify.js";
 import { HttpError } from "./_errors.js";
 import { invalidate, requireEditor, requireSession } from "./_helpers.js";
 import { emptyHistory, fetchPlayHistoryFor } from "./_history.js";
@@ -38,6 +39,8 @@ export async function registerSeriesRoutes(app: FastifyInstance): Promise<void> 
 		let series: Awaited<ReturnType<typeof db.createSeries>>;
 		try {
 			series = await db.createSeries({
+				// 시리즈 ID = 모집 ID — 사용자 혼동 방지 (모집 #N → 시리즈 #N)
+				id: recruitmentId,
 				seasonId: rec.season_id,
 				createdBy: sid,
 				participants: assignments.map((a) => ({
@@ -54,6 +57,10 @@ export async function registerSeriesRoutes(app: FastifyInstance): Promise<void> 
 		invalidate("dashboard");
 		invalidate(`recruitment:${recruitmentId}`);
 		invalidate(`series:${series.id}`);
+		// 봇에 Discord 모집 메시지 갱신 요청 — best-effort, 실패해도 API 응답은 정상.
+		void notifyBotRecruitRefresh(recruitmentId).catch((err) => {
+			req.log.warn({ err, recruitmentId }, "notifyBotRecruitRefresh failed");
+		});
 		return { seriesId: series.id };
 	});
 
@@ -241,7 +248,9 @@ export async function registerSeriesRoutes(app: FastifyInstance): Promise<void> 
 		},
 	);
 
-	// 시리즈를 엔트리 수정 대기 상태로 되돌리기 — 게임이 하나도 없을 때만 허용
+	// 시리즈를 엔트리 수정 대기 상태로 되돌리기 — 게임이 하나도 없을 때만 허용.
+	// soft-delete (deleted_at 만 set) — 운영자 실수 시 같은 모집 재확정 시 자동 revive 가능.
+	// audit log 남김 — 추적성 (force-delete 와 동등 수준).
 	app.post<{ Params: { id: string } }>("/api/series/:id/revert", async (req, reply) => {
 		const sid = await requireEditor(req, reply);
 		if (!sid) return;
@@ -260,24 +269,42 @@ export async function registerSeriesRoutes(app: FastifyInstance): Promise<void> 
 			});
 		}
 
-		// 모집 찾기 (converted_series_id = id)
+		// 모집 찾기 (converted_series_id = id) — 모집 ID = 시리즈 ID 가정 하에 같은 값.
 		const recRow = await cloudflare.queryOne<{ id: number }>(
 			`SELECT id FROM recruitments WHERE converted_series_id = ?`,
 			[id],
 		);
 
-		// 순서 중요 — recruitments.converted_series_id 가 series.id 를 FK 로 참조하므로
-		// 1) 모집 status 복원 + converted_series_id NULL 로 설정 (FK 해제)
-		// 2) 그 다음 시리즈 DELETE (CASCADE 로 series_participants 정리)
+		// 1) 모집 status 복원 + converted_series_id NULL
+		// 2) 시리즈 soft-delete (deleted_at 만 set)
+		// 3) pickban draft KV 정리 (재확정 시 깨끗한 상태로 시작)
 		if (recRow) {
 			await db.setRecruitmentStatus(recRow.id, "CLOSED");
 		}
-		await cloudflare.execute(`DELETE FROM series WHERE id = ?`, [id]);
+		await db.softDeleteSeries(id);
 		await db.deleteKv(`pickban:${id}`);
+
+		await db.recordAudit({
+			operatorId: sid,
+			action: "series.revert",
+			targetType: "series",
+			targetId: String(id),
+			payload: {
+				recruitmentId: recRow?.id ?? null,
+				seasonId: s.season_id,
+				participants: (await db.getSeriesParticipants(id)).length,
+			},
+		});
 
 		invalidate(`series:${id}`);
 		invalidate("dashboard");
 		if (recRow) invalidate(`recruitment:${recRow.id}`);
+		// 봇 Discord 모집 메시지 갱신 — 모집이 다시 CLOSED 상태로 보이도록.
+		if (recRow) {
+			void notifyBotRecruitRefresh(recRow.id).catch((err) => {
+				req.log.warn({ err, recruitmentId: recRow.id }, "notifyBotRecruitRefresh failed");
+			});
+		}
 		return { ok: true, recruitmentId: recRow?.id ?? null };
 	});
 }

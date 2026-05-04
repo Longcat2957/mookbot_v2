@@ -49,6 +49,8 @@ CREATE TABLE IF NOT EXISTS seasons (
 -- Series (Bo3) & Participants
 -- ============================================================
 
+-- series.id 는 createSeries 호출 시 명시적으로 전달 — 모집 ID 와 동일하게 부여한다.
+-- AUTOINCREMENT 는 fallback (seed / 명시 id 미지정 호출) 용. 운영 흐름은 항상 명시 id 사용.
 CREATE TABLE IF NOT EXISTS series (
     id            INTEGER PRIMARY KEY AUTOINCREMENT,
     season_id     INTEGER NOT NULL REFERENCES seasons(id),
@@ -63,12 +65,14 @@ CREATE TABLE IF NOT EXISTS series (
     activity_started_at   INTEGER,               -- v2
     end_card_message_id   TEXT,                  -- v2: 종료 카드 (영속 기록)
     end_card_channel_id   TEXT,                  -- v2
+    deleted_at            INTEGER,               -- v3: soft-delete (NULL = live). 모든 read 쿼리는 IS NULL 필터.
     CHECK (status IN ('IN_PROGRESS', 'COMPLETED', 'CANCELLED')),
     CHECK (winning_team IS NULL OR winning_team IN ('TEAM_1', 'TEAM_2'))
 );
 
 CREATE INDEX IF NOT EXISTS idx_series_season ON series(season_id);
 CREATE INDEX IF NOT EXISTS idx_series_status ON series(status);
+CREATE INDEX IF NOT EXISTS idx_series_deleted_at ON series(deleted_at);
 
 CREATE TABLE IF NOT EXISTS series_participants (
     series_id  INTEGER NOT NULL REFERENCES series(id) ON DELETE CASCADE,
@@ -284,3 +288,8 @@ ALTER TABLE series ADD COLUMN activity_instance_id TEXT;
 ALTER TABLE series ADD COLUMN activity_started_at INTEGER;
 ALTER TABLE series ADD COLUMN end_card_message_id TEXT;
 ALTER TABLE series ADD COLUMN end_card_channel_id TEXT;
+
+-- v3: soft-delete. revert / cleanup-stale / force-delete / season-reset 가 모두 UPDATE deleted_at = unixepoch().
+-- 모든 read 쿼리는 deleted_at IS NULL 필터. 진짜 삭제는 별도 purge (관리자 수동) 로 분리.
+ALTER TABLE series ADD COLUMN deleted_at INTEGER;
+CREATE INDEX IF NOT EXISTS idx_series_deleted_at ON series(deleted_at);

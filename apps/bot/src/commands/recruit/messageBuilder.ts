@@ -5,6 +5,7 @@ import {
 	ActionRowBuilder,
 	ButtonBuilder,
 	ButtonStyle,
+	type Client,
 	type ContainerBuilder,
 	MessageFlags,
 	type RepliableInteraction,
@@ -168,8 +169,19 @@ function buildClosedComponents(id: number): ActionRowBuilder<ButtonBuilder>[] {
 	return [row];
 }
 
+function isAccessOrMissingError(err: unknown): boolean {
+	// DiscordAPIError 는 코드를 err.name (e.g. "DiscordAPIError[50001]"), err.message,
+	// 또는 err.code 에 박음. 50001=Missing Access, 10008=Unknown Message, 50013=Missing Permissions
+	if (!(err instanceof Error)) return false;
+	return (
+		/50001|10008|50013/.test(err.message) ||
+		/50001|10008|50013/.test(err.name) ||
+		[50001, 10008, 50013].includes((err as { code?: number }).code ?? -1)
+	);
+}
+
 /**
- * 모집 메시지를 최신 상태로 갱신. 실패 사유를 문자열로 반환 (성공 시 null).
+ * 모집 메시지를 최신 상태로 갱신 — interaction 기반.
  *
  * 1차: channels.fetch + messages.edit (봇이 채널 읽기 권한 필요)
  * 2차 폴백: interaction.followUp 으로 새 메시지 게시 + tracking 갱신
@@ -197,14 +209,7 @@ export async function refreshRecruitMessage(
 		return null;
 	} catch (err) {
 		const detail = err instanceof Error ? `${err.name}: ${err.message}` : String(err);
-		// access / missing 케이스 → followUp 으로 새 메시지 게시 + tracking 갱신
-		// DiscordAPIError 는 코드를 err.name (e.g. "DiscordAPIError[50001]") 또는 err.code 에 박음
-		const isAccessOrMissing =
-			err instanceof Error &&
-			(/50001|10008|50013/.test(err.message) ||
-				/50001|10008|50013/.test(err.name) ||
-				[50001, 10008, 50013].includes((err as { code?: number }).code ?? -1));
-		if (isAccessOrMissing) {
+		if (isAccessOrMissingError(err)) {
 			try {
 				const newMsg = await interaction.followUp({
 					flags: MessageFlags.IsComponentsV2,
@@ -216,6 +221,55 @@ export async function refreshRecruitMessage(
 				const followDetail =
 					followErr instanceof Error ? `${followErr.name}: ${followErr.message}` : String(followErr);
 				return `${detail} (followUp 도 실패: ${followDetail})`;
+			}
+		}
+		return detail;
+	}
+}
+
+/**
+ * client 만 가지고 모집 메시지 갱신 — api → bot HTTP refresh 같은 server-initiated
+ * 흐름에서 사용. interaction 컨텍스트가 없어서 폴백은 channel.send 로 직접 새 메시지 게시.
+ */
+export async function refreshRecruitMessageWithClient(
+	client: Client,
+	id: number,
+	channelId: string | null,
+	messageId: string | null,
+): Promise<string | null> {
+	if (!channelId || !messageId) return "channel_id / message_id 추적 정보 없음";
+
+	const components = await renderComponents(id);
+
+	try {
+		const ch = await client.channels.fetch(channelId);
+		if (!ch || !ch.isTextBased() || !("messages" in ch)) {
+			return "채널 접근 불가";
+		}
+		const msg = await ch.messages.fetch(messageId);
+		await msg.edit({
+			flags: MessageFlags.IsComponentsV2,
+			components,
+		} as Parameters<typeof msg.edit>[0]);
+		return null;
+	} catch (err) {
+		const detail = err instanceof Error ? `${err.name}: ${err.message}` : String(err);
+		if (isAccessOrMissingError(err)) {
+			try {
+				const ch = await client.channels.fetch(channelId);
+				if (!ch || !ch.isTextBased() || !("send" in ch)) {
+					return `${detail} (폴백 채널 접근 불가)`;
+				}
+				const newMsg = await ch.send({
+					flags: MessageFlags.IsComponentsV2,
+					components,
+				} as Parameters<typeof ch.send>[0]);
+				await setRecruitmentMessage(id, newMsg.channelId, newMsg.id);
+				return null;
+			} catch (followErr) {
+				const followDetail =
+					followErr instanceof Error ? `${followErr.name}: ${followErr.message}` : String(followErr);
+				return `${detail} (channel.send 폴백 실패: ${followDetail})`;
 			}
 		}
 		return detail;

@@ -203,8 +203,8 @@ describe("listing", () => {
 	});
 });
 
-describe("deleteSeriesPhysical", () => {
-	it("CASCADE 로 series_participants 정리", async () => {
+describe("deleteSeriesPhysical (legacy alias → soft-delete)", () => {
+	it("series 가 read 쿼리에서 가려지고 같은 id 로 createSeries 시 revive", async () => {
 		const s = await createSeries({
 			seasonId,
 			createdBy: OP,
@@ -217,8 +217,66 @@ describe("deleteSeriesPhysical", () => {
 
 		await deleteSeriesPhysical(s.id);
 
+		// soft-delete: getSeries 는 가려주지만 row 는 남음
 		expect(await getSeries(s.id)).toBeUndefined();
-		expect(await getSeriesParticipants(s.id)).toEqual([]);
+		// 참가자도 그대로 (cleanup 은 createSeries revive 가 처리)
+		expect(await getSeriesParticipants(s.id)).toHaveLength(2);
+
+		// 같은 id 로 createSeries 호출 → revive (참가자 교체)
+		const revived = await createSeries({
+			id: s.id,
+			seasonId,
+			createdBy: OP,
+			participants: [
+				{ userId: "u3", team: "TEAM_1", role: "MID" },
+				{ userId: "u4", team: "TEAM_2", role: "MID" },
+			],
+		});
+		expect(revived.id).toBe(s.id);
+		const after = await getSeries(s.id);
+		expect(after?.deleted_at).toBeNull();
+		expect(after?.status).toBe("IN_PROGRESS");
+		const parts = await getSeriesParticipants(s.id);
+		expect(parts).toHaveLength(2);
+		expect(new Set(parts.map((p) => p.user_id))).toEqual(new Set(["u3", "u4"]));
+	});
+});
+
+describe("createSeries — 명시 id", () => {
+	it("명시 id 로 INSERT — 모집 ID 매칭 흐름", async () => {
+		const s = await createSeries({
+			id: 42,
+			seasonId,
+			createdBy: OP,
+			participants: [
+				{ userId: "u1", team: "TEAM_1", role: "TOP" },
+				{ userId: "u2", team: "TEAM_2", role: "TOP" },
+			],
+		});
+		expect(s.id).toBe(42);
+	});
+
+	it("같은 id 의 살아있는 행이 있으면 에러", async () => {
+		await createSeries({
+			id: 7,
+			seasonId,
+			createdBy: OP,
+			participants: [
+				{ userId: "u1", team: "TEAM_1", role: "TOP" },
+				{ userId: "u2", team: "TEAM_2", role: "TOP" },
+			],
+		});
+		await expect(
+			createSeries({
+				id: 7,
+				seasonId,
+				createdBy: OP,
+				participants: [
+					{ userId: "u3", team: "TEAM_1", role: "MID" },
+					{ userId: "u4", team: "TEAM_2", role: "MID" },
+				],
+			}),
+		).rejects.toThrow(/이미 존재/);
 	});
 });
 
