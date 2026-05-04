@@ -6,7 +6,7 @@
 
 ### CI / 운영
 - [`cicd.md`](./cicd.md) — GitHub Actions 워크플로 (CI gate + D1 백업) 정리
-- 운영 deploy: `pnpm docker:release` + `ssh root@141.164.46.191 'cd ~/deploy && docker compose pull && up -d'` (memory: `reference_vps_deploy`)
+- 운영 deploy: `pnpm docker:release` + `ssh root@<VPS_HOST> 'cd ~/deploy && docker compose pull && up -d'` (memory: `reference_vps_deploy`)
 
 ### 테스트
 - [`testing/README.md`](./testing/README.md) — 테스트 전체 현황, 실행법, 카테고리 분류
@@ -20,7 +20,7 @@
 ## 외부 문서 (repo 루트)
 
 - [`../PLAN.md`](../PLAN.md) — 전체 마스터 플랜 (Phase 0~Q)
-- [`../full_code_review_and_refactoring.md`](../full_code_review_and_refactoring.md) — Phase Q 상세 (Wave 1~6)
+- [`./internal/full_code_review_and_refactoring.md`](./internal/full_code_review_and_refactoring.md) — Phase Q 상세 (Wave 1~6)
 - [`../README.md`](../README.md), [`../SETUP.md`](../SETUP.md)
 
 ## 문서 갱신 정책

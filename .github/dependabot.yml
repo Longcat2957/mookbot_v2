@@ -1,0 +1,57 @@
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "03:00"
+      timezone: Asia/Seoul
+    open-pull-requests-limit: 5
+    groups:
+      dev-deps:
+        dependency-type: development
+        update-types:
+          - minor
+          - patch
+      prod-deps-non-major:
+        dependency-type: production
+        update-types:
+          - minor
+          - patch
+    labels:
+      - dependencies
+    commit-message:
+      prefix: chore(deps)
+      include: scope
+
+  - package-ecosystem: docker
+    directories:
+      - /apps/api
+      - /apps/bot
+      - /apps/activity
+    schedule:
+      interval: monthly
+      day: monday
+      time: "03:00"
+      timezone: Asia/Seoul
+    open-pull-requests-limit: 3
+    labels:
+      - dependencies
+      - docker
+    commit-message:
+      prefix: chore(docker)
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+      day: monday
+      time: "03:00"
+      timezone: Asia/Seoul
+    open-pull-requests-limit: 3
+    labels:
+      - dependencies
+      - ci
+    commit-message:
+      prefix: chore(ci)
