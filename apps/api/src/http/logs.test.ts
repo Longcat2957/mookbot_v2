@@ -163,9 +163,7 @@ describe("GET /api/logs/data", () => {
 		const { app, db } = await buildTestApp();
 		seedAudit(db, 2);
 		db
-			.prepare(
-				"INSERT INTO admin_audit_log (operator_id, action, target_id) VALUES (?, ?, ?)",
-			)
+			.prepare("INSERT INTO admin_audit_log (operator_id, action, target_id) VALUES (?, ?, ?)")
 			.run(OP, "series.force_delete", "99");
 		const token = await signToken(OP);
 		const res = await app.inject({

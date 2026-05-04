@@ -105,7 +105,7 @@ export async function registerLogsRoutes(app: FastifyInstance): Promise<void> {
 				payload: r.payload,
 				note: r.note,
 			})),
-			nextCursor: rows.length === limit ? rows[rows.length - 1]?.id ?? null : null,
+			nextCursor: rows.length === limit ? (rows[rows.length - 1]?.id ?? null) : null,
 			actions,
 		};
 	});
