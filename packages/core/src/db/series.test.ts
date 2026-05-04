@@ -12,6 +12,7 @@ import {
 	listAllOpenSeries,
 	listOpenSeriesByUser,
 	listRecentSeriesForUser,
+	listSeries,
 	listStaleOpenSeries,
 	setSeriesMessage,
 } from "./series.js";
@@ -200,6 +201,43 @@ describe("listing", () => {
 		const pastCutoff = fresh.started_at + 1;
 		const stale = await listStaleOpenSeries(pastCutoff);
 		expect(stale.map((s) => s.id)).toContain(fresh.id);
+	});
+
+	it("listSeries — status / seasonId / limit 필터", async () => {
+		const make = (uid1: string, uid2: string) =>
+			createSeries({
+				seasonId,
+				createdBy: OP,
+				participants: [
+					{ userId: uid1, team: "TEAM_1", role: "TOP" },
+					{ userId: uid2, team: "TEAM_2", role: "TOP" },
+				],
+			});
+		const s1 = await make("u1", "u2");
+		const s2 = await make("u3", "u4");
+		const s3 = await make("u1", "u3");
+		await completeSeries(s2.id, "TEAM_1");
+		await cancelSeries(s3.id);
+
+		// 전체 — 최신순
+		const all = await listSeries({});
+		expect(all.map((s) => s.id)).toEqual([s3.id, s2.id, s1.id]);
+
+		// status 필터
+		const inProgress = await listSeries({ status: "IN_PROGRESS" });
+		expect(inProgress.map((s) => s.id)).toEqual([s1.id]);
+		const completed = await listSeries({ status: "COMPLETED" });
+		expect(completed.map((s) => s.id)).toEqual([s2.id]);
+
+		// limit
+		const limited = await listSeries({ limit: 2 });
+		expect(limited).toHaveLength(2);
+
+		// seasonId 필터 (현재 시즌만 시리즈 있음)
+		const wrongSeason = await listSeries({ seasonId: 999 });
+		expect(wrongSeason).toEqual([]);
+		const correctSeason = await listSeries({ seasonId });
+		expect(correctSeason).toHaveLength(3);
 	});
 });
 
