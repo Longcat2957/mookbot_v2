@@ -221,9 +221,9 @@ describe("inspectSeriesForDelete + forceDeleteSeriesWithRollback", () => {
 
 		expect(result.rollbackRows).toBe(2);
 		// soft-delete: 행은 남아있고 deleted_at 만 set
-		const row = db
-			.prepare("SELECT deleted_at FROM series WHERE id = ?")
-			.get(seriesId) as { deleted_at: number | null } | undefined;
+		const row = db.prepare("SELECT deleted_at FROM series WHERE id = ?").get(seriesId) as
+			| { deleted_at: number | null }
+			| undefined;
 		expect(row).toBeDefined();
 		expect(row?.deleted_at).not.toBeNull();
 		// MMR 차감 — u1: 1516 - 16 = 1500
@@ -240,9 +240,9 @@ describe("inspectSeriesForDelete + forceDeleteSeriesWithRollback", () => {
 		// MMR 안 건드림
 		expect((await getLaneMmr("u1", seasonId, "TOP"))?.mmr).toBe(1516);
 		// 시리즈는 soft-delete
-		const row = db
-			.prepare("SELECT deleted_at FROM series WHERE id = ?")
-			.get(seriesId) as { deleted_at: number | null } | undefined;
+		const row = db.prepare("SELECT deleted_at FROM series WHERE id = ?").get(seriesId) as
+			| { deleted_at: number | null }
+			| undefined;
 		expect(row).toBeDefined();
 		expect(row?.deleted_at).not.toBeNull();
 	});

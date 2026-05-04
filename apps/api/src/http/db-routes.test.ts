@@ -457,9 +457,9 @@ describe("POST /api/series/:id/revert", () => {
 		expect(res.json()).toMatchObject({ ok: true, recruitmentId });
 
 		// soft-delete: 행 보존 + deleted_at set
-		const sRow = db
-			.prepare("SELECT deleted_at FROM series WHERE id = ?")
-			.get(sid) as { deleted_at: number | null } | undefined;
+		const sRow = db.prepare("SELECT deleted_at FROM series WHERE id = ?").get(sid) as
+			| { deleted_at: number | null }
+			| undefined;
 		expect(sRow).toBeDefined();
 		expect(sRow?.deleted_at).not.toBeNull();
 
