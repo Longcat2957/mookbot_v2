@@ -62,7 +62,7 @@ DISCORD_CLIENT_SECRET=<§1.4 에서 복사한 값>
 ## 3. Cloudflare 추가 설정 (이미 적용된 것 + 향후 필요)
 
 ### 이미 OK
-- DNS: `bot A → 141.164.46.191`, Proxied ✓
+- DNS: `bot A → <VPS_IP>` (Proxied) ✓
 - Universal SSL (Flexible 모드) — `https://bot.mooklol.com/healthz` 외부 검증됨 ✓
 
 ### Phase 1 진입 시 권장 (선택)

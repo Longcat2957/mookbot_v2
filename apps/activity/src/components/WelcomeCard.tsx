@@ -41,7 +41,7 @@ export function WelcomeCard({
 				<div className="flex items-start justify-between gap-2">
 					<div>
 						<h2 className="card-title text-base sm:text-lg flex items-center gap-2">
-							👋 mookbot Activity 사용 안내
+							👋 monkey Activity 사용 안내
 						</h2>
 						<p className="text-xs text-base-content/60">
 							우상단 작은 아이콘들이 자주 안 보일 수 있어 한 번만 정리해 둡니다.

@@ -117,7 +117,7 @@ function AppInner() {
 						className="text-xl font-bold hover:text-primary cursor-pointer"
 						onClick={goHome}
 					>
-						mookbot
+							monkey
 					</button>
 					{recruitmentId !== null && (
 						<span className="ml-3 badge badge-ghost badge-sm">모집 #{recruitmentId}</span>

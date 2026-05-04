@@ -12,3 +12,7 @@ dist
 .pnpm-store
 coverage/
 .claude/settings.local.json
+
+# rotation backups
+.env.bak*
+*.bak-[0-9]*

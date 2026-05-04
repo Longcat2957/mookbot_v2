@@ -1,11 +1,12 @@
 # mookbot v2 — Embedded App SDK 전면 리팩토링 기획서
 
-> **상태**: v0.1.1 — Phase 0~3 완료, 실서비스 가능 단계. Phase 4 (운영 안정화) 진행 중.
+> ⚠️ **이 문서는 v0.1.1 시점 작성된 기술 기획서**. 의사결정 컨텍스트와 아키텍처 근거의 기록.
+> 현재 진척 / 완료 / 백로그는 [`ROADMAP.md`](./ROADMAP.md) 를 참조.
+>
 > **선행 산출물**: `myDiscordBot` (v0.7, discord.js + satori PNG 기반)
 > **목적**: 채널 메시지 edit 기반 UI의 latency / refresh 병목을 근본 해결.
 > **수단**: Discord Embedded App SDK (Activity) 전면 채택. 봇은 진입점·영속 기록 발행자로 슬림화.
 > **도메인**: `bot.mooklol.com` (Cloudflare proxied, single-host path-based routing).
-> **Repo**: https://github.com/Longcat2957/mookbot_v2 (private)
 
 ---
 
@@ -220,7 +221,7 @@ Activity는 **HTTPS 필수** (Discord 클라이언트가 iframe 로드 시 mixed
 ### 4.1 도메인 — **확정**: `bot.mooklol.com` 단일 호스트 + path-based routing
 
 Cloudflare DNS:
-- `A bot → 141.164.46.191` (Proxied = orange cloud)
+- `A bot → <VPS_IP>` (Proxied = orange cloud)
 - Cloudflare Edge에서 자동으로 `https → http(80)` 처리 → Origin은 80만 listen
 - TLS 인증서는 Cloudflare가 관리 (Origin Cert 또는 Universal SSL)
 
@@ -282,7 +283,7 @@ Referrer-Policy: no-referrer
 
 ### 4.5 호스팅 — **확정**: 현재 VPS + nginx (Docker)
 
-`141.164.46.191` (Vultr) VPS, `~/deploy/docker-compose.yml` 단일 stack:
+단일 VPS, `~/deploy/docker-compose.yml` 단일 stack:
 
 ```yaml
 services:

@@ -1,8 +1,11 @@
 # mookbot v2
 
 Discord 기반 LoL 내전(Bo3) 운영 봇 + Activity (Embedded App SDK).
+사용자 노출 브랜드는 **monkey**. `mookbot` 은 npm 패키지 / Docker 이미지 / 모노레포 식별자로만 잔존.
 
 채널 메시지 edit 기반 UI(v1) 의 latency / refresh 병목을 해소하기 위해 Discord Activity 로 코어 인터랙션을 이전한 풀 리팩토링.
+
+[![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](./LICENSE)
 
 ## 구성
 
@@ -68,5 +71,15 @@ VPS 배포는 `latest` 를 따라가며, 특정 버전 고정이 필요하면 `~
 
 ## 문서
 
-- `PLAN.md` — 시리즈 라이프사이클, 아키텍처, HTTPS / nginx / OAuth2, 마이그레이션 단계
-- `SETUP.md` — Discord Developer Portal 셋업 체크리스트 (Activity / OAuth2 / Bot Intents)
+- [`ROADMAP.md`](./ROADMAP.md) — 현재 진척 / 완료 / 백로그 (정식 진척 문서)
+- [`PLAN.md`](./PLAN.md) — v0.1.1 시점 기술 기획서 (시리즈 라이프사이클, 아키텍처, HTTPS / nginx / OAuth2 의사결정 기록)
+- [`SETUP.md`](./SETUP.md) — Discord Developer Portal 셋업 체크리스트 (Activity / OAuth2 / Bot Intents)
+- [`SECURITY.md`](./SECURITY.md) — 보안 정책 / 취약점 보고 절차
+- [`docs/`](./docs/) — CI / 테스트 / 인프라 문서
+- [`docs/internal/`](./docs/internal/) — 시점별 워킹노트 / 스냅샷 (코드 리뷰 등)
+
+## 라이선스
+
+[Apache License 2.0](./LICENSE). 트레이드마크 / 외부 서비스 attribution 은 [`NOTICE`](./NOTICE) 참고.
+
+이 프로젝트는 Discord Inc. 또는 Riot Games, Inc. 와 무관하며, 양사의 공식 제품/서비스가 아닙니다.
