@@ -16,7 +16,7 @@ ENV VITE_DISCORD_CLIENT_ID=$VITE_DISCORD_CLIENT_ID
 COPY apps/activity apps/activity
 RUN pnpm --filter @mookbot/activity build
 
-FROM nginx:1.27-alpine AS runtime
+FROM nginx:1.29-alpine AS runtime
 COPY --from=build /app/apps/activity/dist /usr/share/nginx/html
 EXPOSE 80
 HEALTHCHECK --interval=60s --timeout=5s --start-period=10s --retries=2 \
