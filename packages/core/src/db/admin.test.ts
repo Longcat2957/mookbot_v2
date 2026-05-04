@@ -6,6 +6,8 @@ import {
 	forceDeleteSeriesWithRollback,
 	inspectSeasonForReset,
 	inspectSeriesForDelete,
+	listAuditActions,
+	listAuditLog,
 	recordAudit,
 	resetSeasonData,
 } from "./admin.js";
@@ -64,6 +66,50 @@ describe("recordAudit", () => {
 		expect(rows[0]?.target_id).toBeNull();
 		expect(rows[0]?.payload).toBeNull();
 		expect(rows[0]?.note).toBeNull();
+	});
+});
+
+describe("listAuditLog / listAuditActions", () => {
+	beforeEach(async () => {
+		// 2개 액션 5건씩 — id 가 1..10 (insert 순)
+		for (let i = 0; i < 5; i++) {
+			await recordAudit({ operatorId: OP, action: "series.revert", targetId: String(i) });
+		}
+		for (let i = 0; i < 5; i++) {
+			await recordAudit({ operatorId: "op2", action: "series.force_delete", targetId: String(i) });
+		}
+	});
+
+	it("기본 — 최신순, limit 50", async () => {
+		const rows = await listAuditLog();
+		expect(rows).toHaveLength(10);
+		expect(rows[0]?.id).toBe(10);
+		expect(rows[9]?.id).toBe(1);
+	});
+
+	it("action 필터", async () => {
+		const rows = await listAuditLog({ action: "series.revert" });
+		expect(rows).toHaveLength(5);
+		expect(rows.every((r) => r.action === "series.revert")).toBe(true);
+	});
+
+	it("operatorId 필터", async () => {
+		const rows = await listAuditLog({ operatorId: "op2" });
+		expect(rows).toHaveLength(5);
+		expect(rows.every((r) => r.operator_id === "op2")).toBe(true);
+	});
+
+	it("cursor 페이지네이션 — id < cursor", async () => {
+		const first = await listAuditLog({ limit: 4 });
+		expect(first.map((r) => r.id)).toEqual([10, 9, 8, 7]);
+		const cursor = first[first.length - 1]?.id;
+		const second = await listAuditLog({ limit: 4, cursor });
+		expect(second.map((r) => r.id)).toEqual([6, 5, 4, 3]);
+	});
+
+	it("listAuditActions 가 distinct 정렬", async () => {
+		const actions = await listAuditActions();
+		expect(actions).toEqual(["series.force_delete", "series.revert"]);
 	});
 });
 
