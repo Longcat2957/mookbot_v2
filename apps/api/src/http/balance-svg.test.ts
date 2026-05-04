@@ -124,10 +124,7 @@ describe("GET /api/series/:id/balance.svg", () => {
 		const { app, db } = await buildTestApp();
 		const { seriesId } = seedSeries(db);
 		// u1 닉네임 변경 → < script > 시도
-		db.prepare("UPDATE users SET display_name = ? WHERE discord_id = ?").run(
-			"<script>",
-			"u1",
-		);
+		db.prepare("UPDATE users SET display_name = ? WHERE discord_id = ?").run("<script>", "u1");
 		const res = await app.inject({
 			method: "GET",
 			url: `/api/series/${seriesId}/balance.svg`,

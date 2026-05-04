@@ -480,12 +480,9 @@ export function PickBan({
 			)}
 
 			{/* Game 1 사이드 결정 + 첫 게임 미기록 + 시리즈 진행중 일 때만 밸런스 이미지 노출 */}
-			{team1Side &&
-				draft.currentGame === 1 &&
-				!completedGames.has(1) &&
-				!seriesCompleted && (
-					<BalancePreview seriesId={seriesId!} team1Side={team1Side} />
-				)}
+			{team1Side && draft.currentGame === 1 && !completedGames.has(1) && !seriesCompleted && (
+				<BalancePreview seriesId={seriesId!} team1Side={team1Side} />
+			)}
 
 			{team1Side && (
 				<PickBanBoard

@@ -87,10 +87,7 @@ export async function registerBalanceSvgRoute(app: FastifyInstance): Promise<voi
 		});
 
 		// 캐시 X — 사이드 / MMR 변동 즉시 반영.
-		reply
-			.type("image/svg+xml; charset=utf-8")
-			.header("Cache-Control", "no-store")
-			.send(svg);
+		reply.type("image/svg+xml; charset=utf-8").header("Cache-Control", "no-store").send(svg);
 	});
 }
 
