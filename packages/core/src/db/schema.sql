@@ -72,7 +72,7 @@ CREATE TABLE IF NOT EXISTS series (
 
 CREATE INDEX IF NOT EXISTS idx_series_season ON series(season_id);
 CREATE INDEX IF NOT EXISTS idx_series_status ON series(status);
-CREATE INDEX IF NOT EXISTS idx_series_deleted_at ON series(deleted_at);
+-- idx_series_deleted_at: 기존 DB 에 ALTER 로 컬럼 추가된 뒤 만들어야 하므로 파일 끝 ALTER 블록에 위치.
 
 CREATE TABLE IF NOT EXISTS series_participants (
     series_id  INTEGER NOT NULL REFERENCES series(id) ON DELETE CASCADE,
