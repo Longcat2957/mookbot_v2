@@ -10,7 +10,12 @@ interface SearchHit {
 	discordId: string;
 	displayName: string;
 	mainAccount: { gameName: string; tagLine: string } | null;
-	topChampion: { championId: number; championName: string; iconUrl: string } | null;
+	topChampion: {
+		championId: number;
+		championName: string;
+		iconUrl: string;
+		splashUrl: string;
+	} | null;
 }
 
 interface SearchResponse {
@@ -160,7 +165,7 @@ export function SearchBar({ onSelectUser }: { onSelectUser: (userId: string) => 
 								<UserAvatar
 									discordId={h.discordId}
 									displayName={h.displayName}
-									imageUrl={h.topChampion?.iconUrl ?? null}
+									imageUrl={h.topChampion?.splashUrl ?? h.topChampion?.iconUrl ?? null}
 									size="sm"
 								/>
 								<div className="min-w-0 flex-1">

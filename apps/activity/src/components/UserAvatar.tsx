@@ -65,8 +65,8 @@ export function UserAvatar({
 	if (imageUrl) {
 		return (
 			<div className={`avatar shrink-0 ${className}`}>
-				<div className={`${sizeW} rounded-full ${ringClass} bg-base-300`}>
-					<img src={imageUrl} alt={displayName} loading="lazy" />
+				<div className={`${sizeW} rounded-full ${ringClass} bg-base-300 overflow-hidden`}>
+					<img src={imageUrl} alt={displayName} loading="lazy" className="object-cover w-full h-full" />
 				</div>
 			</div>
 		);

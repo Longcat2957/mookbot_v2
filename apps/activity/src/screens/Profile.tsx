@@ -40,6 +40,7 @@ interface TopChampion {
 	championId: number;
 	championName: string;
 	iconUrl: string;
+	splashUrl: string;
 	plays: number;
 	wins: number;
 	losses: number;
@@ -135,7 +136,7 @@ export function Profile({
 					<UserAvatar
 						discordId={data.user.discordId}
 						displayName={data.user.displayName}
-						imageUrl={data.topChampions[0]?.iconUrl ?? null}
+						imageUrl={data.topChampions[0]?.splashUrl ?? data.topChampions[0]?.iconUrl ?? null}
 						size="xl"
 						ring={isMe}
 					/>

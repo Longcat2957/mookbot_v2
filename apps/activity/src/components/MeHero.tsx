@@ -37,6 +37,7 @@ interface TopChampion {
 	championId: number;
 	championName: string;
 	iconUrl: string;
+	splashUrl: string;
 	plays: number;
 }
 
@@ -71,7 +72,7 @@ export function MeHero({ onSelectMe }: { onSelectMe: () => void }) {
 
 	const { user, riotAccounts, season, totals, laneMmrs, topChampions } = swr.data;
 	const mainRiot = riotAccounts.find((a) => a.isMain);
-	const mainChampIcon = topChampions[0]?.iconUrl ?? null;
+	const mainChampIcon = topChampions[0]?.splashUrl ?? topChampions[0]?.iconUrl ?? null;
 	const mainChampName = topChampions[0]?.championName;
 	const wrPct = totals.games > 0 ? Math.round(totals.winrate * 100) : null;
 	const wrColor =

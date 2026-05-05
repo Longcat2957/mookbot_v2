@@ -129,6 +129,26 @@ export function getChampionImageUrl(championId: number): string {
 }
 
 /**
+ * Get champion splash art URL by numeric ID (가로형 1280x720, 메인 일러스트).
+ * skin index 0 = base skin. 아바타에 object-cover 로 crop 해서 사용.
+ */
+export function getChampionSplashUrl(championId: number, skinNum = 0): string {
+	const champ = championByKey.get(String(championId));
+	if (!champ) return "";
+	return `${BASE_URL}/cdn/img/champion/splash/${champ.id}_${skinNum}.jpg`;
+}
+
+/**
+ * Get champion loading screen art URL by numeric ID (세로형 308x560, 캐릭터 위주).
+ * splash 보다 캐릭터 중심 crop 이라 정사각 아바타에 더 자연스러움.
+ */
+export function getChampionLoadingUrl(championId: number, skinNum = 0): string {
+	const champ = championByKey.get(String(championId));
+	if (!champ) return "";
+	return `${BASE_URL}/cdn/img/champion/loading/${champ.id}_${skinNum}.jpg`;
+}
+
+/**
  * Champion 전체 리스트 — Activity 픽/밴 그리드 / 검색용.
  */
 export function getAllChampions(): {

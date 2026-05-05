@@ -33,7 +33,12 @@ interface LeaderRow {
 	losses: number;
 	winrate: number;
 	rolesPlayed?: number; // 통합만
-	topChampion: { championId: number; championName: string; iconUrl: string } | null;
+	topChampion: {
+		championId: number;
+		championName: string;
+		iconUrl: string;
+		splashUrl: string;
+	} | null;
 }
 
 interface LeaderboardResponse {
@@ -165,7 +170,7 @@ function LeaderTable({
 										<UserAvatar
 											discordId={r.userId}
 											displayName={r.displayName}
-											imageUrl={r.topChampion?.iconUrl ?? null}
+											imageUrl={r.topChampion?.splashUrl ?? r.topChampion?.iconUrl ?? null}
 											size="sm"
 										/>
 										<div className="min-w-0">

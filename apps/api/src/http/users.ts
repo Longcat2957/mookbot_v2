@@ -52,6 +52,7 @@ export async function registerUsersRoutes(app: FastifyInstance): Promise<void> {
 									championId: top.championId,
 									championName: top.championName,
 									iconUrl: top.iconUrl,
+									splashUrl: top.splashUrl,
 								}
 							: null,
 					};
@@ -135,6 +136,7 @@ export async function registerUsersRoutes(app: FastifyInstance): Promise<void> {
 					championId: c.championId,
 					championName: c.championName,
 					iconUrl: c.iconUrl,
+					splashUrl: c.splashUrl,
 					plays: c.plays,
 					wins: c.wins,
 					losses: c.losses,

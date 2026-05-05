@@ -64,6 +64,7 @@ export async function registerLeaderboardRoutes(app: FastifyInstance): Promise<v
 									championId: top.championId,
 									championName: top.championName,
 									iconUrl: top.iconUrl,
+									splashUrl: top.splashUrl,
 								}
 							: null,
 					};
@@ -119,6 +120,7 @@ export async function registerLeaderboardRoutes(app: FastifyInstance): Promise<v
 									championId: top.championId,
 									championName: top.championName,
 									iconUrl: top.iconUrl,
+									splashUrl: top.splashUrl,
 								}
 							: null,
 					};

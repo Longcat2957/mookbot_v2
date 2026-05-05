@@ -14,6 +14,7 @@ export interface ChampionPlay extends WL {
 	championId: number;
 	championName: string;
 	iconUrl: string;
+	splashUrl: string;
 }
 
 export interface RolePlay extends WL {
@@ -92,6 +93,7 @@ export async function fetchPlayHistoryFor(userIds: string[]): Promise<Map<string
 			championId: r.champion_id,
 			championName: datadragon.getChampionName(r.champion_id),
 			iconUrl: rewriteDD(datadragon.getChampionImageUrl(r.champion_id)),
+			splashUrl: rewriteDD(datadragon.getChampionLoadingUrl(r.champion_id)),
 			plays: r.plays,
 			wins: r.wins,
 			losses: r.plays - r.wins,
