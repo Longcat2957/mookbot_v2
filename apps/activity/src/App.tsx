@@ -89,6 +89,7 @@ function AppInner() {
 	const [profileUserId, setProfileUserId] = useState<string | null>(null);
 	const [profileBackTo, setProfileBackTo] = useState<StageKey>("LIST");
 	const [helpOpen, setHelpOpen] = useState(false);
+	const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
 
 	// "?" 단축키 — 도움말 토글. design_upgrade.md §4.5
 	useEffect(() => {
@@ -174,10 +175,19 @@ function AppInner() {
 						onClickHome={goHome}
 					/>
 				</div>
-				<div className="navbar-center">
+				<div className="navbar-center hidden md:flex">
 					<SearchBar onSelectUser={openProfile} />
 				</div>
-				<div className="navbar-end gap-2 px-4">
+				<div className="navbar-end gap-1 sm:gap-2 px-2 sm:px-4">
+					<button
+						type="button"
+						className="md:hidden btn btn-ghost btn-sm btn-circle"
+						onClick={() => setMobileSearchOpen((v) => !v)}
+						aria-label="검색 열기"
+						aria-pressed={mobileSearchOpen}
+					>
+						🔍
+					</button>
 					<SystemDot />
 					<details className="dropdown dropdown-end">
 						<summary
@@ -245,8 +255,21 @@ function AppInner() {
 				</div>
 			</div>
 
-			{/* 진행 단계 표시 — 시리즈 라이프사이클 stage 일 때만 (도구/리더보드/프로필 제외) */}
-			{stage !== "MINIGAME" && stage !== "LEADERBOARD" && stage !== "PROFILE" && (
+			{/* 모바일 검색 펼침 — md 미만에서 navbar 의 🔍 버튼이 토글 */}
+			{mobileSearchOpen && (
+				<div className="md:hidden bg-base-200 border-b border-base-300 px-3 py-2">
+					<SearchBar
+						onSelectUser={(uid) => {
+							setMobileSearchOpen(false);
+							openProfile(uid);
+						}}
+					/>
+				</div>
+			)}
+
+			{/* 진행 단계 표시 — 시리즈 라이프사이클 안 일 때만.
+			    LIST(대시보드) / MINIGAME / LEADERBOARD / PROFILE 은 라이프사이클 밖이라 숨김. */}
+			{(stage === "ENTRY_EDITING" || stage === "IN_GAME" || stage === "COMPLETED") && (
 				<div className="bg-base-200/40 border-b border-base-300">
 					<div className="max-w-screen-xl mx-auto py-2 px-4">
 						<Steps current={stage} />
