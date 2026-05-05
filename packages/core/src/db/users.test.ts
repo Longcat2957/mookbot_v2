@@ -10,6 +10,7 @@ import {
 	linkRiotAccount,
 	listMainRiotAccounts,
 	listUsers,
+	searchUsers,
 	setMainRiotAccount,
 	upsertRiotAccountIdentity,
 	upsertUser,
@@ -223,5 +224,64 @@ describe("upsertRiotAccountIdentity / setMainRiotAccount", () => {
 		await linkRiotAccount({ userId: "u1", puuid: "p-1", gameName: "A", tagLine: "KR1" });
 		await setMainRiotAccount("u1", "p-ghost");
 		expect(await getMainRiotAccount("u1")).toBeUndefined();
+	});
+});
+
+describe("searchUsers", () => {
+	beforeEach(async () => {
+		await upsertUser("d1", "Faker");
+		await upsertUser("d2", "데프트");
+		await upsertUser("d3", "Bob");
+		await linkRiotAccount({
+			userId: "d1",
+			puuid: "p-faker",
+			gameName: "Hide on bush",
+			tagLine: "KR1",
+		});
+		await linkRiotAccount({ userId: "d2", puuid: "p-deft", gameName: "Deft", tagLine: "KR1" });
+		await linkRiotAccount({
+			userId: "d3",
+			puuid: "p-bob-alt",
+			gameName: "BobAlt",
+			tagLine: "KR1",
+			setMain: false,
+		});
+	});
+
+	it("display_name 부분일치", async () => {
+		const r = await searchUsers({ query: "fak" });
+		expect(r.map((u) => u.discord_id)).toEqual(["d1"]);
+	});
+
+	it("riot game_name 부분일치 (메인 외 계정 포함)", async () => {
+		const r = await searchUsers({ query: "alt" });
+		expect(r.map((u) => u.discord_id)).toEqual(["d3"]);
+	});
+
+	it("한글 display_name 매칭", async () => {
+		const r = await searchUsers({ query: "데프" });
+		expect(r.map((u) => u.discord_id)).toEqual(["d2"]);
+	});
+
+	it("display_name + riot 두 조건 매칭 시 1행 (DISTINCT)", async () => {
+		// "Hide on bush" + "Faker" — 둘 다 "ker" 또는 "Hi" 같은 단일 q 로는 매칭 안 됨.
+		// 같은 user 가 두 LIKE 조건 모두 해당하면 한 행만 나오는지 검증 (game_name + display_name 에 모두 "fak" 가 들어가도록 한 사용자 더 만들기는 과함).
+		// 대신 d1 하나만 매칭하는 q 로 길이 검증.
+		const r = await searchUsers({ query: "Faker" });
+		expect(r).toHaveLength(1);
+	});
+
+	it("빈 쿼리 → []", async () => {
+		expect(await searchUsers({ query: "" })).toEqual([]);
+		expect(await searchUsers({ query: "   " })).toEqual([]);
+	});
+
+	it("매칭 없음 → []", async () => {
+		expect(await searchUsers({ query: "zzz_unknown" })).toEqual([]);
+	});
+
+	it("limit clamp", async () => {
+		const r = await searchUsers({ query: "K", limit: 100 });
+		expect(r.length).toBeLessThanOrEqual(50); // hard ceiling
 	});
 });

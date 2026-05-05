@@ -150,3 +150,24 @@ export async function setMainRiotAccount(userId: string, puuid: string): Promise
 		},
 	]);
 }
+
+/**
+ * Discord display_name 또는 Riot game_name 부분일치 검색 (LIKE %q%).
+ * 한 user 가 두 조건 모두 매칭해도 1행 (DISTINCT). limit clamp 1..50.
+ */
+export async function searchUsers(input: { query: string; limit?: number }): Promise<UserRow[]> {
+	const q = input.query.trim();
+	if (!q) return [];
+	const like = `%${q}%`;
+	const limit = Math.max(1, Math.min(50, input.limit ?? 10));
+	return query<UserRow>(
+		`SELECT DISTINCT u.discord_id, u.display_name, u.created_at
+		 FROM users u
+		 LEFT JOIN riot_accounts ra ON ra.user_id = u.discord_id
+		 WHERE u.display_name LIKE ?
+		    OR (ra.game_name IS NOT NULL AND ra.game_name LIKE ?)
+		 ORDER BY u.display_name
+		 LIMIT ?`,
+		[like, like, limit],
+	);
+}
