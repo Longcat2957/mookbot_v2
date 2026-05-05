@@ -529,3 +529,190 @@ describe("GET /api/recruitments + /api/recruitments/:id", () => {
 		expect(body.entryDraft).toBeNull();
 	});
 });
+
+describe("GET /api/users/:id/preferences", () => {
+	it("unknown user → 404", async () => {
+		const { app } = await buildTestApp();
+		const res = await app.inject({
+			method: "GET",
+			url: "/api/users/ghost/preferences",
+			cookies: { sid: signSid(app, OP) },
+		});
+		expect(res.statusCode).toBe(404);
+	});
+
+	it("등록 사용자 빈 풀 → 라인 5개 모두 빈 배열", async () => {
+		const { app, db } = await buildTestApp();
+		db.prepare("INSERT INTO users (discord_id, display_name) VALUES (?, ?)").run("u1", "Alice");
+
+		const res = await app.inject({
+			method: "GET",
+			url: "/api/users/u1/preferences",
+			cookies: { sid: signSid(app, OP) },
+		});
+		expect(res.statusCode).toBe(200);
+		const body = res.json() as {
+			user: { discordId: string; displayName: string };
+			maxPerRole: number;
+			preferences: Record<string, unknown[]>;
+		};
+		expect(body.user).toEqual({ discordId: "u1", displayName: "Alice" });
+		expect(body.maxPerRole).toBe(10);
+		expect(body.preferences).toEqual({
+			TOP: [],
+			JUNGLE: [],
+			MID: [],
+			BOTTOM: [],
+			SUPPORT: [],
+		});
+	});
+
+	it("저장된 풀 반환", async () => {
+		const { app, db } = await buildTestApp();
+		db.prepare("INSERT INTO users (discord_id, display_name) VALUES (?, ?)").run("u1", "Alice");
+		db
+			.prepare(
+				"INSERT INTO user_champion_preferences (user_id, role, champion_id, position) VALUES (?,?,?,?)",
+			)
+			.run("u1", "TOP", 266, 0);
+		db
+			.prepare(
+				"INSERT INTO user_champion_preferences (user_id, role, champion_id, position) VALUES (?,?,?,?)",
+			)
+			.run("u1", "TOP", 85, 1);
+
+		const res = await app.inject({
+			method: "GET",
+			url: "/api/users/u1/preferences",
+			cookies: { sid: signSid(app, OP) },
+		});
+		const body = res.json() as {
+			preferences: Record<string, { championId: number }[]>;
+		};
+		expect(body.preferences.TOP?.map((c) => c.championId)).toEqual([266, 85]);
+	});
+
+	it("auth 없음 → 401", async () => {
+		const { app } = await buildTestApp();
+		const res = await app.inject({
+			method: "GET",
+			url: "/api/users/u1/preferences",
+		});
+		expect(res.statusCode).toBe(401);
+	});
+});
+
+describe("PUT /api/users/me/preferences", () => {
+	async function setupMe() {
+		const { app, db } = await buildTestApp();
+		db.prepare("INSERT INTO users (discord_id, display_name) VALUES (?, ?)").run(OP, "Op");
+		return { app, db };
+	}
+
+	it("정상 저장 + GET 으로 확인", async () => {
+		const { app } = await setupMe();
+		const put = await app.inject({
+			method: "PUT",
+			url: "/api/users/me/preferences",
+			cookies: { sid: signSid(app, OP) },
+			payload: { role: "TOP", championIds: [266, 85, 84] },
+		});
+		expect(put.statusCode).toBe(200);
+
+		const get = await app.inject({
+			method: "GET",
+			url: `/api/users/${OP}/preferences`,
+			cookies: { sid: signSid(app, OP) },
+		});
+		const body = get.json() as { preferences: Record<string, { championId: number }[]> };
+		expect(body.preferences.TOP?.map((c) => c.championId)).toEqual([266, 85, 84]);
+	});
+
+	it("같은 라인 재저장 — 교체 (이전 풀 삭제)", async () => {
+		const { app } = await setupMe();
+		await app.inject({
+			method: "PUT",
+			url: "/api/users/me/preferences",
+			cookies: { sid: signSid(app, OP) },
+			payload: { role: "TOP", championIds: [1, 2, 3] },
+		});
+		await app.inject({
+			method: "PUT",
+			url: "/api/users/me/preferences",
+			cookies: { sid: signSid(app, OP) },
+			payload: { role: "TOP", championIds: [4, 5] },
+		});
+		const get = await app.inject({
+			method: "GET",
+			url: `/api/users/${OP}/preferences`,
+			cookies: { sid: signSid(app, OP) },
+		});
+		const body = get.json() as { preferences: Record<string, { championId: number }[]> };
+		expect(body.preferences.TOP?.map((c) => c.championId)).toEqual([4, 5]);
+	});
+
+	it("invalid role → 400", async () => {
+		const { app } = await setupMe();
+		const res = await app.inject({
+			method: "PUT",
+			url: "/api/users/me/preferences",
+			cookies: { sid: signSid(app, OP) },
+			payload: { role: "BANANA", championIds: [1] },
+		});
+		expect(res.statusCode).toBe(400);
+	});
+
+	it("championIds 미배열 → 400", async () => {
+		const { app } = await setupMe();
+		const res = await app.inject({
+			method: "PUT",
+			url: "/api/users/me/preferences",
+			cookies: { sid: signSid(app, OP) },
+			payload: { role: "TOP", championIds: "nope" },
+		});
+		expect(res.statusCode).toBe(400);
+	});
+
+	it("11개 → 400 (라인당 10개 한도)", async () => {
+		const { app } = await setupMe();
+		const res = await app.inject({
+			method: "PUT",
+			url: "/api/users/me/preferences",
+			cookies: { sid: signSid(app, OP) },
+			payload: { role: "TOP", championIds: Array.from({ length: 11 }, (_, i) => i + 1) },
+		});
+		expect(res.statusCode).toBe(400);
+	});
+
+	it("non-integer → 400", async () => {
+		const { app } = await setupMe();
+		const res = await app.inject({
+			method: "PUT",
+			url: "/api/users/me/preferences",
+			cookies: { sid: signSid(app, OP) },
+			payload: { role: "TOP", championIds: [1.5] },
+		});
+		expect(res.statusCode).toBe(400);
+	});
+
+	it("자기 user 행 없음 → 404 (등록 필요)", async () => {
+		const { app } = await buildTestApp(); // setupMe 안 함
+		const res = await app.inject({
+			method: "PUT",
+			url: "/api/users/me/preferences",
+			cookies: { sid: signSid(app, "ghost") },
+			payload: { role: "TOP", championIds: [1] },
+		});
+		expect(res.statusCode).toBe(404);
+	});
+
+	it("auth 없음 → 401", async () => {
+		const { app } = await buildTestApp();
+		const res = await app.inject({
+			method: "PUT",
+			url: "/api/users/me/preferences",
+			payload: { role: "TOP", championIds: [1] },
+		});
+		expect(res.statusCode).toBe(401);
+	});
+});

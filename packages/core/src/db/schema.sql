@@ -273,6 +273,23 @@ CREATE INDEX IF NOT EXISTS idx_game_bans_game ON game_bans(game_id);
 
 
 -- ============================================================
+-- 사용자 라인별 선호 챔피언 (게시판 텍스트 대체)
+-- ============================================================
+-- 본인이 자기 라인별로 선호하는 챔프 풀을 등록 (게시판에 텍스트로 짜치게 적던 것을 페이지로).
+-- position = 사용자 입력 순서. 라인당 챔프 최대 개수는 애플리케이션 레이어에서 검증.
+CREATE TABLE IF NOT EXISTS user_champion_preferences (
+    user_id      TEXT    NOT NULL REFERENCES users(discord_id) ON DELETE CASCADE,
+    role         TEXT    NOT NULL,
+    champion_id  INTEGER NOT NULL,
+    position     INTEGER NOT NULL,
+    PRIMARY KEY (user_id, role, champion_id),
+    CHECK (role IN ('TOP','JUNGLE','MID','BOTTOM','SUPPORT'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_ucp_user_role ON user_champion_preferences(user_id, role, position);
+
+
+-- ============================================================
 -- Idempotent ALTER TABLE migrations (existing DB 보강용)
 -- ============================================================
 -- 신규 DB 는 위쪽 CREATE TABLE 에 컬럼이 이미 포함되므로 아래는 no-op.
