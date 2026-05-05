@@ -9,6 +9,7 @@ import { UserAvatar } from "./UserAvatar.js";
 interface SearchHit {
 	discordId: string;
 	displayName: string;
+	profileIconUrl: string | null;
 	mainAccount: { gameName: string; tagLine: string } | null;
 	topChampion: {
 		championId: number;
@@ -165,7 +166,7 @@ export function SearchBar({ onSelectUser }: { onSelectUser: (userId: string) => 
 								<UserAvatar
 									discordId={h.discordId}
 									displayName={h.displayName}
-									imageUrl={h.topChampion?.splashUrl ?? h.topChampion?.iconUrl ?? null}
+									imageUrl={h.profileIconUrl ?? h.topChampion?.splashUrl ?? h.topChampion?.iconUrl ?? null}
 									size="sm"
 								/>
 								<div className="min-w-0 flex-1">

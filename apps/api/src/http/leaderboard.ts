@@ -1,9 +1,9 @@
 // 리더보드 — 라인별 + 통합 (가중평균) MMR 랭킹.
 // games_played ≥ 1 사용자만 (신규 미참여자 노이즈 차단).
 
-import { db } from "@mookbot/core";
+import { datadragon, db } from "@mookbot/core";
 import type { FastifyInstance } from "fastify";
-import { requireSession } from "./_helpers.js";
+import { requireSession, rewriteDD } from "./_helpers.js";
 import { fetchPlayHistoryFor } from "./_history.js";
 
 const ROLES = ["TOP", "JUNGLE", "MID", "BOTTOM", "SUPPORT"] as const;
@@ -39,21 +39,29 @@ export async function registerLeaderboardRoutes(app: FastifyInstance): Promise<v
 
 			const rows = await db.getLeaderboard(seasonId, role, limit);
 			const userIds = rows.map((r) => r.user_id);
-			const [users, history] = await Promise.all([
+			const [users, mains, history] = await Promise.all([
 				db.listUsers(userIds),
+				db.listMainRiotAccounts(userIds),
 				fetchPlayHistoryFor(userIds),
 			]);
 			const nameById = new Map(users.map((u) => [u.discord_id, u.display_name]));
+			const mainByUser = new Map(mains.map((m) => [m.user_id, m]));
 
 			return {
 				role,
 				seasonId,
 				rows: rows.map((r, i) => {
 					const top = history.get(r.user_id)?.topChampions[0];
+					const main = mainByUser.get(r.user_id);
+					const profileIconUrl =
+						main?.profile_icon_id != null
+							? rewriteDD(datadragon.getProfileIconUrl(main.profile_icon_id))
+							: null;
 					return {
 						rank: i + 1,
 						userId: r.user_id,
 						displayName: nameById.get(r.user_id) ?? r.user_id,
+						profileIconUrl,
 						mmr: Math.round(r.mmr),
 						games: r.games_played,
 						wins: r.wins,
@@ -94,21 +102,29 @@ export async function registerLeaderboardRoutes(app: FastifyInstance): Promise<v
 
 			const rows = await db.getCompositeLeaderboard(seasonId, limit);
 			const userIds = rows.map((r) => r.user_id);
-			const [users, history] = await Promise.all([
+			const [users, mains, history] = await Promise.all([
 				db.listUsers(userIds),
+				db.listMainRiotAccounts(userIds),
 				fetchPlayHistoryFor(userIds),
 			]);
 			const nameById = new Map(users.map((u) => [u.discord_id, u.display_name]));
+			const mainByUser = new Map(mains.map((m) => [m.user_id, m]));
 
 			return {
 				role: "COMPOSITE" as const,
 				seasonId,
 				rows: rows.map((r, i) => {
 					const top = history.get(r.user_id)?.topChampions[0];
+					const main = mainByUser.get(r.user_id);
+					const profileIconUrl =
+						main?.profile_icon_id != null
+							? rewriteDD(datadragon.getProfileIconUrl(main.profile_icon_id))
+							: null;
 					return {
 						rank: i + 1,
 						userId: r.user_id,
 						displayName: nameById.get(r.user_id) ?? r.user_id,
+						profileIconUrl,
 						mmr: Math.round(r.weighted_mmr),
 						games: r.total_games,
 						wins: r.total_wins,

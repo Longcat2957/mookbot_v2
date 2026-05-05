@@ -54,12 +54,21 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
 
 	try {
 		const account = await riot.getAccountByRiotId(riotIdInput);
+		// 소환사 아이콘 — Summoner API 호출 실패해도 등록 자체는 진행 (network blip 등).
+		let profileIconId: number | null = null;
+		try {
+			const summoner = await riot.getSummonerByPuuid(account.puuid);
+			profileIconId = summoner.profileIconId;
+		} catch (e) {
+			console.warn("[register] summoner fetch failed (continuing without profileIconId)", e);
+		}
 		await db.linkRiotAccount({
 			userId: interaction.user.id,
 			puuid: account.puuid,
 			gameName: account.gameName,
 			tagLine: account.tagLine,
 			setMain: true,
+			profileIconId,
 		});
 		await interaction.editReply({
 			embeds: [

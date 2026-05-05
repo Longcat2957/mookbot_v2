@@ -43,9 +43,14 @@ export async function registerUsersRoutes(app: FastifyInstance): Promise<void> {
 				users: hits.map((h) => {
 					const m = mainByUser.get(h.discord_id);
 					const top = history.get(h.discord_id)?.topChampions[0];
+					const profileIconUrl =
+						m?.profile_icon_id != null
+							? rewriteDD(datadragon.getProfileIconUrl(m.profile_icon_id))
+							: null;
 					return {
 						discordId: h.discord_id,
 						displayName: h.display_name,
+						profileIconUrl,
 						mainAccount: m ? { gameName: m.game_name, tagLine: m.tag_line } : null,
 						topChampion: top
 							? {
@@ -104,12 +109,23 @@ export async function registerUsersRoutes(app: FastifyInstance): Promise<void> {
 				{ games: 0, wins: 0 },
 			);
 
+			const mainProfileIconUrl =
+				mainAccount?.profile_icon_id != null
+					? rewriteDD(datadragon.getProfileIconUrl(mainAccount.profile_icon_id))
+					: null;
+
 			return {
-				user: { discordId: user.discord_id, displayName: user.display_name },
+				user: {
+					discordId: user.discord_id,
+					displayName: user.display_name,
+					profileIconUrl: mainProfileIconUrl,
+				},
 				riotAccounts: riotAccounts.map((a) => ({
 					gameName: a.game_name,
 					tagLine: a.tag_line,
 					isMain: a.puuid === mainAccount?.puuid,
+					profileIconUrl:
+						a.profile_icon_id != null ? rewriteDD(datadragon.getProfileIconUrl(a.profile_icon_id)) : null,
 				})),
 				season: { id: seasonId, name: seasonName },
 				laneMmrs: ROLES.map((role) => {

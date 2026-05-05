@@ -27,6 +27,7 @@ interface LeaderRow {
 	rank: number;
 	userId: string;
 	displayName: string;
+	profileIconUrl: string | null;
 	mmr: number;
 	games: number;
 	wins: number;
@@ -170,7 +171,7 @@ function LeaderTable({
 										<UserAvatar
 											discordId={r.userId}
 											displayName={r.displayName}
-											imageUrl={r.topChampion?.splashUrl ?? r.topChampion?.iconUrl ?? null}
+											imageUrl={r.profileIconUrl ?? r.topChampion?.splashUrl ?? r.topChampion?.iconUrl ?? null}
 											size="sm"
 										/>
 										<div className="min-w-0">

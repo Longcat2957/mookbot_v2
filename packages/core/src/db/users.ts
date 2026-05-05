@@ -13,6 +13,7 @@ export interface RiotAccountRow {
 	game_name: string;
 	tag_line: string;
 	is_main: 0 | 1;
+	profile_icon_id: number | null;
 	created_at: number;
 	updated_at: number;
 }
@@ -38,7 +39,8 @@ export async function listUsers(discordIds: readonly string[]): Promise<UserRow[
 
 /**
  * Link a Riot account to a user. Idempotent: re-linking the same puuid updates
- * name/tagline. If `setMain` is true (default), demotes any current main account.
+ * name/tagline (그리고 profileIconId 가 주어지면 그것도). setMain 기본 true 면
+ * 기존 메인을 demote.
  */
 export async function linkRiotAccount(input: {
 	userId: string;
@@ -46,6 +48,7 @@ export async function linkRiotAccount(input: {
 	gameName: string;
 	tagLine: string;
 	setMain?: boolean;
+	profileIconId?: number | null;
 }): Promise<void> {
 	const setMain = input.setMain ?? true;
 	const stmts = [];
@@ -58,16 +61,25 @@ export async function linkRiotAccount(input: {
 		});
 	}
 
+	// profile_icon_id 는 기존 값을 보존 (UPDATE 시 NULL 로 덮지 않음). NULL 아닌 입력만 갱신.
 	stmts.push({
-		sql: `INSERT INTO riot_accounts (puuid, user_id, game_name, tag_line, is_main)
-		      VALUES (?, ?, ?, ?, ?)
+		sql: `INSERT INTO riot_accounts (puuid, user_id, game_name, tag_line, is_main, profile_icon_id)
+		      VALUES (?, ?, ?, ?, ?, ?)
 		      ON CONFLICT(puuid) DO UPDATE SET
 		        user_id = excluded.user_id,
 		        game_name = excluded.game_name,
 		        tag_line = excluded.tag_line,
 		        is_main = excluded.is_main,
+		        profile_icon_id = COALESCE(excluded.profile_icon_id, riot_accounts.profile_icon_id),
 		        updated_at = unixepoch()`,
-		params: [input.puuid, input.userId, input.gameName, input.tagLine, setMain ? 1 : 0],
+		params: [
+			input.puuid,
+			input.userId,
+			input.gameName,
+			input.tagLine,
+			setMain ? 1 : 0,
+			input.profileIconId ?? null,
+		],
 	});
 
 	await batch(stmts);
@@ -112,7 +124,7 @@ export async function getRiotAccountByPuuid(puuid: string): Promise<RiotAccountR
 /**
  * Riot 계정 신원만 upsert — `is_main` 은 절대 건드리지 않는다.
  *   - PUUID 신규: is_main = 0 으로 INSERT (sub 로 추가)
- *   - PUUID 존재: game_name / tag_line / user_id 만 갱신 (rename 반영)
+ *   - PUUID 존재: game_name / tag_line / user_id 만 갱신 (rename 반영). profile_icon_id 는 입력이 있을 때만 갱신.
  *
  * 메인 승격이 필요하면 `setMainRiotAccount()` 를 별도 호출.
  */
@@ -121,16 +133,31 @@ export async function upsertRiotAccountIdentity(input: {
 	puuid: string;
 	gameName: string;
 	tagLine: string;
+	profileIconId?: number | null;
 }): Promise<void> {
 	await execute(
-		`INSERT INTO riot_accounts (puuid, user_id, game_name, tag_line, is_main)
-		 VALUES (?, ?, ?, ?, 0)
+		`INSERT INTO riot_accounts (puuid, user_id, game_name, tag_line, is_main, profile_icon_id)
+		 VALUES (?, ?, ?, ?, 0, ?)
 		 ON CONFLICT(puuid) DO UPDATE SET
-		   user_id    = excluded.user_id,
-		   game_name  = excluded.game_name,
-		   tag_line   = excluded.tag_line,
-		   updated_at = unixepoch()`,
-		[input.puuid, input.userId, input.gameName, input.tagLine],
+		   user_id          = excluded.user_id,
+		   game_name        = excluded.game_name,
+		   tag_line         = excluded.tag_line,
+		   profile_icon_id  = COALESCE(excluded.profile_icon_id, riot_accounts.profile_icon_id),
+		   updated_at       = unixepoch()`,
+		[input.puuid, input.userId, input.gameName, input.tagLine, input.profileIconId ?? null],
+	);
+}
+
+/**
+ * 메인 라이엇 계정의 profile_icon_id 만 갱신. 백필 스크립트 / 주기 갱신용.
+ */
+export async function setRiotAccountProfileIcon(
+	puuid: string,
+	profileIconId: number,
+): Promise<void> {
+	await execute(
+		`UPDATE riot_accounts SET profile_icon_id = ?, updated_at = unixepoch() WHERE puuid = ?`,
+		[profileIconId, puuid],
 	);
 }
 

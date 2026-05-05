@@ -25,6 +25,7 @@ interface RiotAccount {
 	gameName: string;
 	tagLine: string;
 	isMain: boolean;
+	profileIconUrl: string | null;
 }
 
 interface LaneMmr {
@@ -68,7 +69,7 @@ interface RecentGame {
 }
 
 interface ProfileResponse {
-	user: { discordId: string; displayName: string };
+	user: { discordId: string; displayName: string; profileIconUrl: string | null };
 	riotAccounts: RiotAccount[];
 	season: { id: number; name: string };
 	laneMmrs: LaneMmr[];
@@ -136,7 +137,12 @@ export function Profile({
 					<UserAvatar
 						discordId={data.user.discordId}
 						displayName={data.user.displayName}
-						imageUrl={data.topChampions[0]?.splashUrl ?? data.topChampions[0]?.iconUrl ?? null}
+						imageUrl={
+							data.user.profileIconUrl ??
+							data.topChampions[0]?.splashUrl ??
+							data.topChampions[0]?.iconUrl ??
+							null
+						}
 						size="xl"
 						ring={isMe}
 					/>

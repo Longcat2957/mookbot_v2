@@ -19,13 +19,14 @@ CREATE TABLE IF NOT EXISTS users (
 );
 
 CREATE TABLE IF NOT EXISTS riot_accounts (
-    puuid       TEXT    PRIMARY KEY,
-    user_id     TEXT    NOT NULL REFERENCES users(discord_id) ON DELETE CASCADE,
-    game_name   TEXT    NOT NULL,
-    tag_line    TEXT    NOT NULL,
-    is_main     INTEGER NOT NULL DEFAULT 0,
-    created_at  INTEGER NOT NULL DEFAULT (unixepoch()),
-    updated_at  INTEGER NOT NULL DEFAULT (unixepoch())
+    puuid           TEXT    PRIMARY KEY,
+    user_id         TEXT    NOT NULL REFERENCES users(discord_id) ON DELETE CASCADE,
+    game_name       TEXT    NOT NULL,
+    tag_line        TEXT    NOT NULL,
+    is_main         INTEGER NOT NULL DEFAULT 0,
+    profile_icon_id INTEGER,                 -- v0.3.20: League 소환사 아이콘 (RP/BE 구매)
+    created_at      INTEGER NOT NULL DEFAULT (unixepoch()),
+    updated_at      INTEGER NOT NULL DEFAULT (unixepoch())
 );
 
 CREATE INDEX IF NOT EXISTS idx_riot_accounts_user ON riot_accounts(user_id);
@@ -310,3 +311,7 @@ ALTER TABLE series ADD COLUMN end_card_channel_id TEXT;
 -- 모든 read 쿼리는 deleted_at IS NULL 필터. 진짜 삭제는 별도 purge (관리자 수동) 로 분리.
 ALTER TABLE series ADD COLUMN deleted_at INTEGER;
 CREATE INDEX IF NOT EXISTS idx_series_deleted_at ON series(deleted_at);
+
+-- v0.3.20: League 소환사 아이콘 (Summoner-V4 의 profileIconId).
+-- 신규 등록은 자동 저장, 기존 등록은 별도 backfill 로 채움.
+ALTER TABLE riot_accounts ADD COLUMN profile_icon_id INTEGER;

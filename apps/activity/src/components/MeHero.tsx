@@ -22,6 +22,7 @@ interface RiotAccount {
 	gameName: string;
 	tagLine: string;
 	isMain: boolean;
+	profileIconUrl: string | null;
 }
 
 interface LaneMmr {
@@ -42,7 +43,7 @@ interface TopChampion {
 }
 
 interface MeProfileResponse {
-	user: { discordId: string; displayName: string };
+	user: { discordId: string; displayName: string; profileIconUrl: string | null };
 	riotAccounts: RiotAccount[];
 	season: { id: number; name: string };
 	laneMmrs: LaneMmr[];
@@ -72,7 +73,9 @@ export function MeHero({ onSelectMe }: { onSelectMe: () => void }) {
 
 	const { user, riotAccounts, season, totals, laneMmrs, topChampions } = swr.data;
 	const mainRiot = riotAccounts.find((a) => a.isMain);
-	const mainChampIcon = topChampions[0]?.splashUrl ?? topChampions[0]?.iconUrl ?? null;
+	// 우선순위: 소환사 아이콘 (RP/BE 구매) → 챔프 splash → 챔프 icon → placeholder
+	const avatarUrl =
+		user.profileIconUrl ?? topChampions[0]?.splashUrl ?? topChampions[0]?.iconUrl ?? null;
 	const mainChampName = topChampions[0]?.championName;
 	const wrPct = totals.games > 0 ? Math.round(totals.winrate * 100) : null;
 	const wrColor =
@@ -105,7 +108,7 @@ export function MeHero({ onSelectMe }: { onSelectMe: () => void }) {
 						<UserAvatar
 							discordId={user.discordId}
 							displayName={user.displayName}
-							imageUrl={mainChampIcon}
+							imageUrl={avatarUrl}
 							size="lg"
 							ring
 						/>

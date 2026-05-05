@@ -17,7 +17,8 @@
 		"build": "tsc",
 		"typecheck": "tsc --noEmit",
 		"db:migrate": "tsx src/db/migrate.ts",
-		"db:migrate:drop": "tsx src/db/migrate.ts --drop"
+		"db:migrate:drop": "tsx src/db/migrate.ts --drop",
+		"backfill:profile-icons": "tsx src/db/backfill-profile-icons.ts"
 	},
 	"dependencies": {
 		"dotenv": "^17.4.2",

@@ -201,12 +201,22 @@ async function processMember(member: GuildMember, dryRun: boolean): Promise<Outc
 		};
 	}
 
+	// 소환사 아이콘 — Summoner API. 실패해도 등록 자체는 진행.
+	let profileIconId: number | null = null;
+	try {
+		const s = await riot.getSummonerByPuuid(account.puuid);
+		profileIconId = s.profileIconId;
+	} catch {
+		// rate limit / network — 다음 백필에서 채워짐
+	}
+
 	if (!existingMain) {
 		await db.upsertRiotAccountIdentity({
 			userId,
 			puuid: account.puuid,
 			gameName: account.gameName,
 			tagLine: account.tagLine,
+			profileIconId,
 		});
 		await db.setMainRiotAccount(userId, account.puuid);
 		return {
@@ -227,6 +237,7 @@ async function processMember(member: GuildMember, dryRun: boolean): Promise<Outc
 			puuid: account.puuid,
 			gameName: account.gameName,
 			tagLine: account.tagLine,
+			profileIconId,
 		});
 		if (sameIdentity) return { kind: "unchanged", mention, displayName };
 		return {
@@ -245,6 +256,7 @@ async function processMember(member: GuildMember, dryRun: boolean): Promise<Outc
 			puuid: account.puuid,
 			gameName: account.gameName,
 			tagLine: account.tagLine,
+			profileIconId,
 		});
 		return { kind: "unchanged", mention, displayName };
 	}
@@ -254,6 +266,7 @@ async function processMember(member: GuildMember, dryRun: boolean): Promise<Outc
 		puuid: account.puuid,
 		gameName: account.gameName,
 		tagLine: account.tagLine,
+		profileIconId,
 	});
 	return {
 		kind: "subAdded",
