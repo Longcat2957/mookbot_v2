@@ -7,6 +7,7 @@ import { useCallback, useEffect } from "react";
 import { api } from "../api/rest.js";
 import { wsClient } from "../api/ws.js";
 import { showToast } from "../components/Toaster.js";
+import { UserAvatar } from "../components/UserAvatar.js";
 import { usePerms } from "../state/perms.js";
 import { useStaleWhileRevalidate } from "../state/useStaleWhileRevalidate.js";
 import { MmrChart } from "./Profile/MmrChart.js";
@@ -130,48 +131,56 @@ export function Profile({
 		<section className="space-y-4">
 			{/* 헤더 */}
 			<div className="flex items-start justify-between gap-3 flex-wrap">
-				<div>
-					<h1 className="text-2xl font-bold flex items-center gap-2">
-						{data.user.displayName}
-						{isMe && <span className="badge badge-primary badge-sm">YOU</span>}
-					</h1>
-					<div className="text-sm text-base-content/70 flex items-center gap-2 flex-wrap mt-1">
-						<span>시즌 {data.season.id}</span>
-						<span className="opacity-30">·</span>
-						<span>
-							총 <span className="font-bold tabular-nums">{data.totals.games}</span>G ·{" "}
-							<span className="text-info tabular-nums">{data.totals.wins}</span>승{" "}
-							<span className="text-error tabular-nums">{data.totals.losses}</span>패{" "}
-							{data.totals.games > 0 && (
-								<span
-									className={`font-medium ${
-										totalWrPct >= 60
-											? "text-success"
-											: totalWrPct >= 50
-												? "text-info"
-												: totalWrPct >= 40
-													? "text-base-content/70"
-													: "text-error"
-									}`}
-								>
-									({totalWrPct}%)
-								</span>
-							)}
-						</span>
-					</div>
-					{data.riotAccounts.length > 0 && (
-						<div className="flex flex-wrap gap-1.5 mt-2">
-							{data.riotAccounts.map((a) => (
-								<span
-									key={`${a.gameName}#${a.tagLine}`}
-									className={`badge badge-sm ${a.isMain ? "badge-warning" : "badge-ghost"}`}
-								>
-									{a.isMain && "⭐ "}
-									{a.gameName}#{a.tagLine}
-								</span>
-							))}
+				<div className="flex items-start gap-3 min-w-0 flex-1">
+					<UserAvatar
+						discordId={data.user.discordId}
+						displayName={data.user.displayName}
+						size="xl"
+						ring={isMe}
+					/>
+					<div className="min-w-0">
+						<h1 className="text-2xl font-bold flex items-center gap-2">
+							<span className="truncate">{data.user.displayName}</span>
+							{isMe && <span className="badge badge-primary badge-sm">YOU</span>}
+						</h1>
+						<div className="text-sm text-base-content/70 flex items-center gap-2 flex-wrap mt-1">
+							<span>시즌 {data.season.id}</span>
+							<span className="opacity-30">·</span>
+							<span>
+								총 <span className="font-bold tabular-nums">{data.totals.games}</span>G ·{" "}
+								<span className="text-info tabular-nums">{data.totals.wins}</span>승{" "}
+								<span className="text-error tabular-nums">{data.totals.losses}</span>패{" "}
+								{data.totals.games > 0 && (
+									<span
+										className={`font-medium ${
+											totalWrPct >= 60
+												? "text-success"
+												: totalWrPct >= 50
+													? "text-info"
+													: totalWrPct >= 40
+														? "text-base-content/70"
+														: "text-error"
+										}`}
+									>
+										({totalWrPct}%)
+									</span>
+								)}
+							</span>
 						</div>
-					)}
+						{data.riotAccounts.length > 0 && (
+							<div className="flex flex-wrap gap-1.5 mt-2">
+								{data.riotAccounts.map((a) => (
+									<span
+										key={`${a.gameName}#${a.tagLine}`}
+										className={`badge badge-sm ${a.isMain ? "badge-warning" : "badge-ghost"}`}
+									>
+										{a.isMain && "⭐ "}
+										{a.gameName}#{a.tagLine}
+									</span>
+								))}
+							</div>
+						)}
+					</div>
 				</div>
 				<button type="button" className="btn btn-ghost btn-sm" onClick={onBack}>
 					← 돌아가기

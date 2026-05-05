@@ -4,6 +4,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "../api/rest.js";
+import { UserAvatar } from "./UserAvatar.js";
 
 interface SearchHit {
 	discordId: string;
@@ -151,10 +152,11 @@ export function SearchBar({ onSelectUser }: { onSelectUser: (userId: string) => 
 								type="button"
 								onClick={() => select(h)}
 								onMouseEnter={() => setActiveIdx(i)}
-								className={`w-full text-left px-3 py-2 transition flex items-center justify-between gap-3 ${
+								className={`w-full text-left px-3 py-2 transition flex items-center gap-3 ${
 									i === activeIdx ? "bg-base-200" : "hover:bg-base-200/60"
 								}`}
 							>
+								<UserAvatar discordId={h.discordId} displayName={h.displayName} size="sm" />
 								<div className="min-w-0 flex-1">
 									<div className="font-medium truncate text-sm">{h.displayName}</div>
 									{h.mainAccount && (

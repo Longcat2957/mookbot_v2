@@ -189,6 +189,8 @@ export function RecruitmentList({
 				)}
 			</div>
 
+			<div className="divider my-0 opacity-50" />
+
 			{/* 지난 내전 — 기본 펼침 collapse */}
 			<details className="space-y-2" open>
 				<summary className="cursor-pointer text-lg font-bold list-none flex items-center gap-2 select-none">
@@ -287,12 +289,12 @@ function SeriesCard({ series, onClick }: { series: SeriesItem; onClick: () => vo
 		<button type="button" onClick={onClick} className="card-action card-status-progress">
 			<div className="card-body py-4 gap-2">
 				<div className="flex items-center justify-between">
-					<h3 className="card-title text-base flex items-center gap-1.5">
+					<h3 className="card-title text-base flex items-center gap-2">
 						시리즈 #{series.id}
-						<span
-							className="inline-block size-1.5 rounded-full bg-success animate-pulse"
-							aria-label="라이브"
-						/>
+						<span className="inline-grid *:[grid-area:1/1]">
+							<span className="status status-success animate-ping" aria-hidden="true" />
+							<span className="status status-success" aria-label="라이브" />
+						</span>
 					</h3>
 					<span className="badge badge-info badge-sm">{series.status}</span>
 				</div>

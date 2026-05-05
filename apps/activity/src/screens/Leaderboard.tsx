@@ -8,6 +8,7 @@ import { api } from "../api/rest.js";
 import { wsClient } from "../api/ws.js";
 import { EmptyState } from "../components/EmptyState.js";
 import { showToast } from "../components/Toaster.js";
+import { UserAvatar } from "../components/UserAvatar.js";
 import { usePerms } from "../state/perms.js";
 import { useStaleWhileRevalidate } from "../state/useStaleWhileRevalidate.js";
 
@@ -159,11 +160,14 @@ function LeaderTable({
 							>
 								<td className="text-center font-bold">{medal}</td>
 								<td className="font-medium">
-									{r.displayName}
-									{isMe && <span className="ml-2 badge badge-primary badge-xs align-middle">YOU</span>}
-									{r.rolesPlayed !== undefined && (
-										<span className="ml-2 text-xs text-base-content/50">({r.rolesPlayed}라인)</span>
-									)}
+									<div className="flex items-center gap-2 min-w-0">
+										<UserAvatar discordId={r.userId} displayName={r.displayName} size="sm" />
+										<span className="truncate">{r.displayName}</span>
+										{isMe && <span className="badge badge-primary badge-xs align-middle shrink-0">YOU</span>}
+										{r.rolesPlayed !== undefined && (
+											<span className="text-xs text-base-content/50 shrink-0">({r.rolesPlayed}라인)</span>
+										)}
+									</div>
 								</td>
 								<td className="text-right font-bold">{r.mmr}</td>
 								<td className="text-right text-base-content/70">{r.games}</td>

@@ -6,6 +6,7 @@ import { useCallback } from "react";
 import { api } from "../api/rest.js";
 import { usePerms } from "../state/perms.js";
 import { useStaleWhileRevalidate } from "../state/useStaleWhileRevalidate.js";
+import { UserAvatar } from "./UserAvatar.js";
 
 const ROLE_LABEL: Record<string, string> = {
 	TOP: "탑",
@@ -89,18 +90,21 @@ export function MeHero({ onSelectMe }: { onSelectMe: () => void }) {
 		>
 			<div className="card-body p-4 sm:p-5 gap-3">
 				<div className="flex items-start justify-between gap-3 flex-wrap">
-					<div className="min-w-0">
-						<div className="text-[10px] uppercase tracking-wider text-base-content/50">내 프로필</div>
-						<h2 className="text-2xl font-bold leading-tight truncate flex items-center gap-2 mt-0.5">
-							{user.displayName}
-							<span className="badge badge-primary badge-xs">YOU</span>
-						</h2>
-						{mainRiot && (
-							<div className="text-sm text-base-content/70 truncate tabular-nums mt-0.5">
-								{mainRiot.gameName}
-								<span className="opacity-50">#{mainRiot.tagLine}</span>
-							</div>
-						)}
+					<div className="flex items-start gap-3 min-w-0 flex-1">
+						<UserAvatar discordId={user.discordId} displayName={user.displayName} size="lg" ring />
+						<div className="min-w-0 flex-1">
+							<div className="text-[10px] uppercase tracking-wider text-base-content/50">내 프로필</div>
+							<h2 className="text-2xl font-bold leading-tight truncate flex items-center gap-2 mt-0.5">
+								<span className="truncate">{user.displayName}</span>
+								<span className="badge badge-primary badge-xs">YOU</span>
+							</h2>
+							{mainRiot && (
+								<div className="text-sm text-base-content/70 truncate tabular-nums mt-0.5">
+									{mainRiot.gameName}
+									<span className="opacity-50">#{mainRiot.tagLine}</span>
+								</div>
+							)}
+						</div>
 					</div>
 
 					<div className="text-right text-xs shrink-0">
