@@ -27,15 +27,7 @@
       "Bash(git push -u origin:*)",
       "Bash(git push origin:*)",
 
-      "Bash(gh pr view:*)",
-      "Bash(gh pr list:*)",
-      "Bash(gh pr diff:*)",
-      "Bash(gh pr checks:*)",
-      "Bash(gh pr create:*)",
-      "Bash(gh pr merge:*)",
       "Bash(gh api:*)",
-      "Bash(gh issue view:*)",
-      "Bash(gh issue list:*)",
       "Bash(gh run list:*)",
       "Bash(gh run view:*)",
 
@@ -72,7 +64,6 @@
     "deny": [
       "Bash(git push --force:*)",
       "Bash(git push -f:*)",
-      "Bash(git push origin main:*)",
       "Bash(git reset --hard:*)",
       "Bash(git clean -f:*)",
       "Bash(rm -rf:*)",
