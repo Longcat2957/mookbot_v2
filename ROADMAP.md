@@ -2,7 +2,7 @@
 
 > 현재 버전 기준 진척 상태. 시간순 기획서는 [`PLAN.md`](./PLAN.md), 코드 리뷰 워킹노트는 [`docs/internal/`](./docs/internal/) 참조.
 
-## 현재 (v0.3.5)
+## 현재 (v0.3.20)
 
 활성 도메인: `bot.mooklol.com` (Cloudflare proxied → 단일 VPS · Docker compose 4컨테이너 stack: bot · api · activity · nginx).
 실서비스 운영 중.
@@ -65,6 +65,34 @@
 - **`/시리즈목록` 슬래시** (v0.3.5) — 상태/시즌/limit 필터, 임베드 출력 (시리즈 ID, status, Bo3 스코어, 라인업 N v N, 시즌, 시작일, 운영자).
 - **밸런스 이미지 미리보기 (SVG)** (v0.3.5) — 엔트리 확정 + Game 1 사이드 결정 후 PickBan 화면에 양 팀 라인업 + 라인별 MMR + 평균 MMR 자동 노출. 외부 의존성 0 (canvas/sharp 불필요).
 
+### Phase 7 — Activity 신규 기능 + 사용자 신원 (v0.3.6~0.3.8)
+- **선호 챔프 등록 페이지** (v0.3.6) — 게시판 텍스트 풀이 ("탑- 제이스, 케넨, ...") 의 페이지 대체. `user_champion_preferences` 테이블 + GET (누구나 조회) / PUT (본인) API. Profile 안 collapsible "📌 선호 챔프" 섹션 + 라인별 챔프 그리드 모달 (PickBan ChampCell 재사용). 라인당 최대 10개, 입력 순서 보존.
+- **사용자 검색 (op.gg 스타일)** (v0.3.7) — navbar 가운데 input. `display_name` + Riot `game_name` 부분일치, 결과 드롭다운 → 클릭/Enter 로 Profile 즉시 진입. `searchUsers` (LEFT JOIN + DISTINCT + LIKE), debounce 200ms, "/" 단축키, ↑↓/Enter/Esc 네비.
+- **navbar 검색창 정중앙 고정** (v0.3.8) — daisyUI `navbar-start/center/end` 패턴으로 좌우 그룹 너비와 무관한 정중앙.
+
+### Phase 8 — 디자인 시스템 재구축 (v0.3.9~0.3.18)
+- **Phase A** (v0.3.9) — Navbar 재구축. 좌측 `ContextChip` (현재 stage 한 줄), 가운데 검색바 `max-w-md`, 우측 `SystemDot` + 통합 `username▾` dropdown (🏆/🎲/❓ + 운영자 뱃지 메뉴 통합). 평등하게 늘어선 5 아이콘 → primary 1개로 정리.
+- **Phase B** (v0.3.10) — 대시보드 재구축. `MeHero` (op.gg 스타일 본인 카드 — 표시명/메인 라이엇/시즌 W/L + 라인별 MMR 5칸) 신규. 기존 stats-horizontal 3-stat 바 제거.
+- **Phase C** (v0.3.11) — 디자인 토큰. `index.css` `@layer components` 에 `surface-base/soft/quiet`, `card-action`, `card-status-{waiting/progress/completed/me}` 정의. 화면별 카드 패턴 통일.
+- **Phase D** (v0.3.12) — Steps 재배치 (LIST/MINIGAME/LEADERBOARD/PROFILE 에서 숨김, 시리즈 라이프사이클 안에서만) + 모바일 검색 토글 (`< md` 에서 🔍 → navbar 아래 펼침).
+- **Phase E** (v0.3.13) — daisyUI avatar/avatar-placeholder 도입. `UserAvatar` 컴포넌트 — discordId 해시로 7색 일관 매핑 + ring 옵션. 모든 사용자 표시 위치 (MeHero/SearchBar/Profile/Leaderboard) 통일. status dot 강화, divider 도입.
+- **Phase F** (v0.3.14) — 데이터 시각화. `UserAvatar` 에 `imageUrl` 옵션 (이미지 모드). LaneMmrCard 에 `radial-progress` (라인별 승률 도넛).
+- **Phase G** (v0.3.15) — API `topChampion` 확장. 검색/리더보드 응답에 `topChampion` (메인 챔프) 추가 + 닉네임 옆 "주력 OOO" 캡션.
+- **Phase H** (v0.3.16) — `theme-controller` (라이트/다크 토글, dropdown 안 설정 항목). localStorage 자동 영속.
+- **Phase J** (v0.3.17) — daisyUI footer 단축키. 페이지 하단 4-button grid (📇 내 프로필 / 🏆 리더보드 / 🎲 도구 / ❓ 도움말). LIST/LEADERBOARD/MINIGAME/PROFILE 에서만 노출 (시리즈 흐름 산만 방지).
+- **Phase I** (v0.3.18) — `SeriesResult` 게임 진행 daisyUI vertical timeline. 승리팀 색상 dot + chronology 시각 강조.
+- **drawer / breadcrumbs / filter / swap / rating / toggle / fab** — 명확한 사용처 부족 또는 도메인 비목표 (모집 컨트롤 등) 로 보류.
+
+### Phase 9 — 사용자 아바타 = League 소환사 아이콘 (v0.3.19~0.3.20)
+- **챔프 splash → 소환사 아이콘 정정** (v0.3.20) — 사용자 의도는 RP/BE 로 구매하는 League 소환사 아이콘. `riot_accounts.profile_icon_id` 컬럼 추가 (Summoner-V4 의 `profileIconId` 캐시).
+- **자동 fetch + 백필**: 봇 `/등록` + `/일괄등록` 흐름이 `getSummonerByPuuid` 호출, `linkRiotAccount` / `upsertRiotAccountIdentity` 가 `profileIconId` 같이 저장. `pnpm --filter @mookbot/core backfill:profile-icons` 스크립트로 기존 등록자 일괄 백필 (rate-limit 250ms).
+- **API 응답 확장**: `/api/users/:id/profile`, `/search`, `/leaderboard`, `/leaderboard/composite` 응답에 `profileIconUrl` 추가.
+- **Activity UserAvatar 우선순위**: `profileIconUrl` (소환사 아이콘) > `splashUrl` (챔프 loading art) > `iconUrl` (챔프 icon) > placeholder.
+
+### Phase K — 메타 / 운영 (이번 사이클)
+- **`.claude/settings.json`** committed — Claude Code 권한 prompt 감소 + release 자동화 allowlist (typecheck/test/build, gh, git, ssh, docker:release 등). destructive 명령은 deny 명시 (force push, hard reset, db:migrate:drop, wrangler d1 execute 등).
+- **1인 개발 워크플로우 정착** — PR/리뷰 ceremony 제거, `main` 브랜치 직접 commit + push. release 흐름은 commit → version:patch → push → docker:release → ssh.
+
 ## 🚧 진행 중 / 부분 (Partial)
 
 - **Wave 3.x 추가 리팩토링** (우선순위 낮음): `usePickBanState` / `useEntryEditingState` 훅 추출 여지
@@ -74,14 +102,16 @@
 
 ### UX
 - "밸런스-확인" Discord 채널 자동 업로드 — `sharp` 로 SVG → PNG 변환 + webhook URL. 현재는 운영자가 Activity 의 "URL 복사" / "새 탭 열기" 로 수동 공유.
-- Activity navbar — `모집 #N → 시리즈 #N` 매핑 시각화 (현재 단일 badge 만 표시).
-- 모바일 Activity QA — iOS/Android 검증 후 Developer Portal Mobile platform 활성화 결정.
+- Activity navbar — `모집 #N → 시리즈 #N` 매핑 시각화 (현재 단일 ContextChip; breadcrumbs 변형으로 위계 강화 여지).
+- 모바일 Activity QA — iOS/Android 검증 후 Developer Portal Mobile platform 활성화 결정. (Phase D 에서 모바일 검색 토글 + 반응형 navbar 추가했으나 실기 검증 필요)
 - 픽밴 cursor presence (실시간 다인 협업 시각화).
+- Activity 모집 컨트롤 — 현재 봇 `/내전모집` 슬래시만, 사용자 명시 보류 (v0.3.6 시점). 필요 시 별도 phase.
 
 ### 운영 / 관측성
 - audit log 커버리지 확장 — `series.created` / `recruitment.*` / `game.recorded` / `game.undone` 등 비-삭제 이벤트도 기록 (현재는 운영자 destructive action 만).
 - pino info/warn 로그도 `/logs` 웹뷰에서 조회 (현재 audit_log 만; 별도 events 테이블 또는 Cloudflare Logpush 필요).
 - 자동 시즌 전환 (스케줄러).
+- 소환사 아이콘 주기 갱신 — 사용자가 League 안에서 아이콘 변경 시 즉시 반영 X (등록 시점 / 백필 시점 캐시). 주기 cron 또는 `/내정보 갱신` 슬래시로 수동.
 
 ### 인프라
 - 봇 명령 스모크 테스트 (인터랙션 mocking 복잡도 vs 가치 trade-off — 미정).
@@ -93,13 +123,17 @@
 - **PNG 카드 렌더링 X** — v1 의 satori → resvg 흐름은 v2 에서 완전 폐기 (Components V2 + Activity SPA + 인라인 SVG 로 대체)
 - **봇 슬래시는 read-only + 운영 명령어 한정** — write 인터랙션은 Activity 가 책임
 - **시리즈 hard-delete 는 admin 응급용** — 일반 흐름은 모두 soft-delete (`deleted_at`). 진짜 물리 삭제가 필요하면 `purgeSeries(id)` 별도 호출
+- **챔프 splash art 를 사용자 아바타로 사용 X** (v0.3.20 결정) — League 소환사 아이콘 (`profile_icon_id`) 이 사용자 신원의 표준. 챔프 데이터는 `splashUrl`/`iconUrl` 필드로 응답에 포함되지만 fallback 으로만.
+- **PR + 리뷰 흐름 X** (v0.3.x 후반 결정) — 1인 개발 프로젝트. `main` 직접 commit + push, release 도 동일 흐름.
 
 ## 운영 메모
 
-- 릴리스: `pnpm version:patch && pnpm docker:release` → VPS `docker compose pull && up -d` (manual; auto-watch 없음)
+- 릴리스: `pnpm version:patch && pnpm docker:release` → VPS `docker compose pull && up -d` (manual; auto-watch 없음). PR 흐름 X — `main` 직접.
 - D1 백업 시 wrangler export 가 일시적으로 D1 unavailable → 03:00 KST 트래픽 0 가정 위에서만 안전
+- D1 schema 변경 시 — `pnpm --filter @mookbot/core db:migrate` (idempotent, ALTER ADD COLUMN 도 멱등 흡수). prod 배포 전에 먼저 마이그레이션 권장
 - nginx 새 api 라우트는 `/api/*` prefix 로 등록해야 외부 노출
 - 컨테이너 healthcheck 의 `wget localhost` 는 IPv6 `::1` 해석 → `127.0.0.1` 명시
 - 새 슬래시 도입 시 `pnpm --filter @mookbot/bot exec tsx src/deploy-commands.ts` 로 재등록
 - 새 환경변수 추가 시 `apps/{api,bot}/src/env.ts` zod schema + `.env.example` + VPS `/root/deploy/{api,bot}/.env` 3곳 동기화
 - 봇/api 에서 `LOGS_JWT_SECRET` 은 반드시 동일 값 (HS256 서명/검증). 회전 시 두 컨테이너 동시 재시작.
+- 신규 사용자가 라이엇 ID 등록 시 Summoner-V4 가 자동 호출됨 — `RIOT_API_KEY` 만료 시 등록 흐름은 진행되지만 `profile_icon_id` NULL 상태 (백필로 채움).
