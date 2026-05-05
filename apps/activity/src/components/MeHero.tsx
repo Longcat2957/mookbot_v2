@@ -137,7 +137,7 @@ export function MeHero({ onSelectMe }: { onSelectMe: () => void }) {
 						return (
 							<div
 								key={m.role}
-								className={`rounded-md p-1.5 text-center ${empty ? "bg-base-100/30" : "bg-base-100"}`}
+								className={`rounded-md p-1.5 text-center ${empty ? "bg-base-100/30" : "surface-quiet"}`}
 							>
 								<div className="text-[9px] uppercase tracking-wide text-base-content/60">
 									{ROLE_LABEL[m.role] ?? m.role}

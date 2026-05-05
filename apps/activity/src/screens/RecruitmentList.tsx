@@ -235,11 +235,7 @@ function CompletedSeriesCard({
 				? "text-error"
 				: "";
 	return (
-		<button
-			type="button"
-			onClick={onClick}
-			className="card bg-base-200 shadow-sm hover:bg-base-300 transition cursor-pointer text-left"
-		>
+		<button type="button" onClick={onClick} className="card-action card-status-completed">
 			<div className="card-body py-4 gap-2">
 				<div className="flex items-center justify-between">
 					<h3 className="card-title text-base">시리즈 #{series.id}</h3>
@@ -257,7 +253,7 @@ function CompletedSeriesCard({
 					</span>
 				</div>
 				{series.participants.length > 0 && (
-					<div className="bg-base-100 rounded p-2 mt-1">
+					<div className="surface-quiet rounded p-2 mt-1">
 						<LineupPreview participants={series.participants} compact />
 					</div>
 				)}
@@ -269,11 +265,7 @@ function CompletedSeriesCard({
 function RecruitmentCard({ rec, onClick }: { rec: Recruitment; onClick: () => void }) {
 	const teamSize = rec.targetCount / 2;
 	return (
-		<button
-			type="button"
-			onClick={onClick}
-			className="card bg-base-200 shadow-sm hover:bg-base-300 transition cursor-pointer text-left border-l-4 border-warning"
-		>
+		<button type="button" onClick={onClick} className="card-action card-status-waiting">
 			<div className="card-body py-4 gap-1">
 				<div className="flex items-center justify-between">
 					<h3 className="card-title text-base">
@@ -292,11 +284,7 @@ function RecruitmentCard({ rec, onClick }: { rec: Recruitment; onClick: () => vo
 
 function SeriesCard({ series, onClick }: { series: SeriesItem; onClick: () => void }) {
 	return (
-		<button
-			type="button"
-			onClick={onClick}
-			className="card bg-base-200 shadow-sm hover:bg-base-300 transition cursor-pointer text-left border-l-4 border-info"
-		>
+		<button type="button" onClick={onClick} className="card-action card-status-progress">
 			<div className="card-body py-4 gap-2">
 				<div className="flex items-center justify-between">
 					<h3 className="card-title text-base flex items-center gap-1.5">
@@ -312,7 +300,7 @@ function SeriesCard({ series, onClick }: { series: SeriesItem; onClick: () => vo
 					시즌 {series.seasonId} · 시작 {formatAgo(series.startedAt)}
 				</div>
 				{series.participants.length > 0 && (
-					<div className="bg-base-100 rounded p-2">
+					<div className="surface-quiet rounded p-2">
 						<LineupPreview participants={series.participants} compact />
 					</div>
 				)}
@@ -326,7 +314,7 @@ function SkeletonGrid() {
 	return (
 		<div className="grid grid-cols-1 md:grid-cols-2 gap-3">
 			{[0, 1].map((i) => (
-				<div key={i} className="card bg-base-200 shadow-sm">
+				<div key={i} className="card surface-base shadow-sm">
 					<div className="card-body py-4 gap-3">
 						<div className="skeleton h-6 w-32" />
 						<div className="skeleton h-4 w-48" />

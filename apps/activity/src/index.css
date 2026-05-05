@@ -21,3 +21,57 @@ body,
 	font-family: "Noto Sans KR", -apple-system, BlinkMacSystemFont, "Segoe UI",
 		sans-serif;
 }
+
+/* ============================================================
+ * 디자인 토큰 — surface variants + interactive cards
+ * ============================================================
+ * 화면별 카드/패널 스타일을 통일하기 위한 utility class.
+ * 사용 가이드:
+ *   surface-base   : 메인 콘텐츠 카드 (불투명 base-200)
+ *   surface-soft   : 보조 패널 / 섹션 (반투명 + 테두리)
+ *   surface-quiet  : 메타 정보 박스 (base-100, 컨테이너 안의 작은 박스)
+ *   card-action    : 클릭 가능 카드 (hover/focus/active 전환 일관)
+ *   card-status-*  : 좌측 4px 테두리 — 의미 색상 매핑
+ *
+ * daisyUI 의 `card` 클래스와 함께 사용 (예: `card surface-base shadow-sm`).
+ * --tw-* 변수 직접 안 만지고 @apply 만 사용 — daisyUI theme 변경에 자연 따라감.
+ */
+@layer components {
+	.surface-base {
+		@apply bg-base-200;
+	}
+
+	.surface-soft {
+		@apply bg-base-200/40 border border-base-300;
+	}
+
+	.surface-quiet {
+		@apply bg-base-100;
+	}
+
+	/* 클릭 가능한 카드 — 일관된 hover/focus 전환.
+	   note: Tailwind v4 의 @apply 는 component class 자기참조 불가 → utility 직접 풀어 씀. */
+	.card-action {
+		@apply card bg-base-200 shadow-sm cursor-pointer text-left transition-colors;
+	}
+	.card-action:hover {
+		@apply bg-base-300;
+	}
+	.card-action:focus-visible {
+		@apply outline-2 outline-offset-2 outline-primary;
+	}
+
+	/* 상태 매핑 — 좌측 4px 테두리. 의미 색은 daisyUI semantic colors 그대로 */
+	.card-status-waiting {
+		@apply border-l-4 border-warning;
+	}
+	.card-status-progress {
+		@apply border-l-4 border-info;
+	}
+	.card-status-completed {
+		@apply border-l-4 border-success;
+	}
+	.card-status-me {
+		@apply border-l-4 border-primary;
+	}
+}
