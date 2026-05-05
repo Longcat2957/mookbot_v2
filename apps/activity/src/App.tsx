@@ -25,6 +25,53 @@ function describeError(err: unknown): string {
 	}
 }
 
+// 좌측 컨텍스트 — 사용자가 지금 어디 있는지 한 눈에. 클릭 시 대시보드로.
+function ContextChip({
+	stage,
+	recruitmentId,
+	seriesId,
+	onClickHome,
+}: {
+	stage: StageKey;
+	recruitmentId: number | null;
+	seriesId: number | null;
+	onClickHome: () => void;
+}) {
+	if (stage === "LIST") return null;
+
+	const label = (() => {
+		switch (stage) {
+			case "ENTRY_EDITING":
+				return recruitmentId !== null ? `📋 모집 #${recruitmentId} · 엔트리 수정` : "📋 엔트리 수정";
+			case "IN_GAME":
+				return seriesId !== null ? `🎮 시리즈 #${seriesId} · 픽/밴` : "🎮 시리즈";
+			case "COMPLETED":
+				return seriesId !== null ? `✅ 시리즈 #${seriesId} · 종료` : "✅ 시리즈 종료";
+			case "PROFILE":
+				return "👤 프로필";
+			case "LEADERBOARD":
+				return "🏆 리더보드";
+			case "MINIGAME":
+				return "🎲 도구";
+			default:
+				return null;
+		}
+	})();
+	if (!label) return null;
+
+	return (
+		<button
+			type="button"
+			onClick={onClickHome}
+			className="btn btn-ghost btn-sm gap-1.5 normal-case font-medium text-xs px-2.5 min-w-0"
+			title="← 대시보드로"
+		>
+			<span className="truncate">{label}</span>
+			<span className="text-base-content/40">×</span>
+		</button>
+	);
+}
+
 export function App() {
 	return (
 		<PermsProvider>
@@ -111,86 +158,90 @@ function AppInner() {
 
 	return (
 		<div className="min-h-screen bg-base-100">
-			<div className="navbar bg-base-200 shadow-sm">
-				<div className="navbar-start gap-2 px-4 min-w-0">
+			<div className="navbar bg-base-200 shadow-sm border-b border-base-300">
+				<div className="navbar-start gap-3 px-4 min-w-0">
 					<button
 						type="button"
-						className="text-xl font-bold hover:text-primary cursor-pointer"
+						className="text-xl font-bold tracking-tight hover:text-primary cursor-pointer shrink-0"
 						onClick={goHome}
 					>
 						monkey
 					</button>
-					{recruitmentId !== null && (
-						<span className="badge badge-ghost badge-sm">모집 #{recruitmentId}</span>
-					)}
-					{seriesId !== null && <span className="badge badge-ghost badge-sm">시리즈 #{seriesId}</span>}
+					<ContextChip
+						stage={stage}
+						recruitmentId={recruitmentId}
+						seriesId={seriesId}
+						onClickHome={goHome}
+					/>
 				</div>
 				<div className="navbar-center">
 					<SearchBar onSelectUser={openProfile} />
 				</div>
 				<div className="navbar-end gap-2 px-4">
 					<SystemDot />
-					<span className="tooltip tooltip-bottom" data-tip="리더보드">
-						<button
-							type="button"
-							className={`btn btn-sm btn-ghost btn-circle ${stage === "LEADERBOARD" ? "btn-active" : ""}`}
-							onClick={() => setStage(stage === "LEADERBOARD" ? "LIST" : "LEADERBOARD")}
-							aria-label="리더보드 열기"
-							aria-pressed={stage === "LEADERBOARD"}
+					<details className="dropdown dropdown-end">
+						<summary
+							className="btn btn-ghost btn-sm gap-1.5 px-2 list-none after:content-none"
+							aria-label="메뉴 열기"
 						>
-							🏆
-						</button>
-					</span>
-					<span className="tooltip tooltip-bottom" data-tip="미니게임 / 보조 도구">
-						<button
-							type="button"
-							className={`btn btn-sm btn-ghost btn-circle ${stage === "MINIGAME" ? "btn-active" : ""}`}
-							onClick={() => setStage(stage === "MINIGAME" ? "LIST" : "MINIGAME")}
-							aria-label="도구 열기"
-							aria-pressed={stage === "MINIGAME"}
-						>
-							🎲
-						</button>
-					</span>
-					<span className="tooltip tooltip-bottom" data-tip="도움말 (?)">
-						<button
-							type="button"
-							className="btn btn-sm btn-ghost btn-circle"
-							onClick={() => setHelpOpen(true)}
-							aria-label="도움말 열기"
-						>
-							?
-						</button>
-					</span>
-					{perms.operatorRoleConfigured && (
-						<span
-							className="tooltip tooltip-bottom"
-							data-tip={
-								perms.canEdit
-									? "운영자 권한 — 엔트리/픽밴/결과 입력 가능"
-									: "읽기 전용 — 운영자 role 이 필요합니다"
-							}
-						>
-							<span className={`badge badge-sm ${perms.canEdit ? "badge-success" : "badge-ghost"}`}>
-								{perms.canEdit ? "✏️ 운영자" : "👁 읽기 전용"}
-							</span>
-						</span>
-					)}
-					<div className="dropdown dropdown-end">
-						<div tabIndex={0} role="button" className="btn btn-ghost btn-sm">
-							{user.username}
-						</div>
-						<ul
-							tabIndex={0}
-							className="dropdown-content menu bg-base-100 rounded-box z-30 w-44 p-2 shadow-lg border border-base-300 mt-1"
-						>
+							{perms.operatorRoleConfigured && (
+								<span
+									className={`badge badge-xs ${perms.canEdit ? "badge-success" : "badge-ghost"}`}
+									title={
+										perms.canEdit
+											? "운영자 권한 — 엔트리/픽밴/결과 입력 가능"
+											: "읽기 전용 — 운영자 role 이 필요합니다"
+									}
+								>
+									{perms.canEdit ? "✏️" : "👁"}
+								</span>
+							)}
+							<span className="font-medium truncate max-w-32">{user.username}</span>
+							<span className="text-xs opacity-60">▾</span>
+						</summary>
+						<ul className="dropdown-content menu bg-base-100 rounded-box z-30 w-56 p-2 shadow-lg border border-base-300 mt-1">
 							<li>
-								<button type="button" onClick={() => openProfile(user.id)}>
-									📇 내 프로필
+								<button
+									type="button"
+									className={stage === "PROFILE" && profileUserId === user.id ? "active" : ""}
+									onClick={() => openProfile(user.id)}
+								>
+									<span className="text-base">📇</span>
+									<span>내 프로필</span>
+								</button>
+							</li>
+							<li className="menu-title pt-2">
+								<span>둘러보기</span>
+							</li>
+							<li>
+								<button
+									type="button"
+									className={stage === "LEADERBOARD" ? "active" : ""}
+									onClick={() => setStage("LEADERBOARD")}
+								>
+									<span className="text-base">🏆</span>
+									<span>리더보드</span>
+								</button>
+							</li>
+							<li>
+								<button
+									type="button"
+									className={stage === "MINIGAME" ? "active" : ""}
+									onClick={() => setStage("MINIGAME")}
+								>
+									<span className="text-base">🎲</span>
+									<span>도구 / 미니게임</span>
+								</button>
+							</li>
+							<li>
+								<button type="button" onClick={() => setHelpOpen(true)}>
+									<span className="text-base">❓</span>
+									<span>도움말</span>
+									<kbd className="kbd kbd-xs ml-auto">?</kbd>
 								</button>
 							</li>
 						</ul>
-					</div>
+					</details>
 				</div>
 			</div>
 

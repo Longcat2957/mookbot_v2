@@ -121,7 +121,7 @@ export function SearchBar({ onSelectUser }: { onSelectUser: (userId: string) => 
 	const showDropdown = open && (loading || hits.length > 0 || query.trim().length > 0);
 
 	return (
-		<div ref={containerRef} className="relative w-full max-w-xs">
+		<div ref={containerRef} className="relative w-full max-w-md">
 			<input
 				ref={inputRef}
 				type="search"
