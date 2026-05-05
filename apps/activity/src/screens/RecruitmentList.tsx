@@ -3,6 +3,7 @@ import { api } from "../api/rest.js";
 import { wsClient } from "../api/ws.js";
 import { EmptyState } from "../components/EmptyState.js";
 import { type LineupParticipant, LineupPreview } from "../components/LineupPreview.js";
+import { MeHero } from "../components/MeHero.js";
 import { showToast } from "../components/Toaster.js";
 import { WelcomeCard } from "../components/WelcomeCard.js";
 import { useStaleWhileRevalidate } from "../state/useStaleWhileRevalidate.js";
@@ -40,6 +41,7 @@ export function RecruitmentList({
 	onOpenLeaderboard,
 	onOpenMinigame,
 	onOpenHelp,
+	onOpenMyProfile,
 }: {
 	onSelectRecruitment: (id: number) => void;
 	onSelectSeries: (id: number) => void;
@@ -47,6 +49,7 @@ export function RecruitmentList({
 	onOpenLeaderboard: () => void;
 	onOpenMinigame: () => void;
 	onOpenHelp: () => void;
+	onOpenMyProfile: () => void;
 }) {
 	const fetchAll = useCallback(async () => {
 		const [r, s, c] = await Promise.all([
@@ -76,42 +79,22 @@ export function RecruitmentList({
 	}, [swr]);
 
 	const header = (
-		<div className="flex items-start justify-between gap-3 flex-wrap">
+		<div className="flex items-end justify-between gap-3 flex-wrap">
 			<div>
-				<h1 className="text-2xl font-bold">대시보드</h1>
-				<p className="text-sm text-base-content/70">
-					처리 대기 카드는 클릭으로 진행 — 엔트리 작성 또는 픽/밴 입력.
+				<h1 className="text-2xl font-bold tracking-tight">대시보드</h1>
+				<p className="text-sm text-base-content/60">
+					처리 대기 카드 클릭 → 엔트리 작성 또는 픽/밴 입력
 				</p>
 			</div>
-			<div className="flex items-center gap-2">
-				<div className="stats stats-horizontal shadow-none border border-base-300 bg-base-200/40">
-					<div className="stat py-2 px-3">
-						<div className="stat-title text-[10px]">엔트리 대기</div>
-						<div className="stat-value text-xl text-warning tabular-nums">
-							{recruitments?.length ?? "—"}
-						</div>
-					</div>
-					<div className="stat py-2 px-3">
-						<div className="stat-title text-[10px]">진행 중</div>
-						<div className="stat-value text-xl text-info tabular-nums">{series?.length ?? "—"}</div>
-					</div>
-					<div className="stat py-2 px-3">
-						<div className="stat-title text-[10px]">종료</div>
-						<div className="stat-value text-xl text-base-content/60 tabular-nums">
-							{completed?.length ?? "—"}
-						</div>
-					</div>
-				</div>
-				<button
-					type="button"
-					className="btn btn-circle btn-ghost btn-sm"
-					onClick={swr.refresh}
-					title="새로고침"
-					aria-label="새로고침"
-				>
-					↻
-				</button>
-			</div>
+			<button
+				type="button"
+				className="btn btn-circle btn-ghost btn-sm"
+				onClick={swr.refresh}
+				title="새로고침"
+				aria-label="새로고침"
+			>
+				↻
+			</button>
 		</div>
 	);
 
@@ -145,6 +128,9 @@ export function RecruitmentList({
 		<section className="space-y-6">
 			{header}
 
+			{/* 본인 요약 카드 — op.gg 스타일 (라인별 MMR + 시즌 W/L) */}
+			<MeHero onSelectMe={onOpenMyProfile} />
+
 			{/* 신규 사용자 안내 — 한 번만 표시 (localStorage dismiss) */}
 			<WelcomeCard
 				onOpenLeaderboard={onOpenLeaderboard}
@@ -154,13 +140,15 @@ export function RecruitmentList({
 
 			{/* 처리 대기 — 모집 + 진행중 통합 (시간순 — 오래된 것 위) */}
 			<div className="space-y-2">
-				<div className="flex items-center justify-between">
-					<h2 className="text-lg font-bold">처리 대기</h2>
-					{!isLoading && pending.length > 0 && (
-						<span className="text-xs text-base-content/60">
-							{recruitments.length} 엔트리 대기 · {series.length} 진행 중
-						</span>
-					)}
+				<div className="flex items-baseline justify-between flex-wrap gap-2">
+					<h2 className="text-lg font-bold flex items-baseline gap-2">
+						처리 대기
+						{!isLoading && pending.length > 0 && (
+							<span className="text-xs font-normal text-base-content/60">
+								{recruitments.length} 엔트리 · {series.length} 진행 중
+							</span>
+						)}
+					</h2>
 				</div>
 				{isLoading ? (
 					<SkeletonGrid />

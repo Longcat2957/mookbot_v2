@@ -276,6 +276,7 @@ function AppInner() {
 							onOpenLeaderboard={() => setStage("LEADERBOARD")}
 							onOpenMinigame={() => setStage("MINIGAME")}
 							onOpenHelp={() => setHelpOpen(true)}
+							onOpenMyProfile={() => openProfile(user.id)}
 						/>
 					</ErrorBoundary>
 				)}
