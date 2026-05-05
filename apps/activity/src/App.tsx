@@ -158,7 +158,7 @@ function AppInner() {
 	};
 
 	return (
-		<div className="min-h-screen bg-base-100">
+		<div className="min-h-screen bg-base-100 flex flex-col">
 			<div className="navbar bg-base-200 shadow-sm border-b border-base-300">
 				<div className="navbar-start gap-3 px-4 min-w-0">
 					<button
@@ -294,7 +294,7 @@ function AppInner() {
 				</div>
 			)}
 
-			<main className="max-w-screen-xl mx-auto p-3 lg:p-4">
+			<main className="max-w-screen-xl mx-auto p-3 lg:p-4 w-full flex-1">
 				{stage === "LIST" && (
 					<ErrorBoundary key="list" label="대시보드" onReset={goHome}>
 						<RecruitmentList
@@ -374,7 +374,7 @@ function AppInner() {
 				stage === "LEADERBOARD" ||
 				stage === "MINIGAME" ||
 				stage === "PROFILE") && (
-				<footer className="footer footer-center bg-base-200/60 border-t border-base-300 text-base-content/70 p-4 mt-6 sm:mt-10">
+				<footer className="footer footer-center bg-base-200/60 border-t border-base-300 text-base-content/70 p-4">
 					<nav className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 w-full max-w-screen-md">
 						<FooterButton
 							icon="📇"
