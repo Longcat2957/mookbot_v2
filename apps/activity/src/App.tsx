@@ -111,8 +111,8 @@ function AppInner() {
 
 	return (
 		<div className="min-h-screen bg-base-100">
-			<div className="navbar bg-base-200 shadow-sm gap-2">
-				<div className="flex-none px-4 flex items-center gap-2 min-w-0">
+			<div className="navbar bg-base-200 shadow-sm">
+				<div className="navbar-start gap-2 px-4 min-w-0">
 					<button
 						type="button"
 						className="text-xl font-bold hover:text-primary cursor-pointer"
@@ -125,10 +125,10 @@ function AppInner() {
 					)}
 					{seriesId !== null && <span className="badge badge-ghost badge-sm">시리즈 #{seriesId}</span>}
 				</div>
-				<div className="flex-1 flex justify-center px-2">
+				<div className="navbar-center">
 					<SearchBar onSelectUser={openProfile} />
 				</div>
-				<div className="flex-none px-4 flex items-center gap-2">
+				<div className="navbar-end gap-2 px-4">
 					<SystemDot />
 					<span className="tooltip tooltip-bottom" data-tip="리더보드">
 						<button
