@@ -8,6 +8,7 @@ config({ path: fileURLToPath(new URL("../../../../.env", import.meta.url)) });
 const TABLES_DELETE_ORDER = [
 	"guild_kv",
 	"admin_audit_log",
+	"user_champion_preferences",
 	"recruitment_participant_roles",
 	"recruitment_participants",
 	"recruitments",

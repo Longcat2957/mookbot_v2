@@ -10,6 +10,7 @@ import { showToast } from "../components/Toaster.js";
 import { usePerms } from "../state/perms.js";
 import { useStaleWhileRevalidate } from "../state/useStaleWhileRevalidate.js";
 import { MmrChart } from "./Profile/MmrChart.js";
+import { Preferences } from "./Profile/Preferences.js";
 
 const ROLE_LABEL: Record<string, string> = {
 	TOP: "탑",
@@ -184,8 +185,19 @@ export function Profile({
 				))}
 			</div>
 
-			{/* MMR 시계열 그래프 */}
+			{/* 라인별 선호 챔프 (게시판 텍스트 풀이의 페이지 대체) */}
 			<details className="rounded-lg border border-base-300 bg-base-200/40" open>
+				<summary className="cursor-pointer text-sm font-medium px-3 py-2 select-none flex items-center gap-2">
+					📌 선호 챔프
+					{isMe && <span className="badge badge-ghost badge-xs">편집 가능</span>}
+				</summary>
+				<div className="px-3 pb-3 pt-1">
+					<Preferences userId={userId} isMe={isMe} />
+				</div>
+			</details>
+
+			{/* MMR 시계열 그래프 */}
+			<details className="rounded-lg border border-base-300 bg-base-200/40">
 				<summary className="cursor-pointer text-sm font-medium px-3 py-2 select-none">
 					📈 MMR 추이
 				</summary>

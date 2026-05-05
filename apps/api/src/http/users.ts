@@ -1,10 +1,11 @@
 // 유저 프로필 — Activity Profile 화면용.
 // 라인별 MMR + 라이엇 계정 + 최근 20 게임 + 주력 챔프 (집계는 _history.ts 재사용).
 // MMR 시계열 history (그래프용) 별도 endpoint.
+// 선호 챔프 (게시판 텍스트 대체) GET/PUT.
 
 import { datadragon, db } from "@mookbot/core";
 import type { FastifyInstance } from "fastify";
-import { requireSession, rewriteDD } from "./_helpers.js";
+import { invalidate, requireSession, rewriteDD } from "./_helpers.js";
 import { fetchPlayHistoryFor } from "./_history.js";
 
 const ROLES = ["TOP", "JUNGLE", "MID", "BOTTOM", "SUPPORT"] as const;
@@ -13,6 +14,8 @@ type Role = (typeof ROLES)[number];
 function isRole(s: string): s is Role {
 	return (ROLES as readonly string[]).includes(s);
 }
+
+const MAX_PREFERENCES_PER_ROLE = 10;
 
 export async function registerUsersRoutes(app: FastifyInstance): Promise<void> {
 	// 프로필 통합 — display_name + riot_accounts + lane MMRs + recent games + topChampions.
@@ -165,5 +168,79 @@ export async function registerUsersRoutes(app: FastifyInstance): Promise<void> {
 				delta: Math.round(r.delta),
 			})),
 		};
+	});
+
+	// 선호 챔프 조회 — 누구나 볼 수 있음 (게시판 텍스트 대체 목적).
+	app.get<{ Params: { id: string } }>("/api/users/:id/preferences", async (req, reply) => {
+		const sid = requireSession(req, reply);
+		if (!sid) return;
+
+		const userId = req.params.id;
+		const user = await db.getUser(userId);
+		if (!user) return reply.code(404).send({ error: "user not found" });
+
+		const rows = await db.getUserChampionPreferences(userId);
+		const byRole: Record<Role, { championId: number; championName: string; iconUrl: string }[]> = {
+			TOP: [],
+			JUNGLE: [],
+			MID: [],
+			BOTTOM: [],
+			SUPPORT: [],
+		};
+		for (const r of rows) {
+			byRole[r.role].push({
+				championId: r.champion_id,
+				championName: datadragon.getChampionName(r.champion_id),
+				iconUrl: rewriteDD(datadragon.getChampionImageUrl(r.champion_id)),
+			});
+		}
+
+		return {
+			user: { discordId: user.discord_id, displayName: user.display_name },
+			maxPerRole: MAX_PREFERENCES_PER_ROLE,
+			preferences: byRole,
+		};
+	});
+
+	// 선호 챔프 한 라인 갱신 — 본인만. championIds 의 배열 순서 = 표시 순서.
+	app.put<{ Body: unknown }>("/api/users/me/preferences", async (req, reply) => {
+		const sid = requireSession(req, reply);
+		if (!sid) return;
+
+		const body = req.body as { role?: unknown; championIds?: unknown } | null;
+		if (!body || typeof body !== "object") {
+			return reply.code(400).send({ error: "invalid body" });
+		}
+		const { role, championIds } = body;
+		if (typeof role !== "string" || !isRole(role)) {
+			return reply.code(400).send({ error: "invalid role" });
+		}
+		if (!Array.isArray(championIds)) {
+			return reply.code(400).send({ error: "championIds must be array" });
+		}
+		if (championIds.length > MAX_PREFERENCES_PER_ROLE) {
+			return reply
+				.code(400)
+				.send({ error: `라인당 최대 ${MAX_PREFERENCES_PER_ROLE}개까지 등록할 수 있습니다.` });
+		}
+		const validIds: number[] = [];
+		for (const raw of championIds) {
+			if (typeof raw !== "number" || !Number.isInteger(raw) || raw <= 0) {
+				return reply.code(400).send({ error: "championIds must be positive integers" });
+			}
+			validIds.push(raw);
+		}
+
+		// FK (user_id → users.discord_id) 보장. 신규 사용자는 봇 슬래시 한 번 이상 거쳐야 함.
+		const me = await db.getUser(sid);
+		if (!me) {
+			return reply.code(404).send({
+				error: "사용자 등록이 먼저 필요합니다 — 봇 채널에서 /등록 또는 모집 참여 후 다시 시도해주세요.",
+			});
+		}
+		await db.setUserLaneChampionPreferences({ userId: sid, role, championIds: validIds });
+
+		invalidate(`user:${sid}`, sid);
+		return { ok: true };
 	});
 }
