@@ -33,12 +33,20 @@ interface LaneMmr {
 	winrate: number;
 }
 
+interface TopChampion {
+	championId: number;
+	championName: string;
+	iconUrl: string;
+	plays: number;
+}
+
 interface MeProfileResponse {
 	user: { discordId: string; displayName: string };
 	riotAccounts: RiotAccount[];
 	season: { id: number; name: string };
 	laneMmrs: LaneMmr[];
 	totals: { games: number; wins: number; losses: number; winrate: number };
+	topChampions: TopChampion[];
 }
 
 export function MeHero({ onSelectMe }: { onSelectMe: () => void }) {
@@ -61,8 +69,10 @@ export function MeHero({ onSelectMe }: { onSelectMe: () => void }) {
 		return <div className="skeleton h-36 w-full rounded-box" />;
 	}
 
-	const { user, riotAccounts, season, totals, laneMmrs } = swr.data;
+	const { user, riotAccounts, season, totals, laneMmrs, topChampions } = swr.data;
 	const mainRiot = riotAccounts.find((a) => a.isMain);
+	const mainChampIcon = topChampions[0]?.iconUrl ?? null;
+	const mainChampName = topChampions[0]?.championName;
 	const wrPct = totals.games > 0 ? Math.round(totals.winrate * 100) : null;
 	const wrColor =
 		wrPct === null
@@ -91,7 +101,13 @@ export function MeHero({ onSelectMe }: { onSelectMe: () => void }) {
 			<div className="card-body p-4 sm:p-5 gap-3">
 				<div className="flex items-start justify-between gap-3 flex-wrap">
 					<div className="flex items-start gap-3 min-w-0 flex-1">
-						<UserAvatar discordId={user.discordId} displayName={user.displayName} size="lg" ring />
+						<UserAvatar
+							discordId={user.discordId}
+							displayName={user.displayName}
+							imageUrl={mainChampIcon}
+							size="lg"
+							ring
+						/>
 						<div className="min-w-0 flex-1">
 							<div className="text-[10px] uppercase tracking-wider text-base-content/50">내 프로필</div>
 							<h2 className="text-2xl font-bold leading-tight truncate flex items-center gap-2 mt-0.5">
@@ -102,6 +118,11 @@ export function MeHero({ onSelectMe }: { onSelectMe: () => void }) {
 								<div className="text-sm text-base-content/70 truncate tabular-nums mt-0.5">
 									{mainRiot.gameName}
 									<span className="opacity-50">#{mainRiot.tagLine}</span>
+								</div>
+							)}
+							{mainChampName && (
+								<div className="text-xs text-base-content/50 truncate mt-0.5">
+									주력 <span className="font-medium text-base-content/70">{mainChampName}</span>
 								</div>
 							)}
 						</div>

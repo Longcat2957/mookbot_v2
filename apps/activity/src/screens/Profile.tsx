@@ -135,6 +135,7 @@ export function Profile({
 					<UserAvatar
 						discordId={data.user.discordId}
 						displayName={data.user.displayName}
+						imageUrl={data.topChampions[0]?.iconUrl ?? null}
 						size="xl"
 						ring={isMe}
 					/>
@@ -265,12 +266,40 @@ export function Profile({
 function LaneMmrCard({ mmr }: { mmr: LaneMmr }) {
 	const wrPct = Math.round(mmr.winrate * 100);
 	const empty = mmr.mmr === null;
+	const radialColor =
+		wrPct >= 60
+			? "text-success"
+			: wrPct >= 50
+				? "text-info"
+				: wrPct >= 40
+					? "text-warning"
+					: "text-error";
 	return (
 		<div
 			className={`rounded-lg p-3 border ${empty ? "border-base-300 bg-base-200/30 opacity-60" : "border-base-300 bg-base-100"}`}
 		>
-			<div className="text-[10px] uppercase tracking-wide text-base-content/60">
-				{ROLE_LABEL[mmr.role] ?? mmr.role}
+			<div className="flex items-center justify-between">
+				<div className="text-[10px] uppercase tracking-wide text-base-content/60">
+					{ROLE_LABEL[mmr.role] ?? mmr.role}
+				</div>
+				{!empty && mmr.games > 0 && (
+					<div
+						className={`radial-progress ${radialColor} text-[9px] font-bold tabular-nums`}
+						style={
+							{
+								"--value": wrPct,
+								"--size": "1.75rem",
+								"--thickness": "2px",
+							} as React.CSSProperties
+						}
+						role="progressbar"
+						aria-valuenow={wrPct}
+						aria-valuemin={0}
+						aria-valuemax={100}
+					>
+						{wrPct}
+					</div>
+				)}
 			</div>
 			{empty ? (
 				<div className="text-base-content/40 text-sm mt-1">기록 없음</div>
