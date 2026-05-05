@@ -31,17 +31,29 @@ export async function registerUsersRoutes(app: FastifyInstance): Promise<void> {
 
 			const limit = Math.min(20, Math.max(1, Number(req.query.limit ?? 10)));
 			const hits = await db.searchUsers({ query: q, limit });
-			const mains = await db.listMainRiotAccounts(hits.map((h) => h.discord_id));
+			const userIds = hits.map((h) => h.discord_id);
+			const [mains, history] = await Promise.all([
+				db.listMainRiotAccounts(userIds),
+				fetchPlayHistoryFor(userIds),
+			]);
 			const mainByUser = new Map(mains.map((m) => [m.user_id, m]));
 
 			return {
 				query: q,
 				users: hits.map((h) => {
 					const m = mainByUser.get(h.discord_id);
+					const top = history.get(h.discord_id)?.topChampions[0];
 					return {
 						discordId: h.discord_id,
 						displayName: h.display_name,
 						mainAccount: m ? { gameName: m.game_name, tagLine: m.tag_line } : null,
+						topChampion: top
+							? {
+									championId: top.championId,
+									championName: top.championName,
+									iconUrl: top.iconUrl,
+								}
+							: null,
 					};
 				}),
 			};

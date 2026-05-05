@@ -33,6 +33,7 @@ interface LeaderRow {
 	losses: number;
 	winrate: number;
 	rolesPlayed?: number; // 통합만
+	topChampion: { championId: number; championName: string; iconUrl: string } | null;
 }
 
 interface LeaderboardResponse {
@@ -161,12 +162,30 @@ function LeaderTable({
 								<td className="text-center font-bold">{medal}</td>
 								<td className="font-medium">
 									<div className="flex items-center gap-2 min-w-0">
-										<UserAvatar discordId={r.userId} displayName={r.displayName} size="sm" />
-										<span className="truncate">{r.displayName}</span>
-										{isMe && <span className="badge badge-primary badge-xs align-middle shrink-0">YOU</span>}
-										{r.rolesPlayed !== undefined && (
-											<span className="text-xs text-base-content/50 shrink-0">({r.rolesPlayed}라인)</span>
-										)}
+										<UserAvatar
+											discordId={r.userId}
+											displayName={r.displayName}
+											imageUrl={r.topChampion?.iconUrl ?? null}
+											size="sm"
+										/>
+										<div className="min-w-0">
+											<div className="truncate">
+												{r.displayName}
+												{isMe && (
+													<span className="badge badge-primary badge-xs align-middle ml-2 shrink-0">YOU</span>
+												)}
+												{r.rolesPlayed !== undefined && (
+													<span className="text-xs text-base-content/50 shrink-0 ml-2">
+														({r.rolesPlayed}라인)
+													</span>
+												)}
+											</div>
+											{r.topChampion && (
+												<div className="text-[10px] text-base-content/50 truncate">
+													주력 {r.topChampion.championName}
+												</div>
+											)}
+										</div>
 									</div>
 								</td>
 								<td className="text-right font-bold">{r.mmr}</td>

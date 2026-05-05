@@ -4,6 +4,7 @@
 import { db } from "@mookbot/core";
 import type { FastifyInstance } from "fastify";
 import { requireSession } from "./_helpers.js";
+import { fetchPlayHistoryFor } from "./_history.js";
 
 const ROLES = ["TOP", "JUNGLE", "MID", "BOTTOM", "SUPPORT"] as const;
 type Role = (typeof ROLES)[number];
@@ -38,22 +39,35 @@ export async function registerLeaderboardRoutes(app: FastifyInstance): Promise<v
 
 			const rows = await db.getLeaderboard(seasonId, role, limit);
 			const userIds = rows.map((r) => r.user_id);
-			const users = await db.listUsers(userIds);
+			const [users, history] = await Promise.all([
+				db.listUsers(userIds),
+				fetchPlayHistoryFor(userIds),
+			]);
 			const nameById = new Map(users.map((u) => [u.discord_id, u.display_name]));
 
 			return {
 				role,
 				seasonId,
-				rows: rows.map((r, i) => ({
-					rank: i + 1,
-					userId: r.user_id,
-					displayName: nameById.get(r.user_id) ?? r.user_id,
-					mmr: Math.round(r.mmr),
-					games: r.games_played,
-					wins: r.wins,
-					losses: r.games_played - r.wins,
-					winrate: r.games_played > 0 ? r.wins / r.games_played : 0,
-				})),
+				rows: rows.map((r, i) => {
+					const top = history.get(r.user_id)?.topChampions[0];
+					return {
+						rank: i + 1,
+						userId: r.user_id,
+						displayName: nameById.get(r.user_id) ?? r.user_id,
+						mmr: Math.round(r.mmr),
+						games: r.games_played,
+						wins: r.wins,
+						losses: r.games_played - r.wins,
+						winrate: r.games_played > 0 ? r.wins / r.games_played : 0,
+						topChampion: top
+							? {
+									championId: top.championId,
+									championName: top.championName,
+									iconUrl: top.iconUrl,
+								}
+							: null,
+					};
+				}),
 			};
 		},
 	);
@@ -79,23 +93,36 @@ export async function registerLeaderboardRoutes(app: FastifyInstance): Promise<v
 
 			const rows = await db.getCompositeLeaderboard(seasonId, limit);
 			const userIds = rows.map((r) => r.user_id);
-			const users = await db.listUsers(userIds);
+			const [users, history] = await Promise.all([
+				db.listUsers(userIds),
+				fetchPlayHistoryFor(userIds),
+			]);
 			const nameById = new Map(users.map((u) => [u.discord_id, u.display_name]));
 
 			return {
 				role: "COMPOSITE" as const,
 				seasonId,
-				rows: rows.map((r, i) => ({
-					rank: i + 1,
-					userId: r.user_id,
-					displayName: nameById.get(r.user_id) ?? r.user_id,
-					mmr: Math.round(r.weighted_mmr),
-					games: r.total_games,
-					wins: r.total_wins,
-					losses: r.total_games - r.total_wins,
-					winrate: r.total_games > 0 ? r.total_wins / r.total_games : 0,
-					rolesPlayed: r.roles_played,
-				})),
+				rows: rows.map((r, i) => {
+					const top = history.get(r.user_id)?.topChampions[0];
+					return {
+						rank: i + 1,
+						userId: r.user_id,
+						displayName: nameById.get(r.user_id) ?? r.user_id,
+						mmr: Math.round(r.weighted_mmr),
+						games: r.total_games,
+						wins: r.total_wins,
+						losses: r.total_games - r.total_wins,
+						winrate: r.total_games > 0 ? r.total_wins / r.total_games : 0,
+						rolesPlayed: r.roles_played,
+						topChampion: top
+							? {
+									championId: top.championId,
+									championName: top.championName,
+									iconUrl: top.iconUrl,
+								}
+							: null,
+					};
+				}),
 			};
 		},
 	);

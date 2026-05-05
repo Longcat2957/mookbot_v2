@@ -10,6 +10,7 @@ interface SearchHit {
 	discordId: string;
 	displayName: string;
 	mainAccount: { gameName: string; tagLine: string } | null;
+	topChampion: { championId: number; championName: string; iconUrl: string } | null;
 }
 
 interface SearchResponse {
@@ -156,7 +157,12 @@ export function SearchBar({ onSelectUser }: { onSelectUser: (userId: string) => 
 									i === activeIdx ? "bg-base-200" : "hover:bg-base-200/60"
 								}`}
 							>
-								<UserAvatar discordId={h.discordId} displayName={h.displayName} size="sm" />
+								<UserAvatar
+									discordId={h.discordId}
+									displayName={h.displayName}
+									imageUrl={h.topChampion?.iconUrl ?? null}
+									size="sm"
+								/>
 								<div className="min-w-0 flex-1">
 									<div className="font-medium truncate text-sm">{h.displayName}</div>
 									{h.mainAccount && (
