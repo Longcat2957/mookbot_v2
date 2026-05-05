@@ -250,6 +250,23 @@ function AppInner() {
 									<kbd className="kbd kbd-xs ml-auto">?</kbd>
 								</button>
 							</li>
+							<li className="menu-title pt-2">
+								<span>설정</span>
+							</li>
+							<li>
+								<label className="cursor-pointer flex items-center justify-between gap-2">
+									<span className="flex items-center gap-2">
+										<span className="text-base">🌓</span>
+										<span>라이트 모드</span>
+									</span>
+									<input
+										type="checkbox"
+										value="light"
+										className="toggle toggle-sm theme-controller"
+										aria-label="라이트 모드 토글"
+									/>
+								</label>
+							</li>
 						</ul>
 					</details>
 				</div>
