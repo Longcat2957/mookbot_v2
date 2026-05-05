@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { ErrorBoundary } from "./components/ErrorBoundary.js";
 import { HelpModal } from "./components/HelpModal.js";
+import { SearchBar } from "./components/SearchBar.js";
 import { type StageKey, Steps } from "./components/Steps.js";
 import { SystemDot } from "./components/SystemDot.js";
 import { Toaster } from "./components/Toaster.js";
@@ -110,8 +111,8 @@ function AppInner() {
 
 	return (
 		<div className="min-h-screen bg-base-100">
-			<div className="navbar bg-base-200 shadow-sm">
-				<div className="flex-1 px-4">
+			<div className="navbar bg-base-200 shadow-sm gap-2">
+				<div className="flex-none px-4 flex items-center gap-2 min-w-0">
 					<button
 						type="button"
 						className="text-xl font-bold hover:text-primary cursor-pointer"
@@ -120,11 +121,12 @@ function AppInner() {
 						monkey
 					</button>
 					{recruitmentId !== null && (
-						<span className="ml-3 badge badge-ghost badge-sm">모집 #{recruitmentId}</span>
+						<span className="badge badge-ghost badge-sm">모집 #{recruitmentId}</span>
 					)}
-					{seriesId !== null && (
-						<span className="ml-3 badge badge-ghost badge-sm">시리즈 #{seriesId}</span>
-					)}
+					{seriesId !== null && <span className="badge badge-ghost badge-sm">시리즈 #{seriesId}</span>}
+				</div>
+				<div className="flex-1 flex justify-center px-2">
+					<SearchBar onSelectUser={openProfile} />
 				</div>
 				<div className="flex-none px-4 flex items-center gap-2">
 					<SystemDot />

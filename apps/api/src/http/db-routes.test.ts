@@ -716,3 +716,75 @@ describe("PUT /api/users/me/preferences", () => {
 		expect(res.statusCode).toBe(401);
 	});
 });
+
+describe("GET /api/users/search", () => {
+	function seed(db: TestDb) {
+		db.prepare("INSERT INTO users (discord_id, display_name) VALUES (?, ?)").run("d1", "Faker");
+		db.prepare("INSERT INTO users (discord_id, display_name) VALUES (?, ?)").run("d2", "Bob");
+		db
+			.prepare(
+				"INSERT INTO riot_accounts (puuid, user_id, game_name, tag_line, is_main) VALUES (?, ?, ?, ?, 1)",
+			)
+			.run("p-faker", "d1", "Hide on bush", "KR1");
+	}
+
+	it("display_name 부분일치 + 메인 라이엇 첨부", async () => {
+		const { app, db } = await buildTestApp();
+		seed(db);
+		const res = await app.inject({
+			method: "GET",
+			url: "/api/users/search?q=fak",
+			cookies: { sid: signSid(app, OP) },
+		});
+		expect(res.statusCode).toBe(200);
+		const body = res.json() as {
+			query: string;
+			users: { discordId: string; displayName: string; mainAccount: { gameName: string } | null }[];
+		};
+		expect(body.query).toBe("fak");
+		expect(body.users).toHaveLength(1);
+		expect(body.users[0]?.discordId).toBe("d1");
+		expect(body.users[0]?.mainAccount?.gameName).toBe("Hide on bush");
+	});
+
+	it("riot game_name 매칭 (메인 계정)", async () => {
+		const { app, db } = await buildTestApp();
+		seed(db);
+		const res = await app.inject({
+			method: "GET",
+			url: "/api/users/search?q=Hide",
+			cookies: { sid: signSid(app, OP) },
+		});
+		const body = res.json() as { users: { discordId: string }[] };
+		expect(body.users.map((u) => u.discordId)).toEqual(["d1"]);
+	});
+
+	it("빈 쿼리 → users []", async () => {
+		const { app, db } = await buildTestApp();
+		seed(db);
+		const res = await app.inject({
+			method: "GET",
+			url: "/api/users/search?q=",
+			cookies: { sid: signSid(app, OP) },
+		});
+		expect((res.json() as { users: unknown[] }).users).toEqual([]);
+	});
+
+	it("메인 계정 없는 사용자 → mainAccount null", async () => {
+		const { app, db } = await buildTestApp();
+		db.prepare("INSERT INTO users (discord_id, display_name) VALUES (?, ?)").run("d3", "Nomain");
+		const res = await app.inject({
+			method: "GET",
+			url: "/api/users/search?q=Nom",
+			cookies: { sid: signSid(app, OP) },
+		});
+		const body = res.json() as { users: { mainAccount: unknown }[] };
+		expect(body.users[0]?.mainAccount).toBeNull();
+	});
+
+	it("auth 없음 → 401", async () => {
+		const { app } = await buildTestApp();
+		const res = await app.inject({ method: "GET", url: "/api/users/search?q=x" });
+		expect(res.statusCode).toBe(401);
+	});
+});

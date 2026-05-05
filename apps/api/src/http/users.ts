@@ -18,6 +18,36 @@ function isRole(s: string): s is Role {
 const MAX_PREFERENCES_PER_ROLE = 10;
 
 export async function registerUsersRoutes(app: FastifyInstance): Promise<void> {
+	// 사용자 검색 — Discord display_name + Riot game_name 부분일치 (op.gg 스타일).
+	// `:id` 라우트보다 먼저 등록 (정적 path 가 더 구체적이라 정적 match 됨).
+	app.get<{ Querystring: { q?: string; limit?: string } }>(
+		"/api/users/search",
+		async (req, reply) => {
+			const sid = requireSession(req, reply);
+			if (!sid) return;
+
+			const q = (req.query.q ?? "").trim();
+			if (!q) return { query: "", users: [] };
+
+			const limit = Math.min(20, Math.max(1, Number(req.query.limit ?? 10)));
+			const hits = await db.searchUsers({ query: q, limit });
+			const mains = await db.listMainRiotAccounts(hits.map((h) => h.discord_id));
+			const mainByUser = new Map(mains.map((m) => [m.user_id, m]));
+
+			return {
+				query: q,
+				users: hits.map((h) => {
+					const m = mainByUser.get(h.discord_id);
+					return {
+						discordId: h.discord_id,
+						displayName: h.display_name,
+						mainAccount: m ? { gameName: m.game_name, tagLine: m.tag_line } : null,
+					};
+				}),
+			};
+		},
+	);
+
 	// 프로필 통합 — display_name + riot_accounts + lane MMRs + recent games + topChampions.
 	app.get<{ Params: { id: string }; Querystring: { seasonId?: string } }>(
 		"/api/users/:id/profile",
