@@ -69,6 +69,42 @@ function parseAndMatch(input: string, champions: Champion[], maxCount: number): 
 	return { matched, failed };
 }
 
+interface PreparedChange {
+	team: Team;
+	kind: "ban" | "pick";
+	championIds: (number | null)[];
+	failed: string[];
+	filledCount: number;
+}
+
+function prepareChange(
+	team: Team,
+	kind: "ban" | "pick",
+	input: string,
+	champions: Champion[],
+	teamSize: number,
+): PreparedChange | null {
+	const value = input.trim();
+	if (!value) return null;
+	const { matched, failed } = parseAndMatch(value, champions, teamSize);
+	const championIds = matched.map((c) => c?.id ?? null);
+	return {
+		team,
+		kind,
+		championIds,
+		failed,
+		filledCount: championIds.filter((c) => c !== null).length,
+	};
+}
+
+function teamLabel(t: Team): string {
+	return t === "TEAM_1" ? "1팀" : "2팀";
+}
+
+function kindLabel(k: "ban" | "pick"): string {
+	return k === "pick" ? "픽" : "밴";
+}
+
 export function BulkInput({
 	champions,
 	teamSize,
@@ -76,7 +112,7 @@ export function BulkInput({
 }: {
 	champions: Champion[];
 	teamSize: number;
-	onApply: (team: Team, kind: "ban" | "pick", championIds: (number | null)[]) => void;
+	onApply: (changes: { team: Team; kind: "ban" | "pick"; championIds: (number | null)[] }[]) => void;
 }) {
 	const [t1Pick, setT1Pick] = useState("");
 	const [t1Ban, setT1Ban] = useState("");
@@ -84,38 +120,48 @@ export function BulkInput({
 	const [t2Ban, setT2Ban] = useState("");
 
 	function apply(team: Team, kind: "ban" | "pick", input: string) {
-		const value = input.trim();
-		if (!value) {
+		const c = prepareChange(team, kind, input, champions, teamSize);
+		if (!c) {
 			showToast("입력이 비었습니다");
 			return;
 		}
-		const { matched, failed } = parseAndMatch(value, champions, teamSize);
-		const championIds = matched.map((c) => c?.id ?? null);
-		onApply(team, kind, championIds);
-
-		const filledCount = championIds.filter((c) => c !== null).length;
-		const teamLabel = team === "TEAM_1" ? "1팀" : "2팀";
-		const kindLabel = kind === "pick" ? "픽" : "밴";
-		const parts = [`${teamLabel} ${kindLabel} ${filledCount}/${teamSize} 적용`];
-		if (failed.length > 0) parts.push(`매칭 실패: ${failed.join(", ")}`);
+		onApply([{ team: c.team, kind: c.kind, championIds: c.championIds }]);
+		const parts = [`${teamLabel(c.team)} ${kindLabel(c.kind)} ${c.filledCount}/${teamSize} 적용`];
+		if (c.failed.length > 0) parts.push(`매칭 실패: ${c.failed.join(", ")}`);
 		showToast(parts.join(" · "));
 	}
 
 	function applyAll() {
-		const inputs: { team: Team; kind: "ban" | "pick"; value: string }[] = [
-			{ team: "TEAM_1", kind: "pick", value: t1Pick },
-			{ team: "TEAM_1", kind: "ban", value: t1Ban },
-			{ team: "TEAM_2", kind: "pick", value: t2Pick },
-			{ team: "TEAM_2", kind: "ban", value: t2Ban },
-		];
-		const nonEmpty = inputs.filter((i) => i.value.trim() !== "");
-		if (nonEmpty.length === 0) {
+		const prepared: PreparedChange[] = [];
+		for (const inp of [
+			{ team: "TEAM_1" as const, kind: "pick" as const, value: t1Pick },
+			{ team: "TEAM_1" as const, kind: "ban" as const, value: t1Ban },
+			{ team: "TEAM_2" as const, kind: "pick" as const, value: t2Pick },
+			{ team: "TEAM_2" as const, kind: "ban" as const, value: t2Ban },
+		]) {
+			const c = prepareChange(inp.team, inp.kind, inp.value, champions, teamSize);
+			if (c) prepared.push(c);
+		}
+		if (prepared.length === 0) {
 			showToast("입력이 모두 비었습니다");
 			return;
 		}
-		for (const { team, kind, value } of nonEmpty) {
-			apply(team, kind, value);
-		}
+		// 한 번의 onApply 호출로 모든 변경을 누적 (이전: 4번 연속 호출로 마지막 변경만 반영되던 버그)
+		onApply(
+			prepared.map((c) => ({
+				team: c.team,
+				kind: c.kind,
+				championIds: c.championIds,
+			})),
+		);
+
+		const summary = prepared
+			.map((c) => `${teamLabel(c.team)}${kindLabel(c.kind)} ${c.filledCount}/${teamSize}`)
+			.join(", ");
+		const allFailed = prepared.flatMap((c) => c.failed);
+		const parts = [`적용: ${summary}`];
+		if (allFailed.length > 0) parts.push(`매칭 실패: ${allFailed.join(", ")}`);
+		showToast(parts.join(" · "));
 	}
 
 	return (

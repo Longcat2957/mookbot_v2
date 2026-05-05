@@ -33,16 +33,23 @@ export function PickBanBoard({
 }) {
 	// 일괄 입력 — 콤마 split 후 슬롯에 차례로 채움.
 	// null = 빈 토큰 또는 매칭 실패 → 기존 슬롯 값 유지 (불필요한 clear 회피).
-	const handleApplyBulk = (team: Team, kind: "ban" | "pick", championIds: (number | null)[]) => {
+	// "모두 적용" 시 4영역 변경을 한 번의 onChange 로 묶는다 — 연속 setState 시
+	// 비동기 batching 으로 마지막 호출만 누적되던 버그 (v0.3.21 까지) 수정.
+	const handleApplyBulk = (
+		changes: { team: Team; kind: "ban" | "pick"; championIds: (number | null)[] }[],
+	) => {
+		if (changes.length === 0) return;
 		const next: GameDraft = {
 			...gameDraft,
 			bans: { TEAM_1: [...gameDraft.bans.TEAM_1], TEAM_2: [...gameDraft.bans.TEAM_2] },
 			picks: { TEAM_1: [...gameDraft.picks.TEAM_1], TEAM_2: [...gameDraft.picks.TEAM_2] },
 		};
-		const arr = kind === "ban" ? next.bans[team] : next.picks[team];
-		for (let j = 0; j < championIds.length && j < arr.length; j++) {
-			const cid = championIds[j];
-			if (cid !== null && cid !== undefined) arr[j] = cid;
+		for (const { team, kind, championIds } of changes) {
+			const arr = kind === "ban" ? next.bans[team] : next.picks[team];
+			for (let j = 0; j < championIds.length && j < arr.length; j++) {
+				const cid = championIds[j];
+				if (cid !== null && cid !== undefined) arr[j] = cid;
+			}
 		}
 		onChange(next);
 	};
