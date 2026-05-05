@@ -162,19 +162,32 @@ export function SeriesResult({
 					<span>기록된 게임이 없습니다.</span>
 				</div>
 			) : (
-				<div className="space-y-2">
-					{detail.games
-						.slice()
-						.sort((a, b) => a.gameNumber - b.gameNumber)
-						.map((g) => (
-							<GameSummaryCard
-								key={g.id}
-								game={g}
-								participants={detail.participants}
-								champById={champById}
-							/>
-						))}
-				</div>
+				(() => {
+					const sortedGames = detail.games.slice().sort((a, b) => a.gameNumber - b.gameNumber);
+					return (
+						<ul className="timeline timeline-vertical timeline-compact">
+							{sortedGames.map((g, i) => {
+								const isLast = i === sortedGames.length - 1;
+								const dotColor = g.winningTeam === "TEAM_1" ? "bg-info" : "bg-error";
+								return (
+									<li key={g.id}>
+										{i > 0 && <hr className="bg-base-300" />}
+										<div className="timeline-middle">
+											<div
+												className={`size-3 rounded-full ${dotColor} ring-2 ring-base-100`}
+												aria-hidden="true"
+											/>
+										</div>
+										<div className="timeline-end pb-2 w-full">
+											<GameSummaryCard game={g} participants={detail.participants} champById={champById} />
+										</div>
+										{!isLast && <hr className="bg-base-300" />}
+									</li>
+								);
+							})}
+						</ul>
+					);
+				})()
 			)}
 		</section>
 	);
