@@ -367,8 +367,68 @@ function AppInner() {
 					</ErrorBoundary>
 				)}
 			</main>
+
+			{/* 페이지 하단 footer — 자주 쓰는 액션 단축키. dropdown 메뉴 안 들어가도 한 번에 진입.
+			    LIST/LEADERBOARD/MINIGAME/PROFILE 같은 비-시리즈 흐름에서만 노출 (시리즈 진행 중에는 산만 방지). */}
+			{(stage === "LIST" ||
+				stage === "LEADERBOARD" ||
+				stage === "MINIGAME" ||
+				stage === "PROFILE") && (
+				<footer className="footer footer-center bg-base-200/60 border-t border-base-300 text-base-content/70 p-4 mt-6 sm:mt-10">
+					<nav className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 w-full max-w-screen-md">
+						<FooterButton
+							icon="📇"
+							label="내 프로필"
+							active={stage === "PROFILE" && profileUserId === user.id}
+							onClick={() => openProfile(user.id)}
+						/>
+						<FooterButton
+							icon="🏆"
+							label="리더보드"
+							active={stage === "LEADERBOARD"}
+							onClick={() => setStage("LEADERBOARD")}
+						/>
+						<FooterButton
+							icon="🎲"
+							label="도구"
+							active={stage === "MINIGAME"}
+							onClick={() => setStage("MINIGAME")}
+						/>
+						<FooterButton icon="❓" label="도움말" onClick={() => setHelpOpen(true)} />
+					</nav>
+					<aside className="text-[10px] text-base-content/50">
+						<p>
+							<span className="font-bold">monkey</span> · LoL 내전 매니저
+						</p>
+					</aside>
+				</footer>
+			)}
+
 			<Toaster />
 			<HelpModal open={helpOpen} onClose={() => setHelpOpen(false)} />
 		</div>
+	);
+}
+
+function FooterButton({
+	icon,
+	label,
+	active,
+	onClick,
+}: {
+	icon: string;
+	label: string;
+	active?: boolean;
+	onClick: () => void;
+}) {
+	return (
+		<button
+			type="button"
+			onClick={onClick}
+			className={`btn btn-sm gap-2 ${active ? "btn-primary btn-soft" : "btn-ghost"}`}
+		>
+			<span className="text-base">{icon}</span>
+			<span>{label}</span>
+		</button>
 	);
 }
