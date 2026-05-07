@@ -54,6 +54,17 @@ export async function registerSeriesRoutes(app: FastifyInstance): Promise<void> 
 			throw new HttpError(400, err instanceof Error ? err.message : String(err));
 		}
 		await db.setRecruitmentStatus(recruitmentId, "CONVERTED", series.id);
+		await db.recordAudit({
+			operatorId: sid,
+			action: "series.created",
+			targetType: "series",
+			targetId: String(series.id),
+			payload: {
+				recruitmentId,
+				seasonId: rec.season_id,
+				participantCount: assignments.length,
+			},
+		});
 		invalidate("dashboard");
 		invalidate(`recruitment:${recruitmentId}`);
 		invalidate(`series:${series.id}`);

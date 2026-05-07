@@ -2,7 +2,7 @@
 
 > 현재 버전 기준 진척 상태. 시간순 기획서는 [`PLAN.md`](./PLAN.md), 코드 리뷰 워킹노트는 [`docs/internal/`](./docs/internal/) 참조.
 
-## 현재 (v0.3.25)
+## 현재 (v0.3.26)
 
 활성 도메인: `bot.mooklol.com` (Cloudflare proxied → 단일 VPS · Docker compose 4컨테이너 stack: bot · api · activity · nginx).
 실서비스 운영 중.
@@ -93,9 +93,10 @@
 - **`.claude/settings.json`** committed — Claude Code 권한 prompt 감소 + release 자동화 allowlist (typecheck/test/build, gh, git, ssh, docker:release 등). destructive 명령은 deny 명시 (force push, hard reset, db:migrate:drop, wrangler d1 execute 등).
 - **1인 개발 워크플로우 정착** — PR/리뷰 ceremony 제거, `main` 브랜치 직접 commit + push. release 흐름은 commit → version:patch → push → docker:release → ssh.
 
-### Phase L — 후속 핫픽스 (v0.3.21~0.3.25)
+### Phase L — 후속 핫픽스 (v0.3.21~0.3.26)
 - **Sticky footer** (v0.3.21) — 루트 컨테이너 `flex flex-col` + `<main>` `flex-1` 추가. 콘텐츠 짧은 화면에서 footer 가 viewport 중간에 떠있던 문제 수정.
 - **픽/밴 일괄 입력 "모두 적용" 누적 버그** (v0.3.22) — `BulkInput.applyAll()` 이 4영역마다 `onApply` 4회 연속 호출 → 각 호출이 같은 `gameDraft` prop 기반 새 객체 생성 → 부모 `setDraft((prev) => ...)` 가 동일 prev 에 4번 덮어쓰기 → 마지막 (`TEAM_2 ban`) 만 반영되던 버그. `onApply` 시그니처를 다중 변경 array 로 변경, `handleApplyBulk` 가 같은 `next` 위에 누적 후 단일 `onChange()` 호출하도록 수정.
+- **audit log 커버리지 확장** (v0.3.26) — 기존 destructive action (force-delete*, season-reset, mmr.adjust, series.early-complete, series.revert, cleanup-stale) 만 audit 되던 것을 정상 lifecycle 까지 확장. 신규 actions: `series.created`, `series.completed`, `game.recorded`, `game.undone`, `recruitment.created`, `recruitment.cancelled`, `recruitment.closed`. `/로그` 웹뷰가 진짜 운영 타임라인이 됨 — 누가 언제 모집을 만들었고 어떤 게임을 기록했는지까지 추적. pickban draft 저장은 너무 빈번해 제외 (game.recorded 가 최종 결과 캡처).
 - **세 가지 후속 정리** (v0.3.25) —
   - `operatorRoleConfigured` 응답 필드 제거: v0.3.23 이후 항상 `true` 라 의미 없는 필드. `apps/api/src/http/auth.ts` + `apps/activity/src/state/perms.tsx` + `apps/activity/src/App.tsx` 정리. dropdown 의 ✏️/👁 뱃지는 항상 표시.
   - `pnpm deploy:vps` 자동화 스크립트 (`scripts/deploy-vps.sh`): preflight (working tree clean + main 동기화) → `docker:release` → `ssh root@141.164.46.191 ... compose pull && up -d` → health check. 매 release 마다 같은 시퀀스 반복하던 것을 한 명령으로.
@@ -118,7 +119,7 @@
 - Activity 모집 컨트롤 — 현재 봇 `/내전모집` 슬래시만, 사용자 명시 보류 (v0.3.6 시점). 필요 시 별도 phase.
 
 ### 운영 / 관측성
-- audit log 커버리지 확장 — `series.created` / `recruitment.*` / `game.recorded` / `game.undone` 등 비-삭제 이벤트도 기록 (현재는 운영자 destructive action 만).
+- audit_log retention 정책 — 정상 lifecycle audit (v0.3.26) 까지 누적되면 시즌 단위로 archive 또는 90일 retention 결정 필요. 현재는 무제한.
 - pino info/warn 로그도 `/logs` 웹뷰에서 조회 (현재 audit_log 만; 별도 events 테이블 또는 Cloudflare Logpush 필요).
 - 자동 시즌 전환 (스케줄러).
 - 소환사 아이콘 주기 갱신 — 사용자가 League 안에서 아이콘 변경 시 즉시 반영 X (등록 시점 / 백필 시점 캐시). 주기 cron 또는 `/내정보 갱신` 슬래시로 수동.

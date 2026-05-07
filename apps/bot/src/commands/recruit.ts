@@ -23,7 +23,14 @@ import { renderComponents } from "./recruit/messageBuilder.js";
 export { handleButton } from "./recruit/buttonHandlers.js";
 export { handleStringSelect } from "./recruit/selectHandlers.js";
 
-const { createRecruitment, setRecruitmentMessage, upsertUser, getCurrentSeason, createSeason } = db;
+const {
+	createRecruitment,
+	setRecruitmentMessage,
+	upsertUser,
+	getCurrentSeason,
+	createSeason,
+	recordAudit,
+} = db;
 
 export const data = new SlashCommandBuilder()
 	.setName("내전모집")
@@ -67,6 +74,13 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
 		seasonId,
 		targetCount,
 		createdBy: interaction.user.id,
+	});
+	await recordAudit({
+		operatorId: interaction.user.id,
+		action: "recruitment.created",
+		targetType: "recruitment",
+		targetId: String(rec.id),
+		payload: { seasonId, targetCount },
 	});
 
 	const components = await renderComponents(rec.id);

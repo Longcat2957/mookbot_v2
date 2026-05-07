@@ -15,6 +15,7 @@ const {
 	listRecruitmentParticipants,
 	isRecruitmentParticipant,
 	upsertUser,
+	recordAudit,
 } = db;
 
 export async function handleButton(interaction: ButtonInteraction): Promise<void> {
@@ -121,6 +122,12 @@ async function handleCancel(
 	}
 	await interaction.deferUpdate();
 	await setRecruitmentStatus(id, "CANCELLED");
+	await recordAudit({
+		operatorId: interaction.user.id,
+		action: "recruitment.cancelled",
+		targetType: "recruitment",
+		targetId: String(id),
+	});
 	const components = await renderComponents(id);
 	await interaction.editReply(v2EditReply(...components));
 	void notify(`recruitment:${id}`);
@@ -154,6 +161,13 @@ async function handleNext(
 	// deferUpdate 로 3초 ack 회피 — 그 다음 D1 작업 + 메시지 갱신.
 	await interaction.deferUpdate();
 	await setRecruitmentStatus(id, "CLOSED");
+	await recordAudit({
+		operatorId: interaction.user.id,
+		action: "recruitment.closed",
+		targetType: "recruitment",
+		targetId: String(id),
+		payload: { participantCount: participants.length },
+	});
 	const components = await renderComponents(id);
 	await interaction.editReply(v2EditReply(...components));
 	void notify(`recruitment:${id}`);

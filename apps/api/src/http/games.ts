@@ -122,6 +122,31 @@ export async function registerGameRoutes(app: FastifyInstance): Promise<void> {
 			completedSeries = true;
 		}
 
+		await db.recordAudit({
+			operatorId: sid,
+			action: "game.recorded",
+			targetType: "game",
+			targetId: String(result.game.id),
+			payload: {
+				seriesId: id,
+				gameNumber,
+				winningTeam: body.winningTeam,
+				team1Side: body.team1Side,
+			},
+		});
+		if (completedSeries) {
+			await db.recordAudit({
+				operatorId: sid,
+				action: "series.completed",
+				targetType: "series",
+				targetId: String(id),
+				payload: {
+					winningTeam: wins.team1 >= 2 ? "TEAM_1" : "TEAM_2",
+					finalScore: { team1: wins.team1, team2: wins.team2 },
+				},
+			});
+		}
+
 		invalidate(`series:${id}`);
 		if (completedSeries) invalidate("dashboard");
 		// 리더보드 / 영향 받은 유저 프로필 invalidate
@@ -169,12 +194,25 @@ export async function registerGameRoutes(app: FastifyInstance): Promise<void> {
 		}
 
 		// 시리즈가 COMPLETED 였으면 IN_PROGRESS 로 복원
-		if (s.status === "COMPLETED") {
+		const restoredFromCompleted = s.status === "COMPLETED";
+		if (restoredFromCompleted) {
 			await cloudflare.execute(
 				`UPDATE series SET status = 'IN_PROGRESS', winning_team = NULL, ended_at = NULL WHERE id = ?`,
 				[id],
 			);
 		}
+
+		await db.recordAudit({
+			operatorId: sid,
+			action: "game.undone",
+			targetType: "game",
+			targetId: String(last.id),
+			payload: {
+				seriesId: id,
+				gameNumber: last.game_number,
+				restoredFromCompleted,
+			},
+		});
 
 		invalidate(`series:${id}`);
 		invalidate("dashboard");
