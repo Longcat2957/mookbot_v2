@@ -7,7 +7,6 @@ import { wsClient } from "../api/ws.js";
 interface MeInfo {
 	discordId: string;
 	canEdit: boolean;
-	operatorRoleConfigured: boolean;
 }
 
 const PermsContext = createContext<MeInfo | null>(null);
@@ -24,7 +23,7 @@ export function PermsProvider({ children }: { children: ReactNode }) {
 			})
 			.catch((err) => {
 				console.warn("[mookbot] /api/me fetch failed", err);
-				setMe({ discordId: "", canEdit: false, operatorRoleConfigured: false });
+				setMe({ discordId: "", canEdit: false });
 			});
 	}, []);
 
@@ -33,5 +32,5 @@ export function PermsProvider({ children }: { children: ReactNode }) {
 
 export function usePerms(): MeInfo {
 	const v = useContext(PermsContext);
-	return v ?? { discordId: "", canEdit: false, operatorRoleConfigured: false };
+	return v ?? { discordId: "", canEdit: false };
 }

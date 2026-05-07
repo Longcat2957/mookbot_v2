@@ -196,18 +196,16 @@ function AppInner() {
 							className="btn btn-ghost btn-sm gap-1.5 px-2 list-none after:content-none"
 							aria-label="메뉴 열기"
 						>
-							{perms.operatorRoleConfigured && (
-								<span
-									className={`badge badge-xs ${perms.canEdit ? "badge-success" : "badge-ghost"}`}
-									title={
-										perms.canEdit
-											? "운영자 권한 — 엔트리/픽밴/결과 입력 가능"
-											: "읽기 전용 — 운영자 role 이 필요합니다"
-									}
-								>
-									{perms.canEdit ? "✏️" : "👁"}
-								</span>
-							)}
+							<span
+								className={`badge badge-xs ${perms.canEdit ? "badge-success" : "badge-ghost"}`}
+								title={
+									perms.canEdit
+										? "운영자 권한 — 엔트리/픽밴/결과 입력 가능"
+										: "읽기 전용 — BalanceTeam 역할이 필요합니다"
+								}
+							>
+								{perms.canEdit ? "✏️" : "👁"}
+							</span>
 							<span className="font-medium truncate max-w-32">{user.username}</span>
 							<span className="text-xs opacity-60">▾</span>
 						</summary>

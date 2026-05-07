@@ -1,7 +1,7 @@
 {
 	"name": "mookbot-v2",
 	"private": true,
-	"version": "0.3.24",
+	"version": "0.3.25",
 	"type": "module",
 	"engines": {
 		"node": ">=22"
@@ -22,7 +22,8 @@
 		"version:major": "pnpm version major --no-git-tag-version",
 		"docker:build": "scripts/docker-build.sh",
 		"docker:push": "scripts/docker-push.sh",
-		"docker:release": "scripts/docker-build.sh && scripts/docker-push.sh"
+		"docker:release": "scripts/docker-build.sh && scripts/docker-push.sh",
+		"deploy:vps": "scripts/deploy-vps.sh"
 	},
 	"devDependencies": {
 		"@biomejs/biome": "^2.4.14",
