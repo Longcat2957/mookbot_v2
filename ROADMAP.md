@@ -31,7 +31,7 @@
 ### Phase 3 — 슬래시 명령어 (v0.2.2~0.2.7)
 - 조회: `/등록`, `/내정보`, `/내전기록`, `/랭킹`, `/전적`, `/지금게임`
 - 운영: `/내전모집`, `/일괄등록`
-- 모두 BalanceTeam role 게이트 (`apps/api/src/auth/perms.ts`)
+- 운영자 role 게이트 골격 마련 (`apps/api/src/auth/perms.ts`, `apps/bot/src/utils/operator.ts`) — 단, 실제 enforcement 는 v0.3.23 에서 완성 (그 전까진 env 미설정 시 모두 허용 fallback 로 사실상 무력화돼 있었음).
 
 ### Phase 4 — 운영 안정화 (v0.2.3~0.2.8)
 - SSL Full(strict) 전환
@@ -96,7 +96,7 @@
 ### Phase L — 후속 핫픽스 (v0.3.21~0.3.23)
 - **Sticky footer** (v0.3.21) — 루트 컨테이너 `flex flex-col` + `<main>` `flex-1` 추가. 콘텐츠 짧은 화면에서 footer 가 viewport 중간에 떠있던 문제 수정.
 - **픽/밴 일괄 입력 "모두 적용" 누적 버그** (v0.3.22) — `BulkInput.applyAll()` 이 4영역마다 `onApply` 4회 연속 호출 → 각 호출이 같은 `gameDraft` prop 기반 새 객체 생성 → 부모 `setDraft((prev) => ...)` 가 동일 prev 에 4번 덮어쓰기 → 마지막 (`TEAM_2 ban`) 만 반영되던 버그. `onApply` 시그니처를 다중 변경 array 로 변경, `handleApplyBulk` 가 같은 `next` 위에 누적 후 단일 `onChange()` 호출하도록 수정.
-- **운영자 권한 = `BalanceTeam` 역할 단일화** (v0.3.23) — 기존 `OPERATOR_ROLE_ID`/`OPERATOR_ROLE_NAME` dual-path + "env 미설정 시 모두 허용" fallback 제거. 코드 기본값 `"BalanceTeam"` (env 로 override 가능). 길드에서 역할 미발견 시 fail-secure deny. `apps/api/src/auth/perms.ts` + `apps/bot/src/utils/operator.ts` 동시 적용. 테스트는 globalThis Symbol 기반 `__setCanEditOverrideForTest` 훅으로 vi.mock 없이 분기.
+- **운영자 권한 = `BalanceTeam` 역할 단일화** (v0.3.23) — 기존 `OPERATOR_ROLE_ID`/`OPERATOR_ROLE_NAME` dual-path + "env 미설정 시 모두 허용" fallback 제거. 코드 기본값 `"BalanceTeam"` (env 로 override 가능). 길드에서 역할 미발견 시 fail-secure deny. `apps/api/src/auth/perms.ts` + `apps/bot/src/utils/operator.ts` 동시 적용. 테스트는 globalThis Symbol 기반 `__setCanEditOverrideForTest` 훅으로 vi.mock 없이 분기. **실제 영향**: v0.3.23 전까진 `bot/.env` 의 OPERATOR 설정이 비어있어서 (api 만 ID 설정) 봇 슬래시 운영자 명령은 누구나 실행 가능 상태였음 — 이번 릴리즈로 양쪽 모두 BalanceTeam 보유자만 통과. VPS env (`/root/deploy/{api,bot}/.env`) 도 정리 — `OPERATOR_ROLE_ID` 제거, `OPERATOR_ROLE_NAME=BalanceTeam` 명시.
 
 ## 🚧 진행 중 / 부분 (Partial)
 
