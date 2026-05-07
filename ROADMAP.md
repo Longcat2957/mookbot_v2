@@ -2,7 +2,7 @@
 
 > 현재 버전 기준 진척 상태. 시간순 기획서는 [`PLAN.md`](./PLAN.md), 코드 리뷰 워킹노트는 [`docs/internal/`](./docs/internal/) 참조.
 
-## 현재 (v0.3.23)
+## 현재 (v0.3.24)
 
 활성 도메인: `bot.mooklol.com` (Cloudflare proxied → 단일 VPS · Docker compose 4컨테이너 stack: bot · api · activity · nginx).
 실서비스 운영 중.
@@ -93,9 +93,10 @@
 - **`.claude/settings.json`** committed — Claude Code 권한 prompt 감소 + release 자동화 allowlist (typecheck/test/build, gh, git, ssh, docker:release 등). destructive 명령은 deny 명시 (force push, hard reset, db:migrate:drop, wrangler d1 execute 등).
 - **1인 개발 워크플로우 정착** — PR/리뷰 ceremony 제거, `main` 브랜치 직접 commit + push. release 흐름은 commit → version:patch → push → docker:release → ssh.
 
-### Phase L — 후속 핫픽스 (v0.3.21~0.3.23)
+### Phase L — 후속 핫픽스 (v0.3.21~0.3.24)
 - **Sticky footer** (v0.3.21) — 루트 컨테이너 `flex flex-col` + `<main>` `flex-1` 추가. 콘텐츠 짧은 화면에서 footer 가 viewport 중간에 떠있던 문제 수정.
 - **픽/밴 일괄 입력 "모두 적용" 누적 버그** (v0.3.22) — `BulkInput.applyAll()` 이 4영역마다 `onApply` 4회 연속 호출 → 각 호출이 같은 `gameDraft` prop 기반 새 객체 생성 → 부모 `setDraft((prev) => ...)` 가 동일 prev 에 4번 덮어쓰기 → 마지막 (`TEAM_2 ban`) 만 반영되던 버그. `onApply` 시그니처를 다중 변경 array 로 변경, `handleApplyBulk` 가 같은 `next` 위에 누적 후 단일 `onChange()` 호출하도록 수정.
+- **권한 진단 모달 노출** (v0.3.24) — Activity dropdown 의 "내 권한 확인" 항목. `apps/api/src/auth/perms.ts:diagnosePerms` 의 결과 (BalanceTeam 보유 여부 / 운영자 역할 ID / 본인 길드 role 목록) 를 모달로 표시. v0.3.23 단일화 직후 자가진단 도구 — "왜 ⛔ 가 떠?" 응답을 사용자가 직접 확인 가능. 신규 `apps/activity/src/components/PermsModal.tsx`.
 - **운영자 권한 = `BalanceTeam` 역할 단일화** (v0.3.23) — 기존 `OPERATOR_ROLE_ID`/`OPERATOR_ROLE_NAME` dual-path + "env 미설정 시 모두 허용" fallback 제거. 코드 기본값 `"BalanceTeam"` (env 로 override 가능). 길드에서 역할 미발견 시 fail-secure deny. `apps/api/src/auth/perms.ts` + `apps/bot/src/utils/operator.ts` 동시 적용. 테스트는 globalThis Symbol 기반 `__setCanEditOverrideForTest` 훅으로 vi.mock 없이 분기. **실제 영향**: v0.3.23 전까진 `bot/.env` 의 OPERATOR 설정이 비어있어서 (api 만 ID 설정) 봇 슬래시 운영자 명령은 누구나 실행 가능 상태였음 — 이번 릴리즈로 양쪽 모두 BalanceTeam 보유자만 통과. VPS env (`/root/deploy/{api,bot}/.env`) 도 정리 — `OPERATOR_ROLE_ID` 제거, `OPERATOR_ROLE_NAME=BalanceTeam` 명시.
 
 ## 🚧 진행 중 / 부분 (Partial)

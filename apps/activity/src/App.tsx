@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { ErrorBoundary } from "./components/ErrorBoundary.js";
 import { HelpModal } from "./components/HelpModal.js";
+import { PermsModal } from "./components/PermsModal.js";
 import { SearchBar } from "./components/SearchBar.js";
 import { type StageKey, Steps } from "./components/Steps.js";
 import { SystemDot } from "./components/SystemDot.js";
@@ -89,6 +90,7 @@ function AppInner() {
 	const [profileUserId, setProfileUserId] = useState<string | null>(null);
 	const [profileBackTo, setProfileBackTo] = useState<StageKey>("LIST");
 	const [helpOpen, setHelpOpen] = useState(false);
+	const [permsOpen, setPermsOpen] = useState(false);
 	const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
 
 	// "?" 단축키 — 도움말 토글. design_upgrade.md §4.5
@@ -250,6 +252,12 @@ function AppInner() {
 									<kbd className="kbd kbd-xs ml-auto">?</kbd>
 								</button>
 							</li>
+							<li>
+								<button type="button" onClick={() => setPermsOpen(true)}>
+									<span className="text-base">{perms.canEdit ? "✏️" : "👁"}</span>
+									<span>내 권한 확인</span>
+								</button>
+							</li>
 							<li className="menu-title pt-2">
 								<span>설정</span>
 							</li>
@@ -406,6 +414,7 @@ function AppInner() {
 
 			<Toaster />
 			<HelpModal open={helpOpen} onClose={() => setHelpOpen(false)} />
+			<PermsModal open={permsOpen} onClose={() => setPermsOpen(false)} />
 		</div>
 	);
 }
