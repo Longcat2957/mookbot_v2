@@ -1,6 +1,19 @@
+// 운영자 권한 검증 — `BalanceTeam` 역할을 보유하면 운영자.
+// 사용자가 다른 역할을 함께 가지고 있어도 BalanceTeam 만 있으면 통과.
+//
+// 역할 이름은 OPERATOR_ROLE_NAME env 로 override 가능 (기본 "BalanceTeam").
+// 길드에서 해당 이름의 역할을 찾지 못하면 fail-secure 로 deny.
+
+import { log } from "@mookbot/core";
 import { type ButtonInteraction, type ChatInputCommandInteraction, GuildMember } from "discord.js";
 
 type OpInteraction = ChatInputCommandInteraction | ButtonInteraction;
+
+const DEFAULT_OPERATOR_ROLE_NAME = "BalanceTeam";
+
+function operatorRoleName(): string {
+	return process.env.OPERATOR_ROLE_NAME?.trim() || DEFAULT_OPERATOR_ROLE_NAME;
+}
 
 function memberRoleIds(interaction: OpInteraction): string[] {
 	const m = interaction.member;
@@ -13,10 +26,7 @@ function memberRoleIds(interaction: OpInteraction): string[] {
 }
 
 async function resolveOperatorRoleId(interaction: OpInteraction): Promise<string | null> {
-	const id = process.env.OPERATOR_ROLE_ID?.trim();
-	if (id) return id;
-	const name = process.env.OPERATOR_ROLE_NAME?.trim();
-	if (!name) return null;
+	const name = operatorRoleName();
 	const guild = interaction.guild;
 	if (!guild) return null;
 	const role =
@@ -27,7 +37,13 @@ async function resolveOperatorRoleId(interaction: OpInteraction): Promise<string
 
 export async function isOperator(interaction: OpInteraction): Promise<boolean> {
 	const roleId = await resolveOperatorRoleId(interaction);
-	if (!roleId) return true;
+	if (!roleId) {
+		log.warn(
+			{ roleName: operatorRoleName(), guildId: interaction.guild?.id },
+			"operator: BalanceTeam role not found in guild — denying",
+		);
+		return false;
+	}
 	return memberRoleIds(interaction).includes(roleId);
 }
 

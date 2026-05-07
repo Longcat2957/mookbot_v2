@@ -110,20 +110,26 @@ export function signSid(app: FastifyInstance, userId: string): string;
 
 ### 3.2 동작
 
-1. `canEdit` 토글에 따라 `OPERATOR_ROLE_ID/NAME/DISCORD_TOKEN` env 조정 (perms 모듈을 자연 fallback 시킴 — vi.mock 불필요)
+1. `canEdit` 토글에 따라 perms 모듈의 `__setCanEditOverrideForTest(canEdit)` 호출 — `userCanEdit()` 가 즉시 그 값 반환 (vi.mock 불필요)
 2. `clearPermsCache()` — 이전 테스트의 멤버 캐시 클리어
 3. `createTestDb()` + `installDbDriver(db)` — d1 swap
 4. Fastify 인스턴스 생성 + cookie + `setErrorHandler(fastifyErrorHandler)`
 5. `registerRoutes(app)` — 모든 라우트 등록 (listen 안 함)
 
-### 3.3 canEdit 자연 fallback
+### 3.3 canEdit 테스트 override
 
-operator 권한 검증은 `apps/api/src/auth/perms.ts` 가 처리:
-- `OPERATOR_ROLE_ID/NAME` 둘 다 unset → "all users can edit" → `canEdit: true`
-- `OPERATOR_ROLE_ID` 설정 + `DISCORD_TOKEN` unset → guild fetch 실패 → roles `[]` → `canEdit: false`
+operator 권한 검증은 `apps/api/src/auth/perms.ts` 가 처리. production 에서는 길드의
+`BalanceTeam` 역할 (또는 `OPERATOR_ROLE_NAME` env override) 보유자만 통과하지만,
+테스트는 Discord 길드 fetch 를 피하려고 명시적 override 훅을 사용:
 
-vi.mock 으로 perms 모듈을 갈아엎는 대신 env 토글로 자연스럽게 분기시키는
-패턴 — 모듈 인스턴스 동기화 문제를 회피.
+```ts
+__setCanEditOverrideForTest(true);   // 모든 사용자 canEdit
+__setCanEditOverrideForTest(false);  // 모든 사용자 deny
+__setCanEditOverrideForTest(null);   // production 로직 복귀
+```
+
+vi.mock 으로 perms 모듈을 갈아엎는 대신 모듈-level mutable flag 로 분기 — 모듈
+인스턴스 동기화 문제를 회피.
 
 ### 3.4 cookie 서명
 
@@ -186,9 +192,8 @@ try {
 }
 ```
 
-`buildTestApp` 자체가 OPERATOR_ROLE_* 를 set/delete 하므로, 같은 env 를
-다른 테스트에서 의존하면 충돌. 현재는 `routes.test.ts` 가 INTERNAL_API_KEY
-를 세팅할 때 위 패턴 사용.
+`buildTestApp` 자체는 env 를 건드리지 않으므로 (override 훅 사용) 충돌 없음.
+`routes.test.ts` 가 INTERNAL_API_KEY 를 세팅할 때는 위 패턴 사용.
 
 ---
 

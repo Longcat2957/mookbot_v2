@@ -1,9 +1,9 @@
 // 테스트용 Fastify app 빌더 — listen 안 함, in-memory SQLite + 모킹.
-// Wave 5.x: d1 driver pattern 활용 → DB-touching 라우트 통합 가능.
 //
-// canEdit 게이팅 — perms 모듈을 mock 하는 대신 env 로 자연 fallback:
-//   - canEdit=true:  OPERATOR_ROLE_ID/NAME 둘 다 unset → "all users can edit"
-//   - canEdit=false: OPERATOR_ROLE_ID 설정 + DISCORD_TOKEN unset → guild fetch 실패 → roles [] → false
+// canEdit 게이팅 — perms 모듈의 명시적 테스트 override 훅 사용.
+//   - canEdit=true:  __setCanEditOverrideForTest(true) → 모든 사용자 허용
+//   - canEdit=false: __setCanEditOverrideForTest(false) → 모든 사용자 거부
+// production 코드 경로는 영향 없음 (override 는 테스트 파일에서만 set).
 
 import cookie from "@fastify/cookie";
 import { createTestDb, installDbDriver, type TestDb } from "@mookbot/core/test-utils/db-harness";
@@ -20,17 +20,10 @@ export interface TestAppCtx {
 
 export async function buildTestApp(opts?: { canEdit?: boolean }): Promise<TestAppCtx> {
 	const canEdit = opts?.canEdit ?? true;
-	if (canEdit) {
-		delete process.env.OPERATOR_ROLE_ID;
-		delete process.env.OPERATOR_ROLE_NAME;
-	} else {
-		process.env.OPERATOR_ROLE_ID = "test-operator-role";
-		// DISCORD_TOKEN 없으면 fetchGuildMember → null → roles [] → canEdit false
-		delete process.env.DISCORD_TOKEN;
-	}
 
-	// perms 모듈의 멤버 캐시 클리어 — 테스트 간 격리
-	const { clearPermsCache } = await import("../auth/perms.js");
+	// perms 모듈 — 테스트 override + 캐시 클리어
+	const { __setCanEditOverrideForTest, clearPermsCache } = await import("../auth/perms.js");
+	__setCanEditOverrideForTest(canEdit);
 	clearPermsCache();
 
 	// In-memory SQLite + d1 driver swap → 모든 db.* 호출이 SQLite 위에서 실행

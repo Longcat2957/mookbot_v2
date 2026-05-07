@@ -67,7 +67,7 @@ export async function registerAuthRoutes(app: FastifyInstance): Promise<void> {
 		return {
 			discordId: sid,
 			canEdit,
-			operatorRoleConfigured: Boolean(process.env.OPERATOR_ROLE_ID || process.env.OPERATOR_ROLE_NAME),
+			operatorRoleConfigured: true,
 		};
 	});
 

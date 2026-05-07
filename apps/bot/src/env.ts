@@ -31,7 +31,6 @@ const schema = z.object({
 	LOG_LEVEL: z.string().optional(),
 	BOT_HEALTH_PORT: z.string().optional(),
 	INTERNAL_API_BASE: z.string().optional(),
-	OPERATOR_ROLE_ID: z.string().optional(),
 	OPERATOR_ROLE_NAME: z.string().optional(),
 	ERROR_WEBHOOK_URL: z.string().url().optional(),
 	ERROR_WEBHOOK_LEVEL: z.string().optional(),

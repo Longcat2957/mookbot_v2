@@ -18,9 +18,9 @@
 - **operator gate** (2) — `POST /api/series` 401 (no cookie) / 403 (non-operator).
 - **internal endpoints** (3) — `POST /internal/notify` 503 (key 미설정) / 401 (mismatch) / 200 (correct key).
 
-**핵심**: 인증 미들웨어 (cookie 검증, OPERATOR_ROLE_ID 체크, X-Internal-Key) 가 모든 entry point 에서 정확히 동작.
+**핵심**: 인증 미들웨어 (cookie 검증, BalanceTeam 역할 체크, X-Internal-Key) 가 모든 entry point 에서 정확히 동작.
 
-**테스트 인프라**: `buildTestApp({ canEdit })` — perms 모듈을 mock 하지 않고 env 토글로 자연 fallback 시킴 (자세한 패턴은 [`infrastructure.md`](./infrastructure.md#33-canedit-자연-fallback) 참고).
+**테스트 인프라**: `buildTestApp({ canEdit })` — perms 모듈의 `__setCanEditOverrideForTest` 훅으로 분기 (자세한 패턴은 [`infrastructure.md`](./infrastructure.md#33-canedit-테스트-override) 참고).
 
 ---
 

@@ -32,7 +32,6 @@ const schema = z.object({
 	OAUTH_REDIRECT_URI: z.string().url().optional(),
 	// api → bot 내부 호출 base (compose 내부, 기본 http://bot:3001) — recruit 메시지 sync 트리거
 	BOT_INTERNAL_BASE: z.string().optional(),
-	OPERATOR_ROLE_ID: z.string().optional(),
 	OPERATOR_ROLE_NAME: z.string().optional(),
 	ERROR_WEBHOOK_URL: z.string().url().optional(),
 	ERROR_WEBHOOK_LEVEL: z.string().optional(),
