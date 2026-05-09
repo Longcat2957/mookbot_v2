@@ -2,7 +2,7 @@
 
 > 현재 버전 기준 진척 상태. 시간순 기획서는 [`PLAN.md`](./PLAN.md), 코드 리뷰 워킹노트는 [`docs/internal/`](./docs/internal/) 참조.
 
-## 현재 (v0.3.26)
+## 현재 (v0.4.0)
 
 활성 도메인: `bot.mooklol.com` (Cloudflare proxied → 단일 VPS · Docker compose 4컨테이너 stack: bot · api · activity · nginx).
 실서비스 운영 중.
@@ -93,7 +93,19 @@
 - **`.claude/settings.json`** committed — Claude Code 권한 prompt 감소 + release 자동화 allowlist (typecheck/test/build, gh, git, ssh, docker:release 등). destructive 명령은 deny 명시 (force push, hard reset, db:migrate:drop, wrangler d1 execute 등).
 - **1인 개발 워크플로우 정착** — PR/리뷰 ceremony 제거, `main` 브랜치 직접 commit + push. release 흐름은 commit → version:patch → push → docker:release → ssh.
 
-### Phase L — 후속 핫픽스 (v0.3.21~0.3.26)
+### Phase N — 대시보드 페이지네이션 (v0.3.29)
+- **지난 내전 페이지네이션** (v0.3.29) — `/api/series/completed` 에 `offset` querystring 추가 + 응답에 `total` 포함 (`SELECT COUNT(*)` 추가 1쿼리). RecruitmentList 가 pending (recruitments+series) SWR 와 completed (page 별) SWR 분리 — page 변경 시 completed 만 refetch. PAGE_SIZE=8, daisyUI `join` 페이지 컨트롤 (« page X/N »). page 가 totalPages 초과 시 자동 클램프 (시리즈 삭제 후). 7건 통합 테스트.
+
+### Phase M — 라이엇 계정 self-service (v0.3.28)
+- **본인 라이엇 계정 self-service CRUD** (v0.3.28) — Profile 페이지의 "✏️ 관리" 버튼이 새 stage `MY_RIOT_ACCOUNTS` 로 이동. 사용자가 자기 계정 (a) 목록 조회 (b) 신규 link (Riot API 검증 + profile_icon fetch) (c) 메인 전환 (d) 동기화 (Riot ID rename 추적 — `getAccountByPuuid` 신규 추가) (e) 연결 해제 가능. `linkRiotAccount` 호출 시 첫 계정만 자동 메인 — 그 외는 sub. 메인 해제 시 auto-promote 없음 (명시적 사용자 액션). 게임 기록은 discord_id 에 anchor 라 unlink 해도 MMR/전적 보존. 모든 변경 audit log 4 actions: `riot_account.linked` / `unlinked` / `main_changed` / `refreshed`. 5개 새 엔드포인트 모두 본인 한정 (sid 강제 WHERE 가드). 기존 `/등록` 슬래시는 first-time / 길드 운영 경로로 유지. 14개 통합 테스트 (격리 / 다른 사용자 puuid 차단 / 메인 삭제 동작 / 마지막 계정 삭제 / 메인 전환 / refresh rename).
+
+### Phase L — 후속 핫픽스 (v0.3.21~0.3.27)
+- **권한 캐시 오염 fix** (v0.3.27) — `apps/api/src/auth/perms.ts:getRoles` 가 `fetchGuildMember` 일시 실패 (Discord API 5xx / rate limit) 결과를 빈 배열로 60s 캐시해, 운영자가 권한 없는 사용자로 처리되던 long-standing 버그. "Activity 껐다 켜면 회복" 증상이 단서. 실패 시 캐시 안 함 (다음 요청 재시도) + 클라이언트 `PermsProvider` 가 `focus`/`visibilitychange` 이벤트에 자동 refresh + 에러 시 기존 me 보존 (downgrade 금지) + `PermsModal` 의 "↻ 재확인" 버튼 (수동 회복 경로) + 회귀 테스트 3건.
+- **BalancePreview HTML 재구현 + 챔프 풀 expand** (v0.3.27) — SVG fetch (외부 share 무용지물 placeholder) 제거 → 클라이언트 props 로 직접 HTML 렌더. 라인별 매치업 카드의 각 플레이어 행을 펼치면 "내전 챔프 Top5" (icon + 이름 + W/L + WR%) 노출. "전체 열기/닫기" 토글로 일괄 펼치기. SVG 엔드포인트 자체는 미래 Discord webhook 업로드 용으로 서버에 보존. `/api/series/:id` 응답에 `laneMmr` 추가.
+- **EntryEditing 좌/우 swap 버튼** (v0.3.27) — 1팀/2팀 라벨이 BLUE/RED 사이드 축과 시각 충돌하던 문제. 운영자가 직접 좌우 위치를 토글 가능 (assignment Map 의 모든 slot 에서 `TEAM_1` ↔ `TEAM_2` 일괄 swap). debounced entry-draft PUT 가 자동 동기화.
+- **봇 datadragon init 누락 fix** (v0.3.27) — `apps/bot/src/index.ts` 가 `initDataDragon` 미호출 → `/전적` `/지금게임` 챔피언 이름이 `Unknown(<id>)` fallback 으로 노출되던 버그. API 와 동일한 fail-soft init 추가.
+- **K/D/A UI 제거** (v0.3.27) — Profile recent games 의 K/D/A 표시 제거 + `/api/users/:id/profile` 응답에서 `kills/deaths/assists` 필드 제거. Riot production key / tournament API 인증 전까지 항상 0 이라 misleading. DB 컬럼 + record.ts 파라미터는 미래 인증 후를 위해 보존.
+
 - **Sticky footer** (v0.3.21) — 루트 컨테이너 `flex flex-col` + `<main>` `flex-1` 추가. 콘텐츠 짧은 화면에서 footer 가 viewport 중간에 떠있던 문제 수정.
 - **픽/밴 일괄 입력 "모두 적용" 누적 버그** (v0.3.22) — `BulkInput.applyAll()` 이 4영역마다 `onApply` 4회 연속 호출 → 각 호출이 같은 `gameDraft` prop 기반 새 객체 생성 → 부모 `setDraft((prev) => ...)` 가 동일 prev 에 4번 덮어쓰기 → 마지막 (`TEAM_2 ban`) 만 반영되던 버그. `onApply` 시그니처를 다중 변경 array 로 변경, `handleApplyBulk` 가 같은 `next` 위에 누적 후 단일 `onChange()` 호출하도록 수정.
 - **audit log 커버리지 확장** (v0.3.26) — 기존 destructive action (force-delete*, season-reset, mmr.adjust, series.early-complete, series.revert, cleanup-stale) 만 audit 되던 것을 정상 lifecycle 까지 확장. 신규 actions: `series.created`, `series.completed`, `game.recorded`, `game.undone`, `recruitment.created`, `recruitment.cancelled`, `recruitment.closed`. `/로그` 웹뷰가 진짜 운영 타임라인이 됨 — 누가 언제 모집을 만들었고 어떤 게임을 기록했는지까지 추적. pickban draft 저장은 너무 빈번해 제외 (game.recorded 가 최종 결과 캡처).
@@ -112,7 +124,8 @@
 ## 📅 백로그 (Backlog)
 
 ### UX
-- "밸런스-확인" Discord 채널 자동 업로드 — `sharp` 로 SVG → PNG 변환 + webhook URL. 현재는 운영자가 Activity 의 "URL 복사" / "새 탭 열기" 로 수동 공유.
+- **K/D/A · CS 자동 수집** — Riot production key 또는 tournament API 인증 후 활성화. 현재 DB 컬럼 (`game_stats.kills/deaths/assists/cs`) 과 `recordGame` 파라미터는 미래 경로 위해 보존하되, UI 노출 X (항상 0). 인증 받으면 `/지금게임` 매치 종료 hook 또는 tournament API 의 game finished callback 으로 자동 채움.
+- "밸런스-확인" Discord 채널 자동 업로드 — `sharp` 로 SVG → PNG 변환 + webhook URL. 현재는 BalancePreview 가 HTML 인라인 노출만 — 외부 채널 공유 경로 부재.
 - Activity navbar — `모집 #N → 시리즈 #N` 매핑 시각화 (현재 단일 ContextChip; breadcrumbs 변형으로 위계 강화 여지).
 - 모바일 Activity QA — iOS/Android 검증 후 Developer Portal Mobile platform 활성화 결정. (Phase D 에서 모바일 검색 토글 + 반응형 navbar 추가했으나 실기 검증 필요)
 - 픽밴 cursor presence (실시간 다인 협업 시각화).

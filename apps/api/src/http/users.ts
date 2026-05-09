@@ -171,9 +171,8 @@ export async function registerUsersRoutes(app: FastifyInstance): Promise<void> {
 					iconUrl:
 						g.champion_id !== null ? rewriteDD(datadragon.getChampionImageUrl(g.champion_id)) : null,
 					won: g.won === 1,
-					kills: g.kills,
-					deaths: g.deaths,
-					assists: g.assists,
+					// K/D/A 는 Riot production key / tournament API 인증 전까지 항상 0 —
+					// 페이로드에서 제외 (DB 컬럼 자체는 미래 인증 후를 위해 보존).
 					cs: g.cs,
 					mmrDelta: g.mmr_delta !== null ? Math.round(g.mmr_delta) : null,
 					mmrAfter: g.mmr_after !== null ? Math.round(g.mmr_after) : null,

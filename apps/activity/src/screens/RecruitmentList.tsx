@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { api } from "../api/rest.js";
 import { wsClient } from "../api/ws.js";
 import { EmptyState } from "../components/EmptyState.js";
@@ -51,32 +51,51 @@ export function RecruitmentList({
 	onOpenHelp: () => void;
 	onOpenMyProfile: () => void;
 }) {
-	const fetchAll = useCallback(async () => {
-		const [r, s, c] = await Promise.all([
+	const PAGE_SIZE = 8;
+	const [page, setPage] = useState(1);
+
+	// pending (recruitments + 진행중) 과 completed (paginated) 분리 SWR.
+	// completed 만 page 변경 시 재 fetch — pending 은 동일 키 유지.
+	const fetchPending = useCallback(async () => {
+		const [r, s] = await Promise.all([
 			api<{ recruitments: Recruitment[] }>("/recruitments"),
 			api<{ series: SeriesItem[] }>("/series"),
-			api<{ series: CompletedSeries[] }>("/series/completed?limit=20"),
 		]);
-		return {
-			recruitments: r.recruitments,
-			series: s.series,
-			completed: c.series,
-		};
+		return { recruitments: r.recruitments, series: s.series };
 	}, []);
+	const fetchCompleted = useCallback(async () => {
+		const offset = (page - 1) * PAGE_SIZE;
+		const c = await api<{ series: CompletedSeries[]; total: number }>(
+			`/series/completed?limit=${PAGE_SIZE}&offset=${offset}`,
+		);
+		return { items: c.series, total: c.total };
+	}, [page]);
 
-	const swr = useStaleWhileRevalidate("dashboard", fetchAll, { debounceMs: 150 });
-	const recruitments = swr.data?.recruitments ?? null;
-	const series = swr.data?.series ?? null;
-	const completed = swr.data?.completed ?? null;
-	const error = swr.error;
+	const pendingSwr = useStaleWhileRevalidate("dashboard", fetchPending, { debounceMs: 150 });
+	const completedSwr = useStaleWhileRevalidate(`dashboard:completed:p${page}`, fetchCompleted, {
+		debounceMs: 150,
+	});
 
-	// dashboard topic 구독 — 다른 사용자 변경 시 background refresh (플리커 X).
+	const recruitments = pendingSwr.data?.recruitments ?? null;
+	const series = pendingSwr.data?.series ?? null;
+	const completed = completedSwr.data?.items ?? null;
+	const completedTotal = completedSwr.data?.total ?? 0;
+	const totalPages = Math.max(1, Math.ceil(completedTotal / PAGE_SIZE));
+	const error = pendingSwr.error ?? completedSwr.error;
+
+	// 시리즈 삭제 등으로 page 가 totalPages 를 초과한 경우 자동 클램프.
+	useEffect(() => {
+		if (completedSwr.data && page > totalPages) setPage(totalPages);
+	}, [completedSwr.data, page, totalPages]);
+
+	// dashboard topic 구독 — 다른 사용자 변경 시 양 SWR 모두 background refresh.
 	useEffect(() => {
 		return wsClient.subscribe("dashboard", () => {
-			swr.refresh();
+			pendingSwr.refresh();
+			completedSwr.refresh();
 			showToast("대시보드가 업데이트되었습니다");
 		});
-	}, [swr]);
+	}, [pendingSwr, completedSwr]);
 
 	const header = (
 		<div className="flex items-end justify-between gap-3 flex-wrap">
@@ -89,7 +108,10 @@ export function RecruitmentList({
 			<button
 				type="button"
 				className="btn btn-circle btn-ghost btn-sm"
-				onClick={swr.refresh}
+				onClick={() => {
+					pendingSwr.refresh();
+					completedSwr.refresh();
+				}}
 				title="새로고침"
 				aria-label="새로고침"
 			>
@@ -196,11 +218,11 @@ export function RecruitmentList({
 				<summary className="cursor-pointer text-lg font-bold list-none flex items-center gap-2 select-none">
 					<span className="text-base-content/40 text-sm">▼</span>
 					지난 내전
-					{!isLoading && completed.length > 0 && (
-						<span className="text-xs font-normal text-base-content/50 ml-1">({completed.length})</span>
+					{!isLoading && completedTotal > 0 && (
+						<span className="text-xs font-normal text-base-content/50 ml-1">({completedTotal})</span>
 					)}
 				</summary>
-				<div className="pt-2">
+				<div className="pt-2 space-y-3">
 					{isLoading ? (
 						<SkeletonGrid />
 					) : completed.length === 0 ? (
@@ -209,11 +231,44 @@ export function RecruitmentList({
 							description="시리즈가 종료되면 이곳에서 게임별 픽/밴 결과를 다시 볼 수 있습니다."
 						/>
 					) : (
-						<div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-							{completed.map((s) => (
-								<CompletedSeriesCard key={s.id} series={s} onClick={() => onSelectCompletedSeries(s.id)} />
-							))}
-						</div>
+						<>
+							<div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+								{completed.map((s) => (
+									<CompletedSeriesCard
+										key={s.id}
+										series={s}
+										onClick={() => onSelectCompletedSeries(s.id)}
+									/>
+								))}
+							</div>
+							{totalPages > 1 && (
+								<div className="flex justify-center pt-1">
+									<div className="join">
+										<button
+											type="button"
+											className="join-item btn btn-sm"
+											onClick={() => setPage((p) => Math.max(1, p - 1))}
+											disabled={page === 1}
+											aria-label="이전 페이지"
+										>
+											«
+										</button>
+										<span className="join-item btn btn-sm btn-ghost no-animation pointer-events-none tabular-nums">
+											{page} / {totalPages}
+										</span>
+										<button
+											type="button"
+											className="join-item btn btn-sm"
+											onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+											disabled={page >= totalPages}
+											aria-label="다음 페이지"
+										>
+											»
+										</button>
+									</div>
+								</div>
+							)}
+						</>
 					)}
 				</div>
 			</details>

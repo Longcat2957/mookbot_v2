@@ -2,10 +2,16 @@
 // Riot API Service — Unified Export
 // ============================================================
 
-export { getAccountByRiotId, parseRiotId } from "./account.js";
+export { getAccountByPuuid, getAccountByRiotId, parseRiotId } from "./account.js";
 export { getChampionMasteries, getTopMasteries } from "./championMastery.js";
 export type { Platform, Region } from "./client.js";
-export { formatTier, RiotApiClient, riotClient, tierValue } from "./client.js";
+export {
+	__clearRiotCacheForTest,
+	formatTier,
+	RiotApiClient,
+	riotClient,
+	tierValue,
+} from "./client.js";
 export { formatLeagueEntries, getLeagueEntries, getLeagueEntry } from "./league.js";
 export { findParticipant, formatKDA, getMatch, getMatchIds, getRecentMatches } from "./match.js";
 export { getCurrentGameByPuuid } from "./spectator.js";

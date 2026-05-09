@@ -1,8 +1,9 @@
 // 내 권한 진단 modal — `/api/me/perms` (apps/api/src/auth/perms.ts:diagnosePerms) 결과 표시.
 // v0.3.23 BalanceTeam 정책 가시성 — 사용자가 본인 BalanceTeam 보유 여부를 자가진단.
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "../api/rest.js";
+import { usePermsRefresh } from "../state/perms.js";
 
 interface Props {
 	open: boolean;
@@ -23,6 +24,18 @@ export function PermsModal({ open, onClose }: Props) {
 	const [data, setData] = useState<DiagPerms | null>(null);
 	const [loading, setLoading] = useState(false);
 	const [err, setErr] = useState<string | null>(null);
+	const refreshPerms = usePermsRefresh();
+
+	// 진단 데이터 + 전역 perms context 동시 refresh — 모달 open 시 / "재확인" 클릭 시.
+	const reload = useCallback(() => {
+		setLoading(true);
+		setErr(null);
+		refreshPerms();
+		api<DiagPerms>("/me/perms")
+			.then((d) => setData(d))
+			.catch((e) => setErr(e instanceof Error ? e.message : String(e)))
+			.finally(() => setLoading(false));
+	}, [refreshPerms]);
 
 	useEffect(() => {
 		const dlg = dialogRef.current;
@@ -41,13 +54,8 @@ export function PermsModal({ open, onClose }: Props) {
 
 	useEffect(() => {
 		if (!open) return;
-		setLoading(true);
-		setErr(null);
-		api<DiagPerms>("/me/perms")
-			.then((d) => setData(d))
-			.catch((e) => setErr(e instanceof Error ? e.message : String(e)))
-			.finally(() => setLoading(false));
-	}, [open]);
+		reload();
+	}, [open, reload]);
 
 	const memberRoleNames = (() => {
 		if (!data) return [];
@@ -153,7 +161,15 @@ export function PermsModal({ open, onClose }: Props) {
 					</div>
 				)}
 
-				<div className="modal-action mt-4">
+				<div className="modal-action mt-4 gap-2">
+					<button
+						type="button"
+						className="btn btn-sm btn-ghost"
+						onClick={reload}
+						disabled={loading}
+					>
+						{loading ? "확인 중…" : "↻ 재확인"}
+					</button>
 					<form method="dialog">
 						<button type="submit" className="btn btn-sm">
 							닫기

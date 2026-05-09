@@ -69,15 +69,23 @@ async function fetchGuildRoles(): Promise<RoleInfo[]> {
 	return data;
 }
 
-async function getRoles(userId: string): Promise<string[]> {
+/**
+ * userId 의 길드 역할 목록을 반환. 60s 캐시.
+ * fetch 실패 시 null — **캐시하지 않음**. 다음 호출에서 재시도 가능하게 함.
+ *
+ * 이 구분이 중요한 이유: 빈 배열 (`[]`) 은 "정상 응답이지만 역할 0개" 와
+ * "fetch 실패" 를 구분 못 함. 후자를 캐시하면 일시적 Discord API 장애 (rate limit / 5xx) 시
+ * 운영자가 60s 동안 권한 없는 사용자로 취급되는 버그가 발생 (v0.3.27 수정).
+ */
+async function getRoles(userId: string): Promise<string[] | null> {
 	const cached = memberCache.get(userId);
 	const now = Date.now();
 	if (cached && cached.expiresAt > now) return cached.roles;
 
 	const member = await fetchGuildMember(userId);
-	const roles = member?.roles ?? [];
-	memberCache.set(userId, { roles, expiresAt: now + TTL_MS });
-	return roles;
+	if (member === null) return null;
+	memberCache.set(userId, { roles: member.roles, expiresAt: now + TTL_MS });
+	return member.roles;
 }
 
 async function resolveOperatorRoleId(): Promise<string | null> {
@@ -111,6 +119,14 @@ export async function userCanEdit(userId: string): Promise<boolean> {
 		return false;
 	}
 	const roles = await getRoles(userId);
+	if (roles === null) {
+		// 길드 멤버 fetch 일시 실패 — fail-secure deny. 단 캐시 X 라 다음 요청은 재시도.
+		log.warn(
+			{ user: userId },
+			"perms: guild member fetch failed — denying this request only (no cache poisoning)",
+		);
+		return false;
+	}
 	const ok = roles.includes(operatorRoleId);
 	log.debug({ user: userId, operatorRoleId, roles, canEdit: ok }, "perms check");
 	return ok;

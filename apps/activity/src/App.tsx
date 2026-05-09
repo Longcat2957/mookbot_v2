@@ -9,6 +9,7 @@ import { Toaster } from "./components/Toaster.js";
 import { EntryEditing } from "./screens/EntryEditing.js";
 import { Leaderboard } from "./screens/Leaderboard.js";
 import { MiniGame } from "./screens/MiniGame.js";
+import { MyRiotAccounts } from "./screens/MyRiotAccounts.js";
 import { PickBan } from "./screens/PickBan.js";
 import { Profile } from "./screens/Profile.js";
 import { RecruitmentList } from "./screens/RecruitmentList.js";
@@ -50,6 +51,8 @@ function ContextChip({
 				return seriesId !== null ? `✅ 시리즈 #${seriesId} · 종료` : "✅ 시리즈 종료";
 			case "PROFILE":
 				return "👤 프로필";
+			case "MY_RIOT_ACCOUNTS":
+				return "🔗 라이엇 계정 관리";
 			case "LEADERBOARD":
 				return "🏆 리더보드";
 			case "MINIGAME":
@@ -369,7 +372,13 @@ function AppInner() {
 								setProfileUserId(null);
 								setStage("COMPLETED");
 							}}
+							onManageRiotAccounts={() => setStage("MY_RIOT_ACCOUNTS")}
 						/>
+					</ErrorBoundary>
+				)}
+				{stage === "MY_RIOT_ACCOUNTS" && (
+					<ErrorBoundary key="my-riot-accounts" label="라이엇 계정 관리" onReset={goHome}>
+						<MyRiotAccounts onBack={() => openProfile(user.id)} />
 					</ErrorBoundary>
 				)}
 			</main>

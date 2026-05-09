@@ -20,3 +20,10 @@ export async function getAccountByRiotId(riotId: string): Promise<AccountDto> {
 	const [gameName, tagLine] = parseRiotId(riotId);
 	return riotClient.getAccountByRiotId(gameName, tagLine);
 }
+
+/**
+ * Look up a Riot account by PUUID — Riot ID rename 추적용.
+ */
+export async function getAccountByPuuid(puuid: string): Promise<AccountDto> {
+	return riotClient.getAccountByPuuid(puuid);
+}

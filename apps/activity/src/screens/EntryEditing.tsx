@@ -214,6 +214,24 @@ export function EntryEditing({
 		(l) => assignedSlots.has(`TEAM_1_${l}`) && assignedSlots.has(`TEAM_2_${l}`),
 	);
 
+	// 좌/우 swap — 1팀↔2팀 을 한 번에 뒤집어 시각 위치 변경. 1팀/2팀이
+	// BLUE/RED 와 헷갈리는 상황에서 운영자가 직접 좌우를 조정할 수 있게 함.
+	// role 은 그대로, team 만 토글. 빈 슬롯도 그대로 (Map 키 변경 없음).
+	const swapTeams = () => {
+		setAssignment((prev) => {
+			const next = new Map<string, Slot>();
+			for (const [uid, slot] of prev) {
+				const lastUnderscore = slot.lastIndexOf("_");
+				const team = slot.slice(0, lastUnderscore) as Team;
+				const role = slot.slice(lastUnderscore + 1) as Lane;
+				const flipped: Team = team === "TEAM_1" ? "TEAM_2" : "TEAM_1";
+				next.set(uid, `${flipped}_${role}`);
+			}
+			return next;
+		});
+		setSelectedUid(null);
+	};
+
 	// Tap-to-Place 핸들러
 	const handleParticipantTap = (userId: string) => {
 		if (!perms.canEdit) return;
@@ -289,6 +307,16 @@ export function EntryEditing({
 						disabled={submitting}
 					>
 						↻
+					</button>
+					<button
+						type="button"
+						className="btn btn-sm btn-ghost join-item"
+						onClick={swapTeams}
+						title="1팀과 2팀의 좌/우 위치를 바꿉니다"
+						aria-label="1팀과 2팀 좌우 바꾸기"
+						disabled={submitting || !perms.canEdit || assignment.size === 0}
+					>
+						↔ 좌/우 바꾸기
 					</button>
 					{(() => {
 						const submitTip = !perms.canEdit

@@ -58,6 +58,14 @@ function setCache<T>(key: string, data: T, ttlMs: number): void {
 	cache.set(key, { data, expiry: Date.now() + ttlMs });
 }
 
+/**
+ * Riot API 응답 캐시 전체 비우기 — 테스트에서 mock fetch 결과 격리용.
+ * 운영 코드 경로에서는 호출하지 않는다.
+ */
+export function __clearRiotCacheForTest(): void {
+	cache.clear();
+}
+
 // ============================================================
 // Rate Limit Tracker
 // ============================================================
@@ -132,6 +140,12 @@ export class RiotApiClient {
 
 	async getAccountByRiotId(gameName: string, tagLine: string, region: Region = "ASIA") {
 		const path = `/riot/account/v1/accounts/by-riot-id/${encodeURIComponent(gameName)}/${encodeURIComponent(tagLine)}`;
+		return this.request<import("./types.js").AccountDto>(this.regionUrl(region, path), 10 * 60_000);
+	}
+
+	// Riot ID 변경 (game_name / tag_line) 추적용 — puuid 는 영구 ID.
+	async getAccountByPuuid(puuid: string, region: Region = "ASIA") {
+		const path = `/riot/account/v1/accounts/by-puuid/${encodeURIComponent(puuid)}`;
 		return this.request<import("./types.js").AccountDto>(this.regionUrl(region, path), 10 * 60_000);
 	}
 

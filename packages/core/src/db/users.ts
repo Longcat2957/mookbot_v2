@@ -162,6 +162,21 @@ export async function setRiotAccountProfileIcon(
 }
 
 /**
+ * 한 사용자의 라이엇 계정 1개 연결 해제. 메인이든 sub 든 무조건 삭제.
+ * auto-promote 없음 — 메인을 지우면 다른 sub 가 자동 승격되지 않는다 (사용자 명시 액션).
+ * user_id 일치 가드 — 다른 사용자의 puuid 를 잘못 지정해도 영향 없음.
+ *
+ * @returns 실제 삭제된 행 수 (0 = 그 사용자에게 그 puuid 없음)
+ */
+export async function unlinkRiotAccount(userId: string, puuid: string): Promise<number> {
+	const result = await execute(
+		`DELETE FROM riot_accounts WHERE user_id = ? AND puuid = ?`,
+		[userId, puuid],
+	);
+	return result.changes ?? 0;
+}
+
+/**
  * 한 사용자의 메인 계정 변경 — 기존 메인을 demote 하고 지정 PUUID 를 promote.
  * 지정 PUUID 가 그 사용자의 riot_accounts 에 없으면 아무 효과 없음.
  */

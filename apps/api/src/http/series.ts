@@ -76,54 +76,66 @@ export async function registerSeriesRoutes(app: FastifyInstance): Promise<void> 
 	});
 
 	// 종료된 시리즈 목록 (status=COMPLETED) — 지난 내전 기록.
-	app.get<{ Querystring: { limit?: string } }>("/api/series/completed", async (req, reply) => {
-		const sid = requireSession(req, reply);
-		if (!sid) return;
+	// limit + offset 페이지네이션. total 포함 응답.
+	app.get<{ Querystring: { limit?: string; offset?: string } }>(
+		"/api/series/completed",
+		async (req, reply) => {
+			const sid = requireSession(req, reply);
+			if (!sid) return;
 
-		const limit = Math.min(50, Math.max(1, Number(req.query.limit ?? 20)));
-		const rows = await cloudflare.query<{
-			id: number;
-			season_id: number;
-			status: string;
-			winning_team: string | null;
-			started_at: number;
-			ended_at: number | null;
-		}>(
-			`SELECT id, season_id, status, winning_team, started_at, ended_at
-				 FROM series
-				 WHERE status = 'COMPLETED'
-				 ORDER BY ended_at DESC
-				 LIMIT ?`,
-			[limit],
-		);
-		if (rows.length === 0) return { series: [] };
+			const limit = Math.min(50, Math.max(1, Number(req.query.limit ?? 20)));
+			const offset = Math.max(0, Number(req.query.offset ?? 0));
 
-		const seriesIds = rows.map((s) => s.id);
-		const partsAll = await Promise.all(seriesIds.map((id) => db.getSeriesParticipants(id)));
-		const allUserIds = [...new Set(partsAll.flat().map((p) => p.user_id))];
-		const users = await db.listUsers(allUserIds);
-		const nameById = new Map(users.map((u) => [u.discord_id, u.display_name]));
+			const totalRow = await cloudflare.queryOne<{ count: number }>(
+				`SELECT COUNT(*) AS count FROM series WHERE status = 'COMPLETED'`,
+			);
+			const total = totalRow?.count ?? 0;
 
-		const winsAll = await Promise.all(rows.map((s) => db.countSeriesWins(s.id)));
+			const rows = await cloudflare.query<{
+				id: number;
+				season_id: number;
+				status: string;
+				winning_team: string | null;
+				started_at: number;
+				ended_at: number | null;
+			}>(
+				`SELECT id, season_id, status, winning_team, started_at, ended_at
+					 FROM series
+					 WHERE status = 'COMPLETED'
+					 ORDER BY ended_at DESC
+					 LIMIT ? OFFSET ?`,
+				[limit, offset],
+			);
+			if (rows.length === 0) return { series: [], total };
 
-		return {
-			series: rows.map((s, i) => ({
-				id: s.id,
-				seasonId: s.season_id,
-				status: s.status,
-				winningTeam: s.winning_team,
-				startedAt: s.started_at,
-				endedAt: s.ended_at,
-				wins: winsAll[i] ?? { team1: 0, team2: 0 },
-				participants: (partsAll[i] ?? []).map((p) => ({
-					userId: p.user_id,
-					displayName: nameById.get(p.user_id) ?? p.user_id,
-					team: p.team,
-					role: p.role,
+			const seriesIds = rows.map((s) => s.id);
+			const partsAll = await Promise.all(seriesIds.map((id) => db.getSeriesParticipants(id)));
+			const allUserIds = [...new Set(partsAll.flat().map((p) => p.user_id))];
+			const users = await db.listUsers(allUserIds);
+			const nameById = new Map(users.map((u) => [u.discord_id, u.display_name]));
+
+			const winsAll = await Promise.all(rows.map((s) => db.countSeriesWins(s.id)));
+
+			return {
+				series: rows.map((s, i) => ({
+					id: s.id,
+					seasonId: s.season_id,
+					status: s.status,
+					winningTeam: s.winning_team,
+					startedAt: s.started_at,
+					endedAt: s.ended_at,
+					wins: winsAll[i] ?? { team1: 0, team2: 0 },
+					participants: (partsAll[i] ?? []).map((p) => ({
+						userId: p.user_id,
+						displayName: nameById.get(p.user_id) ?? p.user_id,
+						team: p.team,
+						role: p.role,
+					})),
 				})),
-			})),
-		};
-	});
+				total,
+			};
+		},
+	);
 
 	// 진행 중 시리즈 목록 (status=IN_PROGRESS) — Activity 재진입 시 이어서 작업.
 	// 카드 미리보기용으로 라인업도 같이 반환.
@@ -174,6 +186,17 @@ export async function registerSeriesRoutes(app: FastifyInstance): Promise<void> 
 		// PickBan 의 챔프 그리드 "MY MAINS" 표시용 — 참가자 전적/주력 챔프
 		const stats = await fetchPlayHistoryFor(parts.map((p) => p.user_id));
 
+		// 라인별 MMR — BalancePreview HTML 렌더 / 라인 매치업 표시용.
+		// 누락된 (userId, role) 은 1500 default. balance-svg.ts 와 동일 패턴.
+		const mmrPairs = parts.map((p) => ({
+			userId: p.user_id,
+			role: p.role as "TOP" | "JUNGLE" | "MID" | "BOTTOM" | "SUPPORT",
+		}));
+		const mmrRows = await db.getLaneMmrs(mmrPairs, s.season_id);
+		const mmrByKey = new Map<string, number>();
+		for (const r of mmrRows) mmrByKey.set(`${r.user_id}|${r.role}`, r.mmr);
+		const DEFAULT_MMR = 1500;
+
 		const games = await db.listGamesInSeries(id);
 		// 게임별 picks/bans 조회 — picks 는 하드피어리스 검증, bans 는 SeriesResult 화면용
 		const [gamePicks, gameBans] = await Promise.all([
@@ -206,6 +229,7 @@ export async function registerSeriesRoutes(app: FastifyInstance): Promise<void> 
 				displayName: nameById.get(p.user_id) ?? p.user_id,
 				team: p.team,
 				role: p.role,
+				laneMmr: Math.round(mmrByKey.get(`${p.user_id}|${p.role}`) ?? DEFAULT_MMR),
 				history: stats.get(p.user_id) ?? emptyHistory(),
 			})),
 			games: games.map((g) => ({

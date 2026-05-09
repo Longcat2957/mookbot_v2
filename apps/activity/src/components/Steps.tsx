@@ -9,7 +9,8 @@ export type StageKey =
 	| "COMPLETED"
 	| "MINIGAME"
 	| "LEADERBOARD"
-	| "PROFILE";
+	| "PROFILE"
+	| "MY_RIOT_ACCOUNTS";
 
 const STEPS: { key: StageKey; label: string }[] = [
 	{ key: "LIST", label: "대시보드" },

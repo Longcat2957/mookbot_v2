@@ -31,6 +31,7 @@ export interface PlayHistory {
 
 export interface SeriesParticipant extends LineupParticipant {
 	userId: string;
+	laneMmr: number;
 	history: PlayHistory;
 }
 

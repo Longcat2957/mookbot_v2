@@ -60,9 +60,6 @@ interface RecentGame {
 	championName: string | null;
 	iconUrl: string | null;
 	won: boolean;
-	kills: number;
-	deaths: number;
-	assists: number;
 	cs: number;
 	mmrDelta: number | null;
 	mmrAfter: number | null;
@@ -82,10 +79,12 @@ export function Profile({
 	userId,
 	onBack,
 	onSelectSeries,
+	onManageRiotAccounts,
 }: {
 	userId: string;
 	onBack: () => void;
 	onSelectSeries: (seriesId: number) => void;
+	onManageRiotAccounts?: () => void;
 }) {
 	const perms = usePerms();
 	const isMe = perms.discordId === userId;
@@ -175,19 +174,27 @@ export function Profile({
 								)}
 							</span>
 						</div>
-						{data.riotAccounts.length > 0 && (
-							<div className="flex flex-wrap gap-1.5 mt-2">
-								{data.riotAccounts.map((a) => (
-									<span
-										key={`${a.gameName}#${a.tagLine}`}
-										className={`badge badge-sm ${a.isMain ? "badge-warning" : "badge-ghost"}`}
-									>
-										{a.isMain && "⭐ "}
-										{a.gameName}#{a.tagLine}
-									</span>
-								))}
-							</div>
-						)}
+						<div className="flex flex-wrap gap-1.5 mt-2 items-center">
+							{data.riotAccounts.map((a) => (
+								<span
+									key={`${a.gameName}#${a.tagLine}`}
+									className={`badge badge-sm ${a.isMain ? "badge-warning" : "badge-ghost"}`}
+								>
+									{a.isMain && "⭐ "}
+									{a.gameName}#{a.tagLine}
+								</span>
+							))}
+							{isMe && onManageRiotAccounts && (
+								<button
+									type="button"
+									className="btn btn-xs btn-ghost"
+									onClick={onManageRiotAccounts}
+									title="라이엇 계정 추가 / 메인 전환 / 해제"
+								>
+									✏️ 관리
+								</button>
+							)}
+						</div>
 					</div>
 				</div>
 				<button type="button" className="btn btn-ghost btn-sm" onClick={onBack}>
@@ -336,7 +343,7 @@ function LaneMmrCard({ mmr }: { mmr: LaneMmr }) {
 }
 
 function RecentGameItem({ g, onClick }: { g: RecentGame; onClick: () => void }) {
-	const kda = `${g.kills}/${g.deaths}/${g.assists}`;
+	// K/D/A 는 Riot production key / tournament API 인증 전까지 수집 불가 — UI 미표시.
 	const sideColor = g.side === "BLUE" ? "text-info" : "text-error";
 	return (
 		<li>
@@ -360,8 +367,7 @@ function RecentGameItem({ g, onClick }: { g: RecentGame; onClick: () => void }) 
 					</div>
 					<div className="text-sm font-medium truncate">{g.championName ?? "—"}</div>
 					<div className="text-xs text-base-content/60 tabular-nums flex items-center gap-2">
-						<span>{kda}</span>
-						<span>· {g.cs} CS</span>
+						<span>{g.cs} CS</span>
 						{g.mmrDelta !== null && (
 							<span className={`ml-auto font-semibold ${g.mmrDelta > 0 ? "text-info" : "text-error"}`}>
 								{g.mmrDelta > 0 ? "+" : ""}
