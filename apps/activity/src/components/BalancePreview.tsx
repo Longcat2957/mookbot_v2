@@ -24,6 +24,7 @@ interface ChampionPlay {
 interface PlayHistory {
 	total: { plays: number; wins: number; losses: number };
 	topChampions: ChampionPlay[];
+	topChampionsByRole: Record<string, ChampionPlay[]>;
 	rolePlays: { role: string; plays: number; wins: number; losses: number }[];
 	topRole: { role: string; plays: number; wins: number; losses: number } | null;
 }
@@ -102,8 +103,6 @@ export function BalancePreview({ team1Side, participants }: Props) {
 		});
 	};
 
-	const mmrDiff = Math.abs(t1Avg - t2Avg);
-
 	return (
 		<details className="collapse collapse-arrow bg-base-200 shadow-sm" open>
 			<summary className="collapse-title text-sm font-medium py-2 min-h-0 px-3">
@@ -149,7 +148,7 @@ export function BalancePreview({ team1Side, participants }: Props) {
 					})}
 				</div>
 
-				{/* Summary — avg MMR + diff */}
+				{/* Summary — avg MMR */}
 				<div className="grid grid-cols-2 gap-2 pt-2 border-t border-base-300">
 					<div className={`text-center text-sm ${t1ColorText}`}>
 						평균 <span className="font-bold tabular-nums">{t1Avg}</span>
@@ -157,9 +156,6 @@ export function BalancePreview({ team1Side, participants }: Props) {
 					<div className={`text-center text-sm ${t2ColorText}`}>
 						평균 <span className="font-bold tabular-nums">{t2Avg}</span>
 					</div>
-				</div>
-				<div className="text-center text-xs text-base-content/60">
-					라인 평균 MMR 차 <span className="font-bold tabular-nums">{mmrDiff}</span>
 				</div>
 
 				{/* 전체 열기/닫기 */}
@@ -188,7 +184,8 @@ function PlayerRow({
 	isOpen: boolean;
 	onToggle: (open: boolean) => void;
 }) {
-	const top5 = player.history.topChampions.slice(0, 5);
+	// 해당 플레이어가 그 라인으로 플레이했을 때의 챔프만. 라인 무관 overall 은 사용 X.
+	const top5 = (player.history.topChampionsByRole[player.role] ?? []).slice(0, 5);
 	const alignClass = nameAlign === "right" ? "text-right" : "text-left";
 
 	return (
@@ -198,7 +195,8 @@ function PlayerRow({
 			onToggle={(e) => onToggle(e.currentTarget.open)}
 		>
 			<summary className="collapse-title min-h-0 py-1.5 px-2.5 text-sm">
-				<div className="flex items-center justify-between gap-1.5 pr-3">
+				{/* pr-8: daisyUI collapse-arrow 가 우측 ~24px 영역 차지 — MMR 와 겹침 방지 */}
+				<div className="flex items-center justify-between gap-1.5 pr-8">
 					<div className="flex items-center gap-1.5 min-w-0">
 						<span className="badge badge-xs badge-ghost shrink-0">{LANE_LABEL[lane] ?? lane}</span>
 						<span className={`font-semibold truncate ${alignClass}`}>{player.displayName}</span>
@@ -208,10 +206,12 @@ function PlayerRow({
 			</summary>
 			<div className="collapse-content px-2.5 pb-2.5">
 				<div className="text-[10px] uppercase tracking-wide text-base-content/50 mb-1">
-					내전 챔프 Top 5
+					{LANE_LABEL[lane] ?? lane} 라인 내전 챔프 Top 5
 				</div>
 				{top5.length === 0 ? (
-					<div className="text-xs italic text-base-content/40 py-2">내전 기록 없음</div>
+					<div className="text-xs italic text-base-content/40 py-2">
+						이 라인 내전 기록 없음
+					</div>
 				) : (
 					<ul className="space-y-1">
 						{top5.map((c) => {

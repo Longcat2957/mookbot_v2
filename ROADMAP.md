@@ -2,7 +2,7 @@
 
 > 현재 버전 기준 진척 상태. 시간순 기획서는 [`PLAN.md`](./PLAN.md), 코드 리뷰 워킹노트는 [`docs/internal/`](./docs/internal/) 참조.
 
-## 현재 (v0.4.0)
+## 현재 (v0.4.1)
 
 활성 도메인: `bot.mooklol.com` (Cloudflare proxied → 단일 VPS · Docker compose 4컨테이너 stack: bot · api · activity · nginx).
 실서비스 운영 중.
@@ -92,6 +92,12 @@
 ### Phase K — 메타 / 운영 (이번 사이클)
 - **`.claude/settings.json`** committed — Claude Code 권한 prompt 감소 + release 자동화 allowlist (typecheck/test/build, gh, git, ssh, docker:release 등). destructive 명령은 deny 명시 (force push, hard reset, db:migrate:drop, wrangler d1 execute 등).
 - **1인 개발 워크플로우 정착** — PR/리뷰 ceremony 제거, `main` 브랜치 직접 commit + push. release 흐름은 commit → version:patch → push → docker:release → ssh.
+
+### Phase O — BalancePreview 라인 필터 + UI 정리 (v0.4.1)
+- **BalancePreview 챔프 Top5 — 라인별 필터** (v0.4.1) — 기존엔 사용자가 시즌 내 어떤 라인이든 픽한 챔프 합산 Top5 였음. 이제 그 사용자가 **이 시리즈에서 배정된 라인** 으로 플레이했을 때의 챔프만 노출 (정현이 TOP 배정 → TOP 라인으로 픽한 챔프 중 Top5). `/api/series/:id` history 에 `topChampionsByRole: Record<role, ChampionPlay[]>` 추가, SQL `GROUP BY user, role, champion` 1쿼리에서 라인별 + overall 둘 다 도출. 기존 `topChampions` (overall) 는 Profile 화면용 그대로 보존.
+- **MMR ↔ collapse 화살표 겹침 fix** (v0.4.1) — daisyUI `collapse-arrow` 의 우측 ~24px 영역과 MMR 텍스트가 겹쳐 렌더되던 UI 버그. summary 내부 div 의 padding 을 `pr-3` → `pr-8` 로 확장.
+- **"라인 평균 MMR 차" 라인 제거** (v0.4.1) — 이미 양 팀 평균 MMR 이 노출돼 있어 차이는 시각적으로 즉시 파악 가능, 별도 텍스트 줄은 잡음.
+- **CS UI 제거** (v0.4.1) — v0.3.27 에서 K/D/A 제거할 때 CS 도 같은 제약 (Riot match 데이터 필요) 인데 누락. Profile recent games 의 `g.cs` 표시 + `RecentGame` 인터페이스 + `/api/users/:id/profile` 응답 모두에서 제거. DB 컬럼은 미래 인증 후를 위해 보존.
 
 ### Phase N — 대시보드 페이지네이션 (v0.3.29)
 - **지난 내전 페이지네이션** (v0.3.29) — `/api/series/completed` 에 `offset` querystring 추가 + 응답에 `total` 포함 (`SELECT COUNT(*)` 추가 1쿼리). RecruitmentList 가 pending (recruitments+series) SWR 와 completed (page 별) SWR 분리 — page 변경 시 completed 만 refetch. PAGE_SIZE=8, daisyUI `join` 페이지 컨트롤 (« page X/N »). page 가 totalPages 초과 시 자동 클램프 (시리즈 삭제 후). 7건 통합 테스트.

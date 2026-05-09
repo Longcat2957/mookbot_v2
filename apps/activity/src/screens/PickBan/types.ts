@@ -25,6 +25,7 @@ export interface ChampionPlay {
 export interface PlayHistory {
 	total: { plays: number; wins: number; losses: number };
 	topChampions: ChampionPlay[];
+	topChampionsByRole: Record<string, ChampionPlay[]>;
 	rolePlays: { role: string; plays: number; wins: number; losses: number }[];
 	topRole: { role: string; plays: number; wins: number; losses: number } | null;
 }

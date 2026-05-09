@@ -60,7 +60,6 @@ interface RecentGame {
 	championName: string | null;
 	iconUrl: string | null;
 	won: boolean;
-	cs: number;
 	mmrDelta: number | null;
 	mmrAfter: number | null;
 }
@@ -343,7 +342,7 @@ function LaneMmrCard({ mmr }: { mmr: LaneMmr }) {
 }
 
 function RecentGameItem({ g, onClick }: { g: RecentGame; onClick: () => void }) {
-	// K/D/A 는 Riot production key / tournament API 인증 전까지 수집 불가 — UI 미표시.
+	// K/D/A · CS 는 Riot production key / tournament API 인증 전까지 수집 불가 — UI 미표시.
 	const sideColor = g.side === "BLUE" ? "text-info" : "text-error";
 	return (
 		<li>
@@ -367,7 +366,6 @@ function RecentGameItem({ g, onClick }: { g: RecentGame; onClick: () => void }) 
 					</div>
 					<div className="text-sm font-medium truncate">{g.championName ?? "—"}</div>
 					<div className="text-xs text-base-content/60 tabular-nums flex items-center gap-2">
-						<span>{g.cs} CS</span>
 						{g.mmrDelta !== null && (
 							<span className={`ml-auto font-semibold ${g.mmrDelta > 0 ? "text-info" : "text-error"}`}>
 								{g.mmrDelta > 0 ? "+" : ""}
