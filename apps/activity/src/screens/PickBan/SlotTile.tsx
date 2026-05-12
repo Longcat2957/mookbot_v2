@@ -21,10 +21,10 @@ export function SlotTile({
 			title={champion?.name ?? (active ? "다시 클릭하여 해제" : "슬롯 선택")}
 			className={`${dim} relative shrink-0 rounded-lg border-2 overflow-hidden transition flex items-center justify-center ${
 				active
-					? "border-primary ring-2 ring-primary/40"
+					? "border-primary ring-4 ring-primary/40 animate-pulse shadow-md shadow-primary/30"
 					: champion
-						? "border-base-content/30 hover:border-primary/60"
-						: "border-dashed border-base-content/20 hover:border-primary/60"
+						? "border-base-content/30 hover:border-primary/60 hover:ring-2 hover:ring-primary/30"
+						: "border-dashed border-base-content/20 hover:border-primary/60 hover:ring-2 hover:ring-primary/20"
 			} ${banned && champion ? "grayscale opacity-70" : ""}`}
 		>
 			{champion ? (

@@ -5,6 +5,7 @@
 // 이 파일은 layout + props wiring 만.
 
 import { useEffect, useState } from "react";
+import { type Hint, KeyboardHints } from "../components/KeyboardHints.js";
 import { SaveStatusIndicator } from "../components/SaveStatus.js";
 import { usePerms } from "../state/perms.js";
 import { EntryEditingSkeleton } from "./EntryEditing/EntryEditingSkeleton.js";
@@ -12,6 +13,12 @@ import { ParticipantCard } from "./EntryEditing/ParticipantCard.js";
 import { SlotRow } from "./EntryEditing/SlotRow.js";
 import { type Slot, TEAM_LABEL } from "./EntryEditing/types.js";
 import { useEntryEditingState } from "./EntryEditing/useEntryEditingState.js";
+
+const ENTRY_HINTS: Hint[] = [
+	{ keys: ["Esc"], label: "선택 취소" },
+	{ keys: ["Ctrl", "Z"], label: "Undo" },
+	{ keys: ["Ctrl", "Shift", "Z"], label: "Redo" },
+];
 
 export function EntryEditing({
 	recruitmentId,
@@ -154,6 +161,9 @@ export function EntryEditing({
 				</div>
 			)}
 
+			{/* W6 — 키 hint 패널 (운영자 모드만) */}
+			{perms.canEdit && <KeyboardHints hints={ENTRY_HINTS} storageKey="entry:hints:dismissed" />}
+
 			{s.selectedUid &&
 				(() => {
 					const sel = participants.find((p) => p.userId === s.selectedUid);
@@ -237,6 +247,41 @@ export function EntryEditing({
 						<h3 className="card-title text-base">
 							후보 풀 · {s.unassigned.length}명 미배정 / 총 {participants.length}명
 						</h3>
+						{perms.canEdit && (
+							<div className="flex items-center gap-1.5 flex-wrap">
+								<button
+									type="button"
+									className="btn btn-xs btn-primary"
+									onClick={s.autoAssign}
+									disabled={s.submitting}
+									title="라인 선호 + 셔플로 자동 배치 — 다시 누르면 재셔플"
+								>
+									🎯 라인 자동 배치
+								</button>
+								<div className="join">
+									<button
+										type="button"
+										className="btn btn-xs join-item"
+										onClick={s.undo}
+										disabled={!s.canUndo}
+										title="Undo (Ctrl+Z)"
+										aria-label="Undo"
+									>
+										↶
+									</button>
+									<button
+										type="button"
+										className="btn btn-xs join-item"
+										onClick={s.redo}
+										disabled={!s.canRedo}
+										title="Redo (Ctrl+Shift+Z)"
+										aria-label="Redo"
+									>
+										↷
+									</button>
+								</div>
+							</div>
+						)}
 						<span className="text-xs text-base-content/50">탭하여 선택 → 슬롯 탭 (또는 드래그)</span>
 					</div>
 					{s.unassigned.length === 0 ? (

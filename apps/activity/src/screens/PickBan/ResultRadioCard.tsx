@@ -53,6 +53,7 @@ export function ResultRadioCard({
 						{selected && <span className="size-2 rounded-full bg-base-100" />}
 					</span>
 					<span className={`text-lg font-bold ${styles.text}`}>{teamLabel} 승</span>
+					{!disabled && <kbd className="kbd kbd-sm">{team === "TEAM_1" ? "1" : "2"}</kbd>}
 				</div>
 				{selected && <span className="badge badge-success badge-sm">선택됨</span>}
 			</div>

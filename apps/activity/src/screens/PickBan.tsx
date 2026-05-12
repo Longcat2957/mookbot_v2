@@ -5,17 +5,31 @@
 // 상태 / SWR / 저장 / WS / derived 는 ./PickBan/usePickBanState.ts 에 응집.
 // 이 파일은 layout + props wiring 만.
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { BalancePreview } from "../components/BalancePreview.js";
 import { ConfirmButton } from "../components/ConfirmButton.js";
+import { type Hint, KeyboardHints } from "../components/KeyboardHints.js";
 import { LineupPreview } from "../components/LineupPreview.js";
 import { SaveStatusIndicator } from "../components/SaveStatus.js";
 import { usePerms } from "../state/perms.js";
 import { PickBanBoard } from "./PickBan/PickBanBoard.js";
 import { PickBanSkeleton } from "./PickBan/PickBanSkeleton.js";
 import { ResultPanel } from "./PickBan/ResultPanel.js";
-import { sideTextColor } from "./PickBan/types.js";
+import { type PickUsage, sideTextColor } from "./PickBan/types.js";
 import { usePickBanState } from "./PickBan/usePickBanState.js";
+
+const PICKBAN_HINTS: Hint[] = [
+	{ keys: ["/"], label: "검색" },
+	{ keys: ["Tab"], label: "다음 슬롯" },
+	{ keys: ["Enter"], label: "첫 챔프" },
+	{ keys: ["Backspace"], label: "삭제" },
+	{ keys: ["B"], label: "BLUE" },
+	{ keys: ["R"], label: "RED" },
+	{ keys: ["1"], label: "1팀 승" },
+	{ keys: ["2"], label: "2팀 승" },
+	{ keys: ["Ctrl", "Enter"], label: "기록" },
+	{ keys: ["Ctrl", "1"], label: "Game 전환" },
+];
 
 export function PickBan({
 	seriesId,
@@ -36,6 +50,53 @@ export function PickBan({
 		if (!readOnlyDismissKey) return;
 		setReadOnlyDismissed(sessionStorage.getItem(readOnlyDismissKey) === "1");
 	}, [readOnlyDismissKey]);
+
+	// W4 — Bo3 자동 사이드 반전 (localStorage 영속, default ON).
+	const [autoSideFlip, setAutoSideFlip] = useState<boolean>(() => {
+		try {
+			return localStorage.getItem("pickban:autoSideFlip") !== "0";
+		} catch {
+			return true;
+		}
+	});
+	useEffect(() => {
+		try {
+			localStorage.setItem("pickban:autoSideFlip", autoSideFlip ? "1" : "0");
+		} catch {}
+	}, [autoSideFlip]);
+
+	// 새 게임 진입 시 이전 게임 사이드의 반대로 default 설정.
+	// 사이드 이미 결정되어 있으면 (사용자 수동 변경 / 직전 unflip) 변경 X.
+	useEffect(() => {
+		if (!autoSideFlip) return;
+		if (!perms.canEdit) return;
+		if (!s.detail || !s.draft) return;
+		const currentGame = s.draft.currentGame;
+		const currentDraft = s.draft.games.find((g) => g.gameNumber === currentGame);
+		if (!currentDraft || currentDraft.team1Side !== null) return;
+		const prev = s.detail.games.find((g) => g.gameNumber === currentGame - 1);
+		if (!prev) return;
+		s.setSide(prev.team1Side === "BLUE" ? "RED" : "BLUE");
+	}, [autoSideFlip, perms.canEdit, s.detail, s.draft, s.setSide]);
+
+	// W3 — 이전 게임 챔프 사용 정보 map (현재 게임 이전만). null guard 로 early return 호환.
+	const previousPicks = useMemo<Map<number, PickUsage[]>>(() => {
+		const map = new Map<number, PickUsage[]>();
+		if (!s.detail || !s.draft) return map;
+		const currentGame = s.draft.currentGame;
+		for (const g of s.detail.games) {
+			if (g.gameNumber >= currentGame) continue;
+			const win1 = g.winningTeam === "TEAM_1";
+			for (const p of g.picks) {
+				if (p.championId == null) continue;
+				const win = (p.team === "TEAM_1") === win1;
+				const list = map.get(p.championId) ?? [];
+				list.push({ gameNumber: g.gameNumber, team: p.team, role: p.role, win });
+				map.set(p.championId, list);
+			}
+		}
+		return map;
+	}, [s.detail, s.draft]);
 
 	if (seriesId === null) {
 		return (
@@ -67,6 +128,40 @@ export function PickBan({
 	const handleRevert = async () => {
 		if (await s.revert()) onBack();
 	};
+
+	// W1 키보드 단축키 — Ctrl+1/2/3 (Game 탭) + B/R (사이드 결정 시).
+	// IME 한글 자모 조합 중에는 isComposing 으로 skip.
+	useEffect(() => {
+		if (!perms.canEdit) return;
+		const onKey = (e: KeyboardEvent) => {
+			if (e.isComposing) return;
+			const tag = (document.activeElement as HTMLElement | null)?.tagName;
+			const isInInput = tag === "INPUT" || tag === "TEXTAREA";
+
+			// Ctrl+1/2/3 — Game 탭 전환 (input focus 여도 동작)
+			if (e.ctrlKey && (e.key === "1" || e.key === "2" || e.key === "3")) {
+				const n = Number(e.key);
+				if (s.isGameTabEnabled(n)) {
+					e.preventDefault();
+					s.setCurrentGame(n);
+				}
+				return;
+			}
+
+			// B/R — 사이드 미결정 시. input focus 시 skip (native 타이핑).
+			if (!team1Side && !isInInput && (e.key === "b" || e.key === "B")) {
+				e.preventDefault();
+				s.setSide("BLUE");
+				return;
+			}
+			if (!team1Side && !isInInput && (e.key === "r" || e.key === "R")) {
+				e.preventDefault();
+				s.setSide("RED");
+			}
+		};
+		window.addEventListener("keydown", onKey);
+		return () => window.removeEventListener("keydown", onKey);
+	}, [perms.canEdit, team1Side, s.isGameTabEnabled, s.setCurrentGame, s.setSide]);
 
 	return (
 		<section className="space-y-3">
@@ -102,6 +197,22 @@ export function PickBan({
 								tabIndex={0}
 								className="dropdown-content bg-base-100 rounded-box z-30 w-64 p-2 shadow-lg border border-base-300 space-y-1"
 							>
+								<div className="text-xs uppercase tracking-wide text-base-content/60 px-2 pt-1 pb-0.5">
+									설정
+								</div>
+								<label className="flex items-center gap-2 px-2 py-1 cursor-pointer hover:bg-base-200 rounded">
+									<input
+										type="checkbox"
+										className="toggle toggle-xs toggle-info"
+										checked={autoSideFlip}
+										onChange={(e) => setAutoSideFlip(e.target.checked)}
+									/>
+									<span className="text-sm">Bo3 자동 사이드 반전</span>
+								</label>
+								<div className="text-[10px] text-base-content/50 px-2 pb-1 leading-snug">
+									Game 2/3 진입 시 이전 게임 사이드의 반대로 default.
+								</div>
+								<div className="divider my-1" />
 								<div className="text-xs uppercase tracking-wide text-base-content/60 px-2 pt-1 pb-0.5">
 									위험한 액션
 								</div>
@@ -159,6 +270,11 @@ export function PickBan({
 					<span className="size-1.5 rounded-full bg-success animate-pulse" aria-hidden />
 					라이브 — 운영자 입력 시 자동 갱신
 				</div>
+			)}
+
+			{/* W6 — 키 hint 패널 (운영자 모드만) */}
+			{perms.canEdit && !s.seriesCompleted && (
+				<KeyboardHints hints={PICKBAN_HINTS} storageKey="pickban:hints:dismissed" />
 			)}
 
 			{/* 시리즈 스코어 + 라인업 — 단일 카드 (라인업 collapse) */}
@@ -283,20 +399,22 @@ export function PickBan({
 							<button
 								type="button"
 								onClick={() => s.setSide("BLUE")}
-								className="btn h-auto flex-col py-3 btn-outline hover:btn-info"
+								className="btn h-auto flex-col py-3 bg-info/10 border-info text-info hover:bg-info hover:text-info-content"
 								disabled={!perms.canEdit}
 							>
-								<span className="text-xs opacity-80">1팀</span>
-								<span className="text-base font-bold">BLUE</span>
+								<span className="text-xs opacity-80">1팀 사이드</span>
+								<span className="text-lg font-bold">BLUE</span>
+								{perms.canEdit && <kbd className="kbd kbd-xs mt-0.5">B</kbd>}
 							</button>
 							<button
 								type="button"
 								onClick={() => s.setSide("RED")}
-								className="btn h-auto flex-col py-3 btn-outline hover:btn-error"
+								className="btn h-auto flex-col py-3 bg-error/10 border-error text-error hover:bg-error hover:text-error-content"
 								disabled={!perms.canEdit}
 							>
-								<span className="text-xs opacity-80">1팀</span>
-								<span className="text-base font-bold">RED</span>
+								<span className="text-xs opacity-80">1팀 사이드</span>
+								<span className="text-lg font-bold">RED</span>
+								{perms.canEdit && <kbd className="kbd kbd-xs mt-0.5">R</kbd>}
 							</button>
 						</div>
 					</div>
@@ -316,6 +434,7 @@ export function PickBan({
 					participants={detail.participants}
 					champions={s.champions}
 					fearlessUsedIds={s.fearlessUsedIds}
+					previousPicks={previousPicks}
 					onChange={s.setGameDraft}
 				/>
 			)}

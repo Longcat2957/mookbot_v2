@@ -1,16 +1,21 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePerms } from "../../state/perms.js";
 import { BulkInput } from "./BulkInput.js";
 import { ChampCell } from "./ChampCell.js";
+import { nextSlotForAdvance, type OrderMode } from "./pickbanOrder.js";
 import { TeamColumn } from "./TeamColumn.js";
 import {
+	type ActiveSlot,
+	allSlots,
 	type Champion,
 	type ChampionPlay,
 	type GameDraft,
 	LANE_LABEL,
 	LANE_ORDER,
+	type PickUsage,
 	type SeriesParticipant,
 	type Side,
+	sameSlot,
 	type Team,
 } from "./types.js";
 
@@ -21,6 +26,7 @@ export function PickBanBoard({
 	participants,
 	champions,
 	fearlessUsedIds,
+	previousPicks,
 	onChange,
 }: {
 	teamSize: number;
@@ -29,6 +35,7 @@ export function PickBanBoard({
 	participants: SeriesParticipant[];
 	champions: Champion[];
 	fearlessUsedIds: Set<number>;
+	previousPicks?: Map<number, PickUsage[]>;
 	onChange: (g: GameDraft) => void;
 }) {
 	// 일괄 입력 — 콤마 split 후 슬롯에 차례로 채움.
@@ -55,12 +62,35 @@ export function PickBanBoard({
 	};
 	const perms = usePerms();
 	const [search, setSearch] = useState("");
-	const [activeSlot, setActiveSlot] = useState<{
-		kind: "ban" | "pick";
-		team: Team;
-		idx: number;
-	} | null>(null);
+	const [activeSlot, setActiveSlot] = useState<ActiveSlot | null>(null);
 	const searchRef = useRef<HTMLInputElement | null>(null);
+
+	// W2 — 자동 advance / 순서 모드 (localStorage 영속). 사용자 결정: autoAdvance default ON / order free.
+	const [autoAdvance, setAutoAdvance] = useState<boolean>(() => {
+		try {
+			return localStorage.getItem("pickban:autoAdvance") !== "0";
+		} catch {
+			return true;
+		}
+	});
+	useEffect(() => {
+		try {
+			localStorage.setItem("pickban:autoAdvance", autoAdvance ? "1" : "0");
+		} catch {}
+	}, [autoAdvance]);
+	const [orderMode, setOrderMode] = useState<OrderMode>(() => {
+		try {
+			const v = localStorage.getItem("pickban:orderMode");
+			return v === "lol" ? "lol" : "free";
+		} catch {
+			return "free";
+		}
+	});
+	useEffect(() => {
+		try {
+			localStorage.setItem("pickban:orderMode", orderMode);
+		} catch {}
+	}, [orderMode]);
 
 	// Esc — 검색 input focus + 검색어 있으면 검색 클리어 우선, 아니면 활성 슬롯 해제
 	useEffect(() => {
@@ -171,23 +201,117 @@ export function PickBanBoard({
 		return map;
 	}, [participants]);
 
-	const setSlot = (championId: number | null) => {
-		if (!activeSlot) return;
-		const next: GameDraft = {
-			...gameDraft,
-			bans: {
-				TEAM_1: [...gameDraft.bans.TEAM_1],
-				TEAM_2: [...gameDraft.bans.TEAM_2],
-			},
-			picks: {
-				TEAM_1: [...gameDraft.picks.TEAM_1],
-				TEAM_2: [...gameDraft.picks.TEAM_2],
-			},
+	const setSlot = useCallback(
+		(championId: number | null) => {
+			if (!activeSlot) return;
+			const next: GameDraft = {
+				...gameDraft,
+				bans: {
+					TEAM_1: [...gameDraft.bans.TEAM_1],
+					TEAM_2: [...gameDraft.bans.TEAM_2],
+				},
+				picks: {
+					TEAM_1: [...gameDraft.picks.TEAM_1],
+					TEAM_2: [...gameDraft.picks.TEAM_2],
+				},
+			};
+			const arr = activeSlot.kind === "ban" ? next.bans[activeSlot.team] : next.picks[activeSlot.team];
+			arr[activeSlot.idx] = championId;
+			onChange(next);
+		},
+		[activeSlot, gameDraft, onChange],
+	);
+
+	// W2 — 챔프 채움 + 자동 advance. setSlot(null) 슬롯 지우기와 분리.
+	//   autoAdvance=ON: 다음 슬롯 (orderMode 따라) 자동 활성 / null 이면 모두 채워짐 → 해제.
+	//   autoAdvance=OFF: 슬롯 해제만 (기존 동작).
+	const commitChampion = useCallback(
+		(championId: number) => {
+			if (!activeSlot) return;
+			const next: GameDraft = {
+				...gameDraft,
+				bans: {
+					TEAM_1: [...gameDraft.bans.TEAM_1],
+					TEAM_2: [...gameDraft.bans.TEAM_2],
+				},
+				picks: {
+					TEAM_1: [...gameDraft.picks.TEAM_1],
+					TEAM_2: [...gameDraft.picks.TEAM_2],
+				},
+			};
+			const arr = activeSlot.kind === "ban" ? next.bans[activeSlot.team] : next.picks[activeSlot.team];
+			arr[activeSlot.idx] = championId;
+			onChange(next);
+			setSearch("");
+			if (!autoAdvance) {
+				setActiveSlot(null);
+				return;
+			}
+			setActiveSlot(nextSlotForAdvance(orderMode, activeSlot, team1Side, teamSize, next));
+		},
+		[activeSlot, autoAdvance, orderMode, team1Side, teamSize, gameDraft, onChange],
+	);
+
+	// W1 키보드 단축키 — Tab/Shift+Tab/Enter/Backspace (활성 슬롯 전제).
+	// IME 한글 자모 조합 중에는 isComposing 으로 skip — Enter 가 자모 확정으로 가로채지 않게.
+	useEffect(() => {
+		if (!perms.canEdit) return;
+		const onKey = (e: KeyboardEvent) => {
+			if (e.isComposing) return;
+			if (!activeSlot) return;
+			const tag = (document.activeElement as HTMLElement | null)?.tagName;
+			const isInInput = tag === "INPUT" || tag === "TEXTAREA";
+			const isInSearch = document.activeElement === searchRef.current;
+
+			// Tab — 다음 슬롯 (Shift+Tab 이전)
+			if (e.key === "Tab") {
+				e.preventDefault();
+				const all = allSlots(teamSize);
+				const i = all.findIndex((s) => sameSlot(s, activeSlot));
+				const dir = e.shiftKey ? -1 : 1;
+				const ni = (i + dir + all.length) % all.length;
+				setActiveSlot(all[ni] ?? null);
+				return;
+			}
+
+			// Enter — 검색 input focus + 검색 결과 첫 챔프 선택 + 자동 advance
+			if (e.key === "Enter" && isInSearch) {
+				const first: ChampionPlay | Champion | undefined = mains[0] ?? usable[0];
+				if (!first) return;
+				e.preventDefault();
+				const champId = "championId" in first ? first.championId : first.id;
+				commitChampion(champId);
+				return;
+			}
+
+			// Backspace — 활성 슬롯 비우기
+			//   검색 input 안 + 검색어 있음 → native delete (skip)
+			//   검색 input 안 + 검색어 빈 상태 → 슬롯 비우기
+			//   input 밖 → 슬롯 비우기
+			if (e.key === "Backspace") {
+				const arr =
+					activeSlot.kind === "ban" ? gameDraft.bans[activeSlot.team] : gameDraft.picks[activeSlot.team];
+				if (arr[activeSlot.idx] == null) return;
+				if (isInSearch && search) return;
+				if (!isInInput || isInSearch) {
+					e.preventDefault();
+					setSlot(null);
+				}
+			}
 		};
-		const arr = activeSlot.kind === "ban" ? next.bans[activeSlot.team] : next.picks[activeSlot.team];
-		arr[activeSlot.idx] = championId;
-		onChange(next);
-	};
+		window.addEventListener("keydown", onKey);
+		return () => window.removeEventListener("keydown", onKey);
+	}, [
+		activeSlot,
+		mains,
+		usable,
+		search,
+		gameDraft,
+		teamSize,
+		setSlot,
+		commitChampion,
+		perms.canEdit,
+	]);
 
 	const team2Side: Side = team1Side === "BLUE" ? "RED" : "BLUE";
 
@@ -224,13 +348,33 @@ export function PickBanBoard({
 
 	return (
 		<div className="space-y-4">
-			{/* 활성 슬롯 sticky 안내 — design_upgrade.md §6.4.2 #5 */}
+			{/* 활성 슬롯 sticky 안내 — design_upgrade.md §6.4.2 #5 + W2 자동 advance 토글 */}
 			{activeSlotInfo && (
-				<div className="alert alert-info alert-soft sticky top-2 z-20 shadow-md flex-row items-center">
-					<span className="flex-1">
+				<div className="alert alert-info alert-soft sticky top-2 z-20 shadow-md flex-row items-center flex-wrap gap-2">
+					<span className="flex-1 min-w-0">
 						{activeSlotInfo}
 						<span className="text-xs opacity-70 ml-2">— 챔프 선택 또는 슬롯 다시 클릭 (Esc 취소)</span>
 					</span>
+					<label className="flex items-center gap-1.5 text-xs cursor-pointer whitespace-nowrap">
+						<input
+							type="checkbox"
+							className="toggle toggle-xs toggle-info"
+							checked={autoAdvance}
+							onChange={(e) => setAutoAdvance(e.target.checked)}
+						/>
+						자동 다음
+					</label>
+					{teamSize === 5 && team1Side && (
+						<select
+							className="select select-xs select-bordered"
+							value={orderMode}
+							onChange={(e) => setOrderMode(e.target.value as OrderMode)}
+							title="다음 슬롯 순서 — 자유 / LoL 표준"
+						>
+							<option value="free">자유</option>
+							<option value="lol">LoL 표준</option>
+						</select>
+					)}
 					<button
 						type="button"
 						className="btn btn-xs btn-ghost"
@@ -247,171 +391,172 @@ export function PickBanBoard({
 				<BulkInput champions={champions} teamSize={teamSize} onApply={handleApplyBulk} />
 			)}
 
-			{/* 픽/밴 보드 — 1팀 | 2팀 */}
-			<div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-				<TeamColumn
-					team="TEAM_1"
-					side={team1Side}
-					teamSize={teamSize}
-					draft={gameDraft}
-					lineup={lineup}
-					champions={champions}
-					activeSlot={activeSlot}
-					onSlotClick={handleSlotClick}
-				/>
-				<TeamColumn
-					team="TEAM_2"
-					side={team2Side}
-					teamSize={teamSize}
-					draft={gameDraft}
-					lineup={lineup}
-					champions={champions}
-					activeSlot={activeSlot}
-					onSlotClick={handleSlotClick}
-				/>
-			</div>
+			{/* D1 split layout — 보드 좌 60% + 챔프 그리드 우 40% sticky (lg+ 만) */}
+			<div className="grid grid-cols-1 lg:grid-cols-[3fr_2fr] gap-4 items-start">
+				{/* 픽/밴 보드 (1팀 + 2팀 stack) — split 안에선 좌측 60% */}
+				<div className="space-y-3 min-w-0">
+					<TeamColumn
+						team="TEAM_1"
+						side={team1Side}
+						teamSize={teamSize}
+						draft={gameDraft}
+						lineup={lineup}
+						champions={champions}
+						activeSlot={activeSlot}
+						onSlotClick={handleSlotClick}
+					/>
+					<TeamColumn
+						team="TEAM_2"
+						side={team2Side}
+						teamSize={teamSize}
+						draft={gameDraft}
+						lineup={lineup}
+						champions={champions}
+						activeSlot={activeSlot}
+						onSlotClick={handleSlotClick}
+					/>
+				</div>
 
-			{/* 챔프 그리드 (전체 너비) */}
-			<div className="card bg-base-200 shadow-sm">
-				<div className="card-body p-4 gap-3">
-					<div className="flex items-center gap-2 flex-wrap">
-						<div className="join flex-1 min-w-[200px]">
-							<input
-								ref={searchRef}
-								type="text"
-								placeholder="챔피언 검색… (한/영, / 키로 포커스)"
-								value={search}
-								onChange={(e) => setSearch(e.target.value)}
-								className="input input-bordered join-item flex-1"
-							/>
-							<button
-								type="button"
-								className="btn btn-ghost join-item"
-								onClick={() => setSearch("")}
-								disabled={!search}
-								title="검색 초기화 (Esc)"
-								aria-label="검색 초기화"
-							>
-								✕
-							</button>
-						</div>
-						<div className="text-xs text-base-content/60">
-							{mains.length + usable.length} 사용 가능
-							{blocked.length > 0 && ` · ${blocked.length} 사용 불가`}
-						</div>
-					</div>
-
-					{activePlayer && mains.length > 0 && (
-						<div role="tablist" className="tabs tabs-xs tabs-boxed self-start">
-							<button
-								role="tab"
-								className={`tab ${filterMode === "all" ? "tab-active" : ""}`}
-								onClick={() => setFilterMode("all")}
-							>
-								전체
-							</button>
-							<button
-								role="tab"
-								className={`tab ${filterMode === "mains" ? "tab-active" : ""}`}
-								onClick={() => setFilterMode("mains")}
-							>
-								🌟 {activePlayer.displayName} 주력 ({mains.length})
-							</button>
-						</div>
-					)}
-
-					{fearlessUsedIds.size > 0 && (
-						<div className="text-xs text-base-content/60">
-							🛡️ Hard Fearless — 이전 게임에서 사용된 {fearlessUsedIds.size}개 챔프 자동 비활성화
-						</div>
-					)}
-
-					{/* MY MAINS 섹션 — 활성 픽 슬롯의 플레이어 주력 챔프 */}
-					{activePlayer && mains.length > 0 && (
-						<div>
-							<div className="text-xs font-medium text-warning mb-1.5 flex items-center gap-1">
-								🌟 주력 챔프 ({activePlayer.displayName})
+				{/* 챔프 그리드 — split 안 우측 40%, lg+ sticky (top-2 ~ 화면 끝) */}
+				<div className="card bg-base-200 shadow-sm lg:sticky lg:top-2 lg:max-h-[calc(100vh-1rem)] lg:overflow-y-auto">
+					<div className="card-body p-4 gap-3">
+						<div className="flex items-center gap-2 flex-wrap">
+							<div className="join flex-1 min-w-[200px]">
+								<input
+									ref={searchRef}
+									type="text"
+									placeholder="챔피언 검색… (한/영, / 키로 포커스)"
+									value={search}
+									onChange={(e) => setSearch(e.target.value)}
+									className="input input-bordered join-item flex-1"
+								/>
+								<button
+									type="button"
+									className="btn btn-ghost join-item"
+									onClick={() => setSearch("")}
+									disabled={!search}
+									title="검색 초기화 (Esc)"
+									aria-label="검색 초기화"
+								>
+									✕
+								</button>
 							</div>
-							<div className="grid grid-cols-[repeat(auto-fill,minmax(60px,1fr))] gap-1.5">
-								{mains.map((m) => (
-									<ChampCell
-										key={m.championId}
-										champ={{
-											id: m.championId,
-											idSlug: "",
-											name: m.championName,
-											iconUrl: m.iconUrl,
-										}}
-										disabled={!activeSlot}
-										mainCount={m.plays}
-										reason={
-											!activeSlot
-												? "슬롯 먼저 선택"
-												: `${m.championName} · ${m.plays}회 (${m.wins}승 ${m.losses}패)`
-										}
-										onClick={() => {
-											setSlot(m.championId);
-											setActiveSlot(null);
-										}}
-									/>
-								))}
+							<div className="text-xs text-base-content/60">
+								{mains.length + usable.length} 사용 가능
+								{blocked.length > 0 && ` · ${blocked.length} 사용 불가`}
 							</div>
 						</div>
-					)}
 
-					{/* 일반 사용 가능 — filterMode === 'all' 에서만 */}
-					{filterMode === "all" &&
-						(usable.length === 0 ? (
-							!mains.length && (
-								<div className="text-center text-sm text-base-content/50 py-6">
-									{search.trim() ? `"${search}" 검색 결과 없음` : "사용 가능한 챔프가 없습니다."}
-								</div>
-							)
-						) : (
+						{activePlayer && mains.length > 0 && (
+							<div role="tablist" className="tabs tabs-xs tabs-boxed self-start">
+								<button
+									role="tab"
+									className={`tab ${filterMode === "all" ? "tab-active" : ""}`}
+									onClick={() => setFilterMode("all")}
+								>
+									전체
+								</button>
+								<button
+									role="tab"
+									className={`tab ${filterMode === "mains" ? "tab-active" : ""}`}
+									onClick={() => setFilterMode("mains")}
+								>
+									🌟 {activePlayer.displayName} 주력 ({mains.length})
+								</button>
+							</div>
+						)}
+
+						{fearlessUsedIds.size > 0 && (
+							<div className="text-xs text-base-content/60">
+								🛡️ Hard Fearless — 이전 게임에서 사용된 {fearlessUsedIds.size}개 챔프 자동 비활성화
+							</div>
+						)}
+
+						{/* MY MAINS 섹션 — 활성 픽 슬롯의 플레이어 주력 챔프 */}
+						{activePlayer && mains.length > 0 && (
 							<div>
-								{mains.length > 0 && (
-									<div className="text-xs text-base-content/60 mb-1.5">전체 ({usable.length})</div>
-								)}
-								<div className="grid grid-cols-[repeat(auto-fill,minmax(60px,1fr))] gap-1.5 max-h-[280px] overflow-y-auto pr-1">
-									{usable.map((c) => (
+								<div className="text-xs font-medium text-warning mb-1.5 flex items-center gap-1">
+									🌟 주력 챔프 ({activePlayer.displayName})
+								</div>
+								<div className="grid grid-cols-[repeat(auto-fill,minmax(60px,1fr))] gap-1.5">
+									{mains.map((m) => (
 										<ChampCell
-											key={c.id}
-											champ={c}
-											disabled={!activeSlot}
-											reason={!activeSlot ? "슬롯 먼저 선택" : c.name}
-											onClick={() => {
-												setSlot(c.id);
-												setActiveSlot(null);
+											key={m.championId}
+											champ={{
+												id: m.championId,
+												idSlug: "",
+												name: m.championName,
+												iconUrl: m.iconUrl,
 											}}
+											disabled={!activeSlot}
+											mainCount={m.plays}
+											reason={
+												!activeSlot
+													? "슬롯 먼저 선택"
+													: `${m.championName} · ${m.plays}회 (${m.wins}승 ${m.losses}패)`
+											}
+											previousUsage={previousPicks?.get(m.championId)}
+											onClick={() => commitChampion(m.championId)}
 										/>
 									))}
 								</div>
 							</div>
-						))}
+						)}
 
-					{blocked.length > 0 && (
-						<details className="bg-base-100/40 rounded-md">
-							<summary className="cursor-pointer text-xs font-medium px-3 py-2 text-base-content/70">
-								사용 불가 ({blocked.length}) — 이번 게임 사용 또는 Hard Fearless
-							</summary>
-							<div className="grid grid-cols-[repeat(auto-fill,minmax(60px,1fr))] gap-1.5 max-h-[200px] overflow-y-auto p-3 pt-0">
-								{blocked.map(({ champ, reason }) => (
-									<ChampCell
-										key={champ.id}
-										champ={champ}
-										disabled
-										blocked={reason}
-										reason={
-											reason === "fearless"
-												? `${champ.name} — 이전 게임에서 사용 (Hard Fearless)`
-												: `${champ.name} — 이번 게임에서 이미 사용`
-										}
-									/>
-								))}
-							</div>
-						</details>
-					)}
+						{/* 일반 사용 가능 — filterMode === 'all' 에서만 */}
+						{filterMode === "all" &&
+							(usable.length === 0 ? (
+								!mains.length && (
+									<div className="text-center text-sm text-base-content/50 py-6">
+										{search.trim() ? `"${search}" 검색 결과 없음` : "사용 가능한 챔프가 없습니다."}
+									</div>
+								)
+							) : (
+								<div>
+									{mains.length > 0 && (
+										<div className="text-xs text-base-content/60 mb-1.5">전체 ({usable.length})</div>
+									)}
+									<div className="grid grid-cols-[repeat(auto-fill,minmax(60px,1fr))] gap-1.5 max-h-[280px] overflow-y-auto pr-1">
+										{usable.map((c) => (
+											<ChampCell
+												key={c.id}
+												champ={c}
+												disabled={!activeSlot}
+												reason={!activeSlot ? "슬롯 먼저 선택" : c.name}
+												previousUsage={previousPicks?.get(c.id)}
+												onClick={() => commitChampion(c.id)}
+											/>
+										))}
+									</div>
+								</div>
+							))}
+
+						{blocked.length > 0 && (
+							<details className="bg-base-100/40 rounded-md">
+								<summary className="cursor-pointer text-xs font-medium px-3 py-2 text-base-content/70">
+									사용 불가 ({blocked.length}) — 이번 게임 사용 또는 Hard Fearless
+								</summary>
+								<div className="grid grid-cols-[repeat(auto-fill,minmax(60px,1fr))] gap-1.5 max-h-[200px] overflow-y-auto p-3 pt-0">
+									{blocked.map(({ champ, reason }) => (
+										<ChampCell
+											key={champ.id}
+											champ={champ}
+											disabled
+											blocked={reason}
+											reason={
+												reason === "fearless"
+													? `${champ.name} — 이전 게임에서 사용 (Hard Fearless)`
+													: `${champ.name} — 이번 게임에서 이미 사용`
+											}
+											previousUsage={previousPicks?.get(champ.id)}
+										/>
+									))}
+								</div>
+							</details>
+						)}
+					</div>
 				</div>
+				{/* /D1 split grid */}
 			</div>
 		</div>
 	);

@@ -48,6 +48,12 @@ export interface UseEntryEditingStateResult {
 	handleSlotTap: (slot: Slot, occupantUserId: string | null) => void;
 	handlePoolTap: () => void;
 	refresh: () => void;
+	// W5 — 자동 배치 + Undo/Redo
+	autoAssign: () => void;
+	undo: () => void;
+	redo: () => void;
+	canUndo: boolean;
+	canRedo: boolean;
 }
 
 export function useEntryEditingState({
@@ -284,6 +290,114 @@ export function useEntryEditingState({
 	const retrySave = useCallback(() => setRetryNonce((n) => n + 1), []);
 	const clearSelected = useCallback(() => setSelectedUid(null), []);
 
+	// W5 — Undo/Redo (메모리 only, depth 20). 본인 변경 (moveTo/swapTeams/autoAssign) 만 push.
+	const HISTORY_MAX = 20;
+	const [history, setHistory] = useState<Assignment[]>([new Map()]);
+	const [historyIdx, setHistoryIdx] = useState(0);
+	// 변경 직전 snapshot push — historyIdx 이후 잘라내고 새 변경 추가.
+	const pushHistory = useCallback(
+		(snapshot: Assignment) => {
+			setHistory((prev) => {
+				const truncated = prev.slice(0, Math.max(1, historyIdx + 1));
+				const next = [...truncated, new Map(snapshot)];
+				return next.length > HISTORY_MAX ? next.slice(-HISTORY_MAX) : next;
+			});
+			setHistoryIdx((prev) => Math.min(prev + 1, HISTORY_MAX - 1));
+		},
+		[historyIdx],
+	);
+
+	// 기존 moveTo / swapTeams 호출 직전에 pushHistory 추가. 새 함수 wrap.
+	const moveToWithHistory = useCallback(
+		(userId: string, slot: Slot | null) => {
+			pushHistory(assignment);
+			moveTo(userId, slot);
+		},
+		[pushHistory, assignment, moveTo],
+	);
+	const swapTeamsWithHistory = useCallback(() => {
+		pushHistory(assignment);
+		swapTeams();
+	}, [pushHistory, assignment, swapTeams]);
+
+	// W5 — 자동 배치 (client-side, participant.roles[]/history.topRole 기반 + 셔플).
+	const autoAssign = useCallback(() => {
+		if (!detail || !perms.canEdit) return;
+		const lanes =
+			activeLanes.length > 0 ? activeLanes : (LANES as readonly Lane[]).slice(0, teamSize);
+		const remaining = [...detail.participants];
+		for (let i = remaining.length - 1; i > 0; i--) {
+			const j = Math.floor(Math.random() * (i + 1));
+			const ri = remaining[i] as Participant;
+			const rj = remaining[j] as Participant;
+			remaining[i] = rj;
+			remaining[j] = ri;
+		}
+		const slots: Slot[] = [];
+		for (const team of ["TEAM_1", "TEAM_2"] as const) {
+			for (const lane of lanes) slots.push(`${team}_${lane}` as Slot);
+		}
+		const next: Assignment = new Map();
+		for (const slot of slots) {
+			if (remaining.length === 0) break;
+			const lane = slot.slice(slot.lastIndexOf("_") + 1) as Lane;
+			let idx = remaining.findIndex((p) => p.roles.includes(lane));
+			if (idx < 0) idx = remaining.findIndex((p) => p.history.topRole?.role === lane);
+			if (idx < 0) idx = 0;
+			const picked = remaining[idx];
+			if (!picked) break;
+			next.set(picked.userId, slot);
+			remaining.splice(idx, 1);
+		}
+		pushHistory(assignment);
+		setAssignment(next);
+		setSelectedUid(null);
+	}, [detail, perms.canEdit, activeLanes, teamSize, assignment, pushHistory]);
+
+	const undo = useCallback(() => {
+		if (historyIdx <= 0) return;
+		const newIdx = historyIdx - 1;
+		const snap = history[newIdx];
+		if (!snap) return;
+		setHistoryIdx(newIdx);
+		setAssignment(new Map(snap));
+		setSelectedUid(null);
+	}, [history, historyIdx]);
+
+	const redo = useCallback(() => {
+		if (historyIdx >= history.length - 1) return;
+		const newIdx = historyIdx + 1;
+		const snap = history[newIdx];
+		if (!snap) return;
+		setHistoryIdx(newIdx);
+		setAssignment(new Map(snap));
+		setSelectedUid(null);
+	}, [history, historyIdx]);
+
+	const canUndo = historyIdx > 0;
+	const canRedo = historyIdx < history.length - 1;
+
+	// Ctrl+Z / Ctrl+Shift+Z / Ctrl+Y 단축키 — IME compositionend 후만 발동.
+	useEffect(() => {
+		if (!perms.canEdit) return;
+		const onKey = (e: KeyboardEvent) => {
+			if (e.isComposing) return;
+			if (!e.ctrlKey) return;
+			if ((e.key === "z" || e.key === "Z") && !e.shiftKey) {
+				e.preventDefault();
+				undo();
+			} else if ((e.key === "z" || e.key === "Z") && e.shiftKey) {
+				e.preventDefault();
+				redo();
+			} else if (e.key === "y" || e.key === "Y") {
+				e.preventDefault();
+				redo();
+			}
+		};
+		window.addEventListener("keydown", onKey);
+		return () => window.removeEventListener("keydown", onKey);
+	}, [perms.canEdit, undo, redo]);
+
 	return {
 		detail,
 		assignment,
@@ -301,11 +415,16 @@ export function useEntryEditingState({
 		recentlyChanged,
 		selectedUid,
 		clearSelected,
-		moveTo,
-		swapTeams,
+		moveTo: moveToWithHistory,
+		swapTeams: swapTeamsWithHistory,
 		handleParticipantTap,
 		handleSlotTap,
 		handlePoolTap,
 		refresh: swr.refresh,
+		autoAssign,
+		undo,
+		redo,
+		canUndo,
+		canRedo,
 	};
 }

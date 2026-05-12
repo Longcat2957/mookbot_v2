@@ -47,9 +47,9 @@ export function TeamColumn({
 					<span className={`badge ${side === "BLUE" ? "badge-info" : "badge-error"}`}>{side}</span>
 				</div>
 
-				<div>
-					<div className="text-xs text-base-content/60 mb-1 uppercase tracking-wide">
-						밴 ({draft.bans[team].filter(Boolean).length}/{teamSize})
+				<div className="bg-warning/5 rounded-md p-2 -mx-1">
+					<div className="text-xs text-warning/80 mb-1 uppercase tracking-wide font-bold flex items-center gap-1">
+						<span>🚫</span> 밴 ({draft.bans[team].filter(Boolean).length}/{teamSize})
 					</div>
 					<div className="flex gap-1 flex-wrap">
 						{draft.bans[team].map((cid, i) => (
@@ -65,9 +65,9 @@ export function TeamColumn({
 					</div>
 				</div>
 
-				<div>
-					<div className="text-xs text-base-content/60 mb-1 uppercase tracking-wide">
-						픽 ({draft.picks[team].filter(Boolean).length}/{teamSize})
+				<div className="bg-success/5 rounded-md p-2 -mx-1">
+					<div className="text-xs text-success/80 mb-1 uppercase tracking-wide font-bold flex items-center gap-1">
+						<span>⚔️</span> 픽 ({draft.picks[team].filter(Boolean).length}/{teamSize})
 					</div>
 					<div className="space-y-1">
 						{lanes.map((lane, i) => {

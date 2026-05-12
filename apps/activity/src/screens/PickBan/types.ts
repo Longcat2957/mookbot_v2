@@ -95,3 +95,30 @@ export function emptyGameDraft(n: number, banCount: number, pickCount: number): 
 export function sideTextColor(side: Side): string {
 	return side === "BLUE" ? "text-info font-bold" : "text-error font-bold";
 }
+
+// W1 키보드 단축키 — 슬롯 navigation 헬퍼
+export type ActiveSlot = { kind: "ban" | "pick"; team: Team; idx: number };
+
+// W3 — 이전 게임 챔프 사용 정보 (G1/G2 배지 + tooltip)
+export type PickUsage = {
+	gameNumber: number;
+	team: Team;
+	role: string;
+	win: boolean;
+};
+
+export function allSlots(teamSize: number): ActiveSlot[] {
+	const all: ActiveSlot[] = [];
+	for (const team of ["TEAM_1", "TEAM_2"] as const) {
+		for (let i = 0; i < teamSize; i++) all.push({ kind: "ban", team, idx: i });
+	}
+	for (const team of ["TEAM_1", "TEAM_2"] as const) {
+		for (let i = 0; i < teamSize; i++) all.push({ kind: "pick", team, idx: i });
+	}
+	return all;
+}
+
+export function sameSlot(a: ActiveSlot | null, b: ActiveSlot | null): boolean {
+	if (!a || !b) return false;
+	return a.kind === b.kind && a.team === b.team && a.idx === b.idx;
+}
