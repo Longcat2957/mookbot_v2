@@ -43,6 +43,20 @@ export function AuctionDraft({
 		})();
 	}, [tournamentId, recruitmentId]);
 
+	// 단계가 BRACKET_SETUP 이상이면 외부에 알림 (parent 가 AuctionBracket 화면으로 라우팅).
+	// hook 규칙 — early return 전에 위치. s.detail 이 없으면 status 는 undefined → no-op.
+	const tournamentStatus = s.detail?.tournament.status;
+	useEffect(() => {
+		if (
+			tournamentId !== null &&
+			(tournamentStatus === "BRACKET_SETUP" ||
+				tournamentStatus === "IN_GAME" ||
+				tournamentStatus === "COMPLETED")
+		) {
+			onEnterBracket(tournamentId);
+		}
+	}, [tournamentId, tournamentStatus, onEnterBracket]);
+
 	const enterTournament = async () => {
 		if (recruitmentId === null) return;
 		setCreating(true);
@@ -113,16 +127,6 @@ export function AuctionDraft({
 	if (!s.detail) return <div className="alert alert-info">로딩 중…</div>;
 
 	const status = s.detail.tournament.status;
-
-	// 단계가 BRACKET_SETUP 이상이면 외부에 알림 (parent 가 AuctionBracket 화면으로 라우팅)
-	useEffect(() => {
-		if (
-			tournamentId !== null &&
-			(status === "BRACKET_SETUP" || status === "IN_GAME" || status === "COMPLETED")
-		) {
-			onEnterBracket(tournamentId);
-		}
-	}, [tournamentId, status, onEnterBracket]);
 
 	return (
 		<section className="space-y-3">

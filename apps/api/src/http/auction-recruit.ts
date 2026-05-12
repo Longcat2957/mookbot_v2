@@ -9,7 +9,7 @@ export async function registerAuctionRecruitRoutes(app: FastifyInstance): Promis
 	app.get("/api/auction-recruitments", async (req, reply) => {
 		const sid = requireSession(req, reply);
 		if (!sid) return;
-		const rows = await db.listOpenAuctionRecruitments();
+		const rows = await db.listActiveAuctionRecruitments();
 		return {
 			recruitments: rows.map((r) => ({
 				id: r.id,

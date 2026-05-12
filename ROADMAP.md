@@ -2,7 +2,7 @@
 
 > 현재 버전 기준 진척 상태. 시간순 기획서는 [`PLAN.md`](./PLAN.md), 코드 리뷰 워킹노트는 [`docs/internal/`](./docs/internal/) 참조.
 
-## 현재 (v0.5.4)
+## 현재 (v0.5.5)
 
 활성 도메인: `bot.mooklol.com` (Cloudflare proxied → 단일 VPS · Docker compose 4컨테이너 stack: bot · api · activity · nginx).
 실서비스 운영 중.
@@ -152,6 +152,11 @@
 - **검증된 동작**: 첫 로드 (server draft 없음/있음), dirty 보호, `setSide`/`setCurrentGame`/`setGameDraft` (게임 게이팅 포함), `fearlessUsedIds` 도메인 계산 (이전 게임 + draft 합산, 현재 제외), `revert`/`undoLast` 성공/실패, debounced save (canEdit on/off), WS callback 시 refresh + toast, 1/2/3 단축키 (input 안 무시), `moveTo` (빈/점유 unassigned/점유 swap/null), `swapTeams`, `allFilled`, `submit` (성공/미충족/실패), Tap-to-Place 흐름 (`handleParticipantTap`/`handleSlotTap`/`handlePoolTap`, canEdit off 시 no-op), Esc 키 selected 해제, `recentlyChanged` diff.
 - **vitest config**: `apps/activity/src/screens/*/use*State.ts` 만 coverage include 로 추가 (전체 activity src 는 UI 영역으로 exclude 유지).
 - **테스트 총합**: 256 → 291 (+35). lint warnings 가 +20 (mock data 의 `!` non-null assertion — 테스트에서는 의도적 패턴, errors 0).
+
+### Phase 22 — 경매 Activity 노출 핫픽스 (v0.5.5)
+- **버그 1: AuctionDraft 의 React Hook 규칙 위반** — `if (!s.detail) return ...` 의 early return 아래에 `useEffect(onEnterBracket)` 가 있어 첫 렌더 vs 후속 렌더의 hook 호출 개수 불일치 → invariant violation, 컴포넌트 crash. ErrorBoundary fallback 으로 표시되거나 흰 화면. → useEffect 를 early return 전으로 이동, `status` 대신 `tournamentStatus = s.detail?.tournament.status` 사용 (undefined safe).
+- **버그 2: `/api/auction-recruitments` 가 OPEN 만 반환** — 일반 모집은 CLOSED 모집만 (엔트리 대기 상태) Activity 에 노출되는데, 경매는 OPEN 만 반환해 [▶ 경매 시작] 클릭 후 CLOSED 가 되면 Activity 대시보드에서 사라짐 — Activity 진입 경로 자체 차단. → `db.listActiveAuctionRecruitments` 신규 helper (OPEN + CLOSED + CONVERTED) + API 가 호출.
+- 두 버그가 합쳐져 사용자가 경매 모집을 만들고 [▶ 경매 시작] 클릭해도 Activity 에 카드 자체가 안 보이거나 (버그 2), 카드 클릭해도 화면이 crash 됨 (버그 1).
 
 ### Phase 21 — `/랜덤인원추가` 테스트 도구 (v0.5.4)
 - **신규 슬래시 `/랜덤인원추가 모집:N 인원:M`** — 운영자 전용 테스트 도구. 등록된 사용자 (`users` 테이블) 풀에서 랜덤 M명을 모집 #N 에 추가. 일반 (`recruitments`) / 경매 (`auction_recruitments`) 모집 자동 감지.

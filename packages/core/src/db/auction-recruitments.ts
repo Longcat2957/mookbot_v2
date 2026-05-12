@@ -86,6 +86,20 @@ export async function listOpenAuctionRecruitments(): Promise<AuctionRecruitmentR
 	);
 }
 
+/**
+ * Activity 대시보드용 — 진행 중인 모든 경매 (OPEN / CLOSED / CONVERTED).
+ * - OPEN: 모집 중
+ * - CLOSED: 운영자 [▶ 경매 시작] 대기 (Activity 진입 가능)
+ * - CONVERTED: 토너먼트 진행 중 (Activity 가 토너먼트 화면으로 라우팅)
+ *
+ * 일반 내전과 일관 — listBuildableRecruitments 와 동등 의미.
+ */
+export async function listActiveAuctionRecruitments(): Promise<AuctionRecruitmentRow[]> {
+	return query<AuctionRecruitmentRow>(
+		`SELECT * FROM auction_recruitments WHERE status IN ('OPEN', 'CLOSED', 'CONVERTED') ORDER BY created_at DESC`,
+	);
+}
+
 export async function listCancellableAuctionRecruitments(): Promise<AuctionRecruitmentRow[]> {
 	return query<AuctionRecruitmentRow>(
 		`SELECT * FROM auction_recruitments WHERE status IN ('OPEN', 'CLOSED') ORDER BY created_at DESC`,
