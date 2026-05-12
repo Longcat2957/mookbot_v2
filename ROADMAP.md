@@ -2,7 +2,7 @@
 
 > 현재 버전 기준 진척 상태. 시간순 기획서는 [`PLAN.md`](./PLAN.md), 코드 리뷰 워킹노트는 [`docs/internal/`](./docs/internal/) 참조.
 
-## 현재 (v0.5.2)
+## 현재 (v0.5.3)
 
 활성 도메인: `bot.mooklol.com` (Cloudflare proxied → 단일 VPS · Docker compose 4컨테이너 stack: bot · api · activity · nginx).
 실서비스 운영 중.
@@ -152,6 +152,13 @@
 - **검증된 동작**: 첫 로드 (server draft 없음/있음), dirty 보호, `setSide`/`setCurrentGame`/`setGameDraft` (게임 게이팅 포함), `fearlessUsedIds` 도메인 계산 (이전 게임 + draft 합산, 현재 제외), `revert`/`undoLast` 성공/실패, debounced save (canEdit on/off), WS callback 시 refresh + toast, 1/2/3 단축키 (input 안 무시), `moveTo` (빈/점유 unassigned/점유 swap/null), `swapTeams`, `allFilled`, `submit` (성공/미충족/실패), Tap-to-Place 흐름 (`handleParticipantTap`/`handleSlotTap`/`handlePoolTap`, canEdit off 시 no-op), Esc 키 selected 해제, `recentlyChanged` diff.
 - **vitest config**: `apps/activity/src/screens/*/use*State.ts` 만 coverage include 로 추가 (전체 activity src 는 UI 영역으로 exclude 유지).
 - **테스트 총합**: 256 → 291 (+35). lint warnings 가 +20 (mock data 의 `!` non-null assertion — 테스트에서는 의도적 패턴, errors 0).
+
+### Phase 20 — 봇 버튼 핸들러 token expire 방어 (v0.5.3)
+- **DiscordAPIError 10062 fix** — `recruit:cancel:48` 같은 버튼 클릭이 D1 fetch (`getRecruitment`) 가 3초 ack 윈도우를 초과해 interaction token 만료 후 `reply` 시도하던 long-standing 버그.
+- **`handleButton` 즉시 deferUpdate** — customId 파싱 + id 검증 직후 (모든 D1 fetch 전) `try { await interaction.deferUpdate(); } catch {}` 로 ack 확보. 후속 fetch 가 지연돼도 token 살아있음.
+- **`reply` → `notify(interaction, content)` 헬퍼** — defer 상태에 따라 `followUp` (ephemeral) 또는 `reply` 분기, 전부 try/catch 로 silent skip (expire 됐어도 server-side 로직은 일관성 유지).
+- **`recruit/` + `auctionRecruit/` 두 핸들러 동시 적용** — 같은 구조 잠재 위험 있어 사전 fix. 기존 동작 변경 없음 (사용자 facing 동일, 안정성만 ↑).
+- **운영 영향**: 모집 cancel / next / join / leave 버튼이 D1 cold start / network jitter 로 3초 초과해도 silent 동작 — "버튼 눌렀는데 응답 없음" 사용자 체감 사례 감소.
 
 ### Phase 19 — Activity 버전 표시 (v0.5.2)
 - **monkey 로고 옆 버전 표시** — `<span>v0.5.2</span>` 작게 inline. 사용자가 현재 Activity 가 어떤 버전인지 즉시 확인 가능 (배포 회귀 시 디버깅 도움).

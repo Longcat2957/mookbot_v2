@@ -3,7 +3,7 @@
 import { db } from "@mookbot/core";
 import type { ButtonInteraction } from "discord.js";
 import { resolveGuildDisplayName } from "../../utils/displayName.js";
-import { notify } from "../../utils/notify.js";
+import { notify as wsNotify } from "../../utils/notify.js";
 import { v2EditReply } from "../../utils/v2.js";
 import { renderComponents } from "./messageBuilder.js";
 
@@ -18,16 +18,39 @@ const {
 	recordAudit,
 } = db;
 
+/**
+ * 사용자 알림 (ephemeral) — defer 후/전 어느 상태든 안전하게 전달.
+ * Discord 의 3초 ack 윈도우 초과로 token expire (10062 Unknown interaction) 가 자주
+ * 발생해 모든 reply 를 try/catch 로 감싸 best-effort 처리.
+ */
+async function notify(interaction: ButtonInteraction, content: string): Promise<void> {
+	try {
+		if (interaction.deferred || interaction.replied) {
+			await interaction.followUp({ content, ephemeral: true });
+		} else {
+			await interaction.reply({ content, ephemeral: true });
+		}
+	} catch {
+		// expired token / network — silent skip
+	}
+}
+
 export async function handleButton(interaction: ButtonInteraction): Promise<void> {
 	const [, action, idStr] = interaction.customId.split(":");
 	const id = Number(idStr);
 	if (!id) {
-		await interaction.reply({ content: "잘못된 모집 ID", ephemeral: true });
+		await notify(interaction, "잘못된 모집 ID");
 		return;
 	}
+
+	// 3초 ack 윈도우 확보 — D1 fetch 전에 즉시 ack. 실패 (이미 expire 됨) 는 silent.
+	try {
+		await interaction.deferUpdate();
+	} catch {}
+
 	const rec = await getRecruitment(id);
 	if (!rec) {
-		await interaction.reply({ content: "모집을 찾을 수 없습니다.", ephemeral: true });
+		await notify(interaction, "모집을 찾을 수 없습니다.");
 		return;
 	}
 	const isOpen = rec.status === "OPEN";
@@ -36,16 +59,15 @@ export async function handleButton(interaction: ButtonInteraction): Promise<void
 	// 참가자 액션은 OPEN 일 때만
 	const participantActions = new Set<string | undefined>(["join", "leave"]);
 	if (participantActions.has(action) && !isOpen) {
-		await interaction.reply({ content: `모집이 ${rec.status} 상태입니다.`, ephemeral: true });
+		await notify(interaction, `모집이 ${rec.status} 상태입니다.`);
 		return;
 	}
 	// 운영자 액션 (cancel) 은 OPEN/CLOSED 모두 허용
 	if (!isOpen && !isClosed) {
-		await interaction.reply({ content: `모집이 ${rec.status} 상태입니다.`, ephemeral: true });
+		await notify(interaction, `모집이 ${rec.status} 상태입니다.`);
 		return;
 	}
 
-	// upsertUser 는 각 액션 핸들러 내부에서 — 항상 GuildMember.displayName 우선.
 	switch (action) {
 		case "join":
 			return await handleJoin(interaction, id, rec.target_count);
@@ -55,17 +77,17 @@ export async function handleButton(interaction: ButtonInteraction): Promise<void
 			return await handleCancel(interaction, id, rec.created_by);
 		case "next":
 			if (!isOpen) {
-				await interaction.reply({
-					content: "이미 엔트리 수정 단계로 진입한 모집입니다.",
-					ephemeral: true,
-				});
+				await notify(interaction, "이미 엔트리 수정 단계로 진입한 모집입니다.");
 				return;
 			}
 			return await handleNext(interaction, id, rec.created_by);
 		default:
-			await interaction.reply({ content: `알 수 없는 액션: ${action}`, ephemeral: true });
+			await notify(interaction, `알 수 없는 액션: ${action}`);
 	}
 }
+
+// 각 핸들러는 handleButton 에서 이미 deferUpdate 완료 가정. 응답은 editReply (메시지 갱신)
+// 또는 notify (ephemeral followUp).
 
 async function handleJoin(
 	interaction: ButtonInteraction,
@@ -74,38 +96,35 @@ async function handleJoin(
 ): Promise<void> {
 	const already = await isRecruitmentParticipant(id, interaction.user.id);
 	if (already) {
-		await interaction.reply({ content: "이미 참석 등록되어 있습니다.", ephemeral: true });
+		await notify(interaction, "이미 참석 등록되어 있습니다.");
 		return;
 	}
 	const participants = await listRecruitmentParticipants(id);
 	if (participants.length >= target) {
-		await interaction.reply({ content: "정원이 가득 찼습니다.", ephemeral: true });
+		await notify(interaction, "정원이 가득 찼습니다.");
 		return;
 	}
-	// 디스코드 3초 ack 윈도우 회피 — 무거운 D1 쿼리 전 deferUpdate 로 먼저 응답
-	await interaction.deferUpdate();
 	// GuildMember.displayName 우선 — interaction.user.displayName (글로벌) 직접 사용 금지
 	const memberName = await resolveGuildDisplayName(interaction.guild, interaction.user);
 	await upsertUser(interaction.user.id, memberName);
 	await addRecruitmentParticipant({ recruitmentId: id, userId: interaction.user.id });
 	const components = await renderComponents(id);
 	await interaction.editReply(v2EditReply(...components));
-	void notify(`recruitment:${id}`);
-	void notify("dashboard");
+	void wsNotify(`recruitment:${id}`);
+	void wsNotify("dashboard");
 }
 
 async function handleLeave(interaction: ButtonInteraction, id: number): Promise<void> {
 	const already = await isRecruitmentParticipant(id, interaction.user.id);
 	if (!already) {
-		await interaction.reply({ content: "참석하지 않은 상태입니다.", ephemeral: true });
+		await notify(interaction, "참석하지 않은 상태입니다.");
 		return;
 	}
-	await interaction.deferUpdate();
 	await removeRecruitmentParticipant(id, interaction.user.id);
 	const components = await renderComponents(id);
 	await interaction.editReply(v2EditReply(...components));
-	void notify(`recruitment:${id}`);
-	void notify("dashboard");
+	void wsNotify(`recruitment:${id}`);
+	void wsNotify("dashboard");
 }
 
 async function handleCancel(
@@ -114,13 +133,9 @@ async function handleCancel(
 	createdBy: string,
 ): Promise<void> {
 	if (interaction.user.id !== createdBy) {
-		await interaction.reply({
-			content: "모집을 취소할 수 있는 건 모집을 만든 운영자뿐입니다.",
-			ephemeral: true,
-		});
+		await notify(interaction, "모집을 취소할 수 있는 건 모집을 만든 운영자뿐입니다.");
 		return;
 	}
-	await interaction.deferUpdate();
 	await setRecruitmentStatus(id, "CANCELLED");
 	await recordAudit({
 		operatorId: interaction.user.id,
@@ -130,8 +145,8 @@ async function handleCancel(
 	});
 	const components = await renderComponents(id);
 	await interaction.editReply(v2EditReply(...components));
-	void notify(`recruitment:${id}`);
-	void notify("dashboard");
+	void wsNotify(`recruitment:${id}`);
+	void wsNotify("dashboard");
 }
 
 async function handleNext(
@@ -140,26 +155,19 @@ async function handleNext(
 	createdBy: string,
 ): Promise<void> {
 	if (interaction.user.id !== createdBy) {
-		await interaction.reply({
-			content: "엔트리 수정 시작은 모집을 만든 운영자만 가능합니다.",
-			ephemeral: true,
-		});
+		await notify(interaction, "엔트리 수정 시작은 모집을 만든 운영자만 가능합니다.");
 		return;
 	}
 	const participants = await listRecruitmentParticipants(id);
 	const rec = await getRecruitment(id);
 	if (!rec) return;
 	if (participants.length < rec.target_count) {
-		await interaction.reply({
-			content: `정원 미달 (${participants.length}/${rec.target_count}). \`/모집인원추가 모집:${id} 멤버:@xxx\` 로 채우세요.`,
-			ephemeral: true,
-		});
+		await notify(
+			interaction,
+			`정원 미달 (${participants.length}/${rec.target_count}). \`/모집인원추가 모집:${id} 멤버:@xxx\` 로 채우세요.`,
+		);
 		return;
 	}
-	// 모집 → CLOSED 전이. Activity 가 CLOSED 모집 리스트를 보여주고
-	// 운영자가 클릭 시 엔트리 수정 화면으로 이동.
-	// deferUpdate 로 3초 ack 회피 — 그 다음 D1 작업 + 메시지 갱신.
-	await interaction.deferUpdate();
 	await setRecruitmentStatus(id, "CLOSED");
 	await recordAudit({
 		operatorId: interaction.user.id,
@@ -170,14 +178,18 @@ async function handleNext(
 	});
 	const components = await renderComponents(id);
 	await interaction.editReply(v2EditReply(...components));
-	void notify(`recruitment:${id}`);
-	void notify("dashboard");
-	await interaction.followUp({
-		content: [
-			`### ▶ 엔트리 수정 시작 — 모집 #${id} 마감`,
-			"보이스 채널에서 **Activity** 를 시작한 뒤 **monkey** 를 선택하세요.",
-			"Activity 첫 화면에 마감된 모집 목록이 표시되며, 클릭하면 엔트리 수정 화면이 열립니다.",
-		].join("\n"),
-		ephemeral: true,
-	});
+	void wsNotify(`recruitment:${id}`);
+	void wsNotify("dashboard");
+	try {
+		await interaction.followUp({
+			content: [
+				`### ▶ 엔트리 수정 시작 — 모집 #${id} 마감`,
+				"보이스 채널에서 **Activity** 를 시작한 뒤 **monkey** 를 선택하세요.",
+				"Activity 첫 화면에 마감된 모집 목록이 표시되며, 클릭하면 엔트리 수정 화면이 열립니다.",
+			].join("\n"),
+			ephemeral: true,
+		});
+	} catch {
+		// expired token — 채널 메시지는 이미 갱신됨 (editReply), followUp 만 못 보냄
+	}
 }
