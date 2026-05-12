@@ -3,8 +3,10 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { api } from "../../api/rest.js";
+import { ConfirmButton } from "../../components/ConfirmButton.js";
 import { usePerms } from "../../state/perms.js";
 import { useStaleWhileRevalidate } from "../../state/useStaleWhileRevalidate.js";
+import { ChampPickerModal } from "./ChampPickerModal.js";
 import type { AuctionMatch, AuctionTournamentDetail, MatchFormat } from "./types.js";
 import { useAuctionState } from "./useAuctionState.js";
 
@@ -13,6 +15,7 @@ type Role = (typeof ROLE_ORDER)[number];
 
 interface Champion {
 	id: number;
+	idSlug: string;
 	name: string;
 	iconUrl: string;
 }
@@ -30,6 +33,7 @@ interface SeriesDetail {
 		winningTeam: "TEAM_1" | "TEAM_2";
 		durationSec: number | null;
 		picks: { team: "TEAM_1" | "TEAM_2"; role: string; championName: string }[];
+		bans?: { team: "TEAM_1" | "TEAM_2"; position: number; championName: string }[];
 	}[];
 }
 
@@ -65,9 +69,19 @@ export function AuctionBracket({
 						{s.detail.tournament.format}인 · 단계: {s.detail.tournament.status}
 					</p>
 				</div>
-				<button type="button" className="btn btn-ghost btn-sm" onClick={s.refresh}>
-					↻
-				</button>
+				<div className="flex items-center gap-1">
+					<button type="button" className="btn btn-ghost btn-sm" onClick={s.refresh}>
+						↻
+					</button>
+					{perms.canEdit && s.detail.tournament.status !== "COMPLETED" && (
+						<ConfirmButton
+							label="⛔ 토너먼트 강제 취소"
+							onConfirm={s.cancel}
+							variant="error"
+							className="btn-sm"
+						/>
+					)}
+				</div>
 			</header>
 
 			{/* BRACKET_SETUP — 운영자가 매치업 구성 */}
@@ -434,13 +448,35 @@ function MatchCard({
 					</div>
 				</div>
 				{canEdit && !completed && (
-					<button
-						type="button"
-						className="btn btn-sm btn-primary"
-						onClick={() => setExpanded((v) => !v)}
-					>
-						{expanded ? "접기" : "게임 결과 입력"}
-					</button>
+					<div className="flex gap-1.5 flex-wrap">
+						<button
+							type="button"
+							className="btn btn-sm btn-primary flex-1"
+							onClick={() => setExpanded((v) => !v)}
+						>
+							{expanded ? "접기" : `Game ${games.length + 1} 입력`}
+						</button>
+						{games.length === 0 && (
+							<MatchFormatToggle
+								seriesId={match.seriesId}
+								format={match.format}
+								onChanged={() => swr.refresh()}
+							/>
+						)}
+						{games.length > 0 && (
+							<ConfirmButton
+								label="↺ 직전 게임"
+								onConfirm={async () => {
+									await api(`/auction-matches/${match.seriesId}/games/last`, {
+										method: "DELETE",
+									});
+									swr.refresh();
+								}}
+								variant="error"
+								className="btn-sm"
+							/>
+						)}
+					</div>
 				)}
 				{expanded && t1 && t2 && (
 					<GameInputForm
@@ -471,7 +507,47 @@ function MatchCard({
 }
 
 // ============================================================
-// GameInputForm — 라인 자유 픽 (Q8): 각 팀 5명을 5라인에 자유 배치 + 챔프 ID 입력
+// MatchFormatToggle — 게임 0개일 때만 BO1/BO3 변경 가능
+// ============================================================
+function MatchFormatToggle({
+	seriesId,
+	format,
+	onChanged,
+}: {
+	seriesId: number;
+	format: MatchFormat;
+	onChanged: () => void;
+}) {
+	const [submitting, setSubmitting] = useState(false);
+	const toggle = async () => {
+		setSubmitting(true);
+		try {
+			await api(`/auction-matches/${seriesId}/format`, {
+				method: "PUT",
+				body: JSON.stringify({ format: format === "BO1" ? "BO3" : "BO1" }),
+			});
+			onChanged();
+		} catch {
+		} finally {
+			setSubmitting(false);
+		}
+	};
+	return (
+		<button
+			type="button"
+			className="btn btn-sm btn-ghost"
+			onClick={toggle}
+			disabled={submitting}
+			title="BO1 / BO3 변경 (게임 미시작 시만)"
+		>
+			↔ {format === "BO1" ? "BO3 로" : "BO1 로"}
+		</button>
+	);
+}
+
+// ============================================================
+// GameInputForm — 라인 자유 픽 (Q8): 각 팀 5명을 5라인에 자유 배치 + 챔프 그리드 모달.
+// BAN 5개/팀 입력 포함.
 // ============================================================
 function GameInputForm({
 	match,
@@ -489,17 +565,19 @@ function GameInputForm({
 	const nextGameNumber = (games.length + 1) as 1 | 2 | 3;
 	const [team1Side, setTeam1Side] = useState<"BLUE" | "RED">("BLUE");
 	const [winningTeam, setWinningTeam] = useState<"TEAM_1" | "TEAM_2">("TEAM_1");
-	// 라인 배치: { [team][role]: userId }
 	const [assign, setAssign] = useState<Record<"TEAM_1" | "TEAM_2", Partial<Record<Role, string>>>>({
 		TEAM_1: {},
 		TEAM_2: {},
 	});
-	// 챔프 ID 입력
-	const [champ, setChamp] = useState<Record<"TEAM_1" | "TEAM_2", Partial<Record<Role, number>>>>({
+	const [picks, setPicks] = useState<Record<"TEAM_1" | "TEAM_2", Partial<Record<Role, number>>>>({
 		TEAM_1: {},
 		TEAM_2: {},
 	});
-	// 챔프 카탈로그
+	const [bans, setBans] = useState<Record<"TEAM_1" | "TEAM_2", number[]>>({
+		TEAM_1: [],
+		TEAM_2: [],
+	});
+
 	const [champions, setChampions] = useState<Champion[]>([]);
 	useEffect(() => {
 		(async () => {
@@ -509,6 +587,14 @@ function GameInputForm({
 			} catch {}
 		})();
 	}, []);
+	const champById = useMemo(() => new Map(champions.map((c) => [c.id, c])), [champions]);
+
+	// 챔프 모달 — 어느 slot 을 선택 중인지 추적
+	const [picker, setPicker] = useState<
+		| null
+		| { kind: "pick"; team: "TEAM_1" | "TEAM_2"; role: Role }
+		| { kind: "ban"; team: "TEAM_1" | "TEAM_2"; index: number }
+	>(null);
 
 	const [submitting, setSubmitting] = useState(false);
 	const [error, setError] = useState<string | null>(null);
@@ -516,28 +602,53 @@ function GameInputForm({
 	const team1Members = team1.members;
 	const team2Members = team2.members;
 
+	// 모든 슬롯에 사용된 챔프 id (중복 방지)
+	const usedChampIds = useMemo(() => {
+		const set = new Set<number>();
+		for (const team of ["TEAM_1", "TEAM_2"] as const) {
+			for (const role of ROLE_ORDER) {
+				const c = picks[team][role];
+				if (c != null) set.add(c);
+			}
+			for (const b of bans[team]) if (b != null) set.add(b);
+		}
+		return set;
+	}, [picks, bans]);
+
 	const updateAssign = (team: "TEAM_1" | "TEAM_2", role: Role, userId: string | undefined) => {
 		setAssign((prev) => ({ ...prev, [team]: { ...prev[team], [role]: userId } }));
 	};
 
-	const updateChamp = (team: "TEAM_1" | "TEAM_2", role: Role, championId: number | undefined) => {
-		setChamp((prev) => ({ ...prev, [team]: { ...prev[team], [role]: championId } }));
+	const setPick = (team: "TEAM_1" | "TEAM_2", role: Role, championId: number) => {
+		setPicks((prev) => ({ ...prev, [team]: { ...prev[team], [role]: championId } }));
+	};
+	const setBan = (team: "TEAM_1" | "TEAM_2", index: number, championId: number) => {
+		setBans((prev) => {
+			const arr = [...prev[team]];
+			arr[index] = championId;
+			return { ...prev, [team]: arr };
+		});
+	};
+	const removeBan = (team: "TEAM_1" | "TEAM_2", index: number) => {
+		setBans((prev) => {
+			const arr = [...prev[team]];
+			arr.splice(index, 1);
+			return { ...prev, [team]: arr };
+		});
 	};
 
 	const submit = async () => {
-		// 검증 — 양 팀 각 5명 다 라인 배치 + 챔프
 		for (const team of ["TEAM_1", "TEAM_2"] as const) {
 			for (const role of ROLE_ORDER) {
 				if (!assign[team][role]) {
 					setError(`${team} ${role} 사용자 미지정`);
 					return;
 				}
-				if (!champ[team][role]) {
+				if (!picks[team][role]) {
 					setError(`${team} ${role} 챔프 미지정`);
 					return;
 				}
 			}
-			// 한 팀 안에 user 중복 X
 			const userIds = Object.values(assign[team]);
 			if (new Set(userIds).size !== userIds.length) {
 				setError(`${team} 안에 같은 사용자 중복`);
@@ -557,15 +668,15 @@ function GameInputForm({
 						TEAM_1: ROLE_ORDER.map((r) => ({
 							userId: assign.TEAM_1[r]!,
 							role: r,
-							championId: champ.TEAM_1[r]!,
+							championId: picks.TEAM_1[r]!,
 						})),
 						TEAM_2: ROLE_ORDER.map((r) => ({
 							userId: assign.TEAM_2[r]!,
 							role: r,
-							championId: champ.TEAM_2[r]!,
+							championId: picks.TEAM_2[r]!,
 						})),
 					},
-					bans: { TEAM_1: [], TEAM_2: [] }, // TODO: 밴 입력 — Phase F 백로그
+					bans: { TEAM_1: bans.TEAM_1.filter(Boolean), TEAM_2: bans.TEAM_2.filter(Boolean) },
 				}),
 			});
 			onRecorded();
@@ -576,117 +687,174 @@ function GameInputForm({
 		}
 	};
 
+	const ChampSlotButton = ({
+		championId,
+		onClick,
+		onClear,
+	}: {
+		championId: number | undefined;
+		onClick: () => void;
+		onClear?: () => void;
+	}) => {
+		const c = championId != null ? champById.get(championId) : undefined;
+		return (
+			<button
+				type="button"
+				onClick={onClick}
+				className={`btn btn-xs flex-1 min-w-0 gap-1 ${c ? "btn-outline" : "btn-ghost"}`}
+			>
+				{c ? (
+					<>
+						<img src={c.iconUrl} alt={c.name} className="w-4 h-4 rounded" />
+						<span className="truncate text-[10px]">{c.name}</span>
+						{onClear && (
+							<span
+								className="text-base-content/40 hover:text-error"
+								onClick={(e) => {
+									e.stopPropagation();
+									onClear();
+								}}
+								role="button"
+							>
+								✕
+							</span>
+						)}
+					</>
+				) : (
+					<span className="text-[10px] opacity-60">+ 챔프</span>
+				)}
+			</button>
+		);
+	};
+
 	return (
-		<div className="space-y-2 border-t border-base-300 pt-2">
-			<h4 className="font-bold text-sm">Game {nextGameNumber} 입력 (라인 자유 배치)</h4>
-			<div className="flex items-center gap-3 text-xs">
-				<span>1팀 사이드:</span>
-				<div className="join">
-					<button
-						type="button"
-						className={`btn btn-xs join-item ${team1Side === "BLUE" ? "btn-info" : "btn-ghost"}`}
-						onClick={() => setTeam1Side("BLUE")}
-					>
-						BLUE
-					</button>
-					<button
-						type="button"
-						className={`btn btn-xs join-item ${team1Side === "RED" ? "btn-error" : "btn-ghost"}`}
-						onClick={() => setTeam1Side("RED")}
-					>
-						RED
-					</button>
+		<>
+			<div className="space-y-2 border-t border-base-300 pt-2">
+				<h4 className="font-bold text-sm">Game {nextGameNumber} 입력 (라인 자유 배치)</h4>
+				<div className="flex items-center gap-3 text-xs">
+					<span>1팀 사이드:</span>
+					<div className="join">
+						<button
+							type="button"
+							className={`btn btn-xs join-item ${team1Side === "BLUE" ? "btn-info" : "btn-ghost"}`}
+							onClick={() => setTeam1Side("BLUE")}
+						>
+							BLUE
+						</button>
+						<button
+							type="button"
+							className={`btn btn-xs join-item ${team1Side === "RED" ? "btn-error" : "btn-ghost"}`}
+							onClick={() => setTeam1Side("RED")}
+						>
+							RED
+						</button>
+					</div>
 				</div>
-			</div>
-			<div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-				{(["TEAM_1", "TEAM_2"] as const).map((team) => {
-					const members = team === "TEAM_1" ? team1Members : team2Members;
-					return (
+
+				{/* BAN — 각 팀 5개 슬롯 */}
+				<div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+					{(["TEAM_1", "TEAM_2"] as const).map((team) => (
 						<div key={team} className="card bg-base-100 border border-base-300">
 							<div className="card-body p-2 gap-1">
 								<div className="font-bold text-xs">
-									{team === "TEAM_1" ? `팀${team1.teamIndex}` : `팀${team2.teamIndex}`}
+									🚫 BAN — {team === "TEAM_1" ? `팀${team1.teamIndex}` : `팀${team2.teamIndex}`}
 								</div>
-								{ROLE_ORDER.map((role) => (
-									<div key={role} className="flex items-center gap-1 text-xs">
-										<span className="w-8 font-medium">{role.slice(0, 3)}</span>
-										<select
-											value={assign[team][role] ?? ""}
-											onChange={(e) => updateAssign(team, role, e.target.value || undefined)}
-											className="select select-bordered select-xs flex-1 min-w-0"
-										>
-											<option value="">- 선택 -</option>
-											{members.map((m) => (
-												<option key={m.userId} value={m.userId}>
-													{m.displayName}
-												</option>
-											))}
-										</select>
-										<ChampionSelect
-											champions={champions}
-											value={champ[team][role]}
-											onChange={(c) => updateChamp(team, role, c)}
-										/>
-									</div>
-								))}
+								<div className="grid grid-cols-5 gap-1">
+									{[0, 1, 2, 3, 4].map((i) => {
+										const banId = bans[team][i];
+										return (
+											<ChampSlotButton
+												key={i}
+												championId={banId}
+												onClick={() => setPicker({ kind: "ban", team, index: i })}
+												{...(banId != null ? { onClear: () => removeBan(team, i) } : {})}
+											/>
+										);
+									})}
+								</div>
 							</div>
 						</div>
-					);
-				})}
-			</div>
-			<div className="flex items-center gap-3 text-xs">
-				<span>승팀:</span>
-				<div className="join">
-					<button
-						type="button"
-						className={`btn btn-xs join-item ${winningTeam === "TEAM_1" ? "btn-info" : "btn-ghost"}`}
-						onClick={() => setWinningTeam("TEAM_1")}
-					>
-						팀{team1.teamIndex} 승
-					</button>
-					<button
-						type="button"
-						className={`btn btn-xs join-item ${winningTeam === "TEAM_2" ? "btn-error" : "btn-ghost"}`}
-						onClick={() => setWinningTeam("TEAM_2")}
-					>
-						팀{team2.teamIndex} 승
-					</button>
+					))}
 				</div>
-			</div>
-			{error && <div className="alert alert-error alert-sm">{error}</div>}
-			<button
-				type="button"
-				className="btn btn-sm btn-primary w-full"
-				onClick={submit}
-				disabled={submitting}
-			>
-				{submitting ? "기록 중…" : `Game ${nextGameNumber} 결과 기록`}
-			</button>
-		</div>
-	);
-}
 
-function ChampionSelect({
-	champions,
-	value,
-	onChange,
-}: {
-	champions: Champion[];
-	value: number | undefined;
-	onChange: (id: number | undefined) => void;
-}) {
-	return (
-		<select
-			value={value ?? ""}
-			onChange={(e) => onChange(e.target.value ? Number(e.target.value) : undefined)}
-			className="select select-bordered select-xs w-24"
-		>
-			<option value="">챔프</option>
-			{champions.map((c) => (
-				<option key={c.id} value={c.id}>
-					{c.name}
-				</option>
-			))}
-		</select>
+				{/* PICK — 라인 5개 × 양 팀, 사용자 + 챔프 */}
+				<div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+					{(["TEAM_1", "TEAM_2"] as const).map((team) => {
+						const members = team === "TEAM_1" ? team1Members : team2Members;
+						return (
+							<div key={team} className="card bg-base-100 border border-base-300">
+								<div className="card-body p-2 gap-1">
+									<div className="font-bold text-xs">
+										⚔️ PICK — {team === "TEAM_1" ? `팀${team1.teamIndex}` : `팀${team2.teamIndex}`}
+									</div>
+									{ROLE_ORDER.map((role) => (
+										<div key={role} className="flex items-center gap-1 text-xs">
+											<span className="w-8 font-medium">{role.slice(0, 3)}</span>
+											<select
+												value={assign[team][role] ?? ""}
+												onChange={(e) => updateAssign(team, role, e.target.value || undefined)}
+												className="select select-bordered select-xs flex-1 min-w-0"
+											>
+												<option value="">- 선택 -</option>
+												{members.map((m) => (
+													<option key={m.userId} value={m.userId}>
+														{m.displayName}
+													</option>
+												))}
+											</select>
+											<ChampSlotButton
+												championId={picks[team][role]}
+												onClick={() => setPicker({ kind: "pick", team, role })}
+											/>
+										</div>
+									))}
+								</div>
+							</div>
+						);
+					})}
+				</div>
+
+				<div className="flex items-center gap-3 text-xs">
+					<span>승팀:</span>
+					<div className="join">
+						<button
+							type="button"
+							className={`btn btn-xs join-item ${winningTeam === "TEAM_1" ? "btn-info" : "btn-ghost"}`}
+							onClick={() => setWinningTeam("TEAM_1")}
+						>
+							팀{team1.teamIndex} 승
+						</button>
+						<button
+							type="button"
+							className={`btn btn-xs join-item ${winningTeam === "TEAM_2" ? "btn-error" : "btn-ghost"}`}
+							onClick={() => setWinningTeam("TEAM_2")}
+						>
+							팀{team2.teamIndex} 승
+						</button>
+					</div>
+				</div>
+				{error && <div className="alert alert-error alert-sm">{error}</div>}
+				<button
+					type="button"
+					className="btn btn-sm btn-primary w-full"
+					onClick={submit}
+					disabled={submitting}
+				>
+					{submitting ? "기록 중…" : `Game ${nextGameNumber} 결과 기록`}
+				</button>
+			</div>
+
+			<ChampPickerModal
+				open={picker !== null}
+				champions={champions}
+				disabled={usedChampIds}
+				onSelect={(c) => {
+					if (!picker) return;
+					if (picker.kind === "pick") setPick(picker.team, picker.role, c.id);
+					else setBan(picker.team, picker.index, c.id);
+				}}
+				onClose={() => setPicker(null)}
+			/>
+		</>
 	);
 }

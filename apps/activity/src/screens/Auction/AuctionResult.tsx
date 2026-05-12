@@ -11,9 +11,13 @@ interface MatchSeriesDetail {
 		id: number;
 		gameNumber: number;
 		winningTeam: "TEAM_1" | "TEAM_2";
+		team1Side?: "BLUE" | "RED";
 		picks: { team: "TEAM_1" | "TEAM_2"; role: string; championName: string }[];
+		bans?: { team: "TEAM_1" | "TEAM_2"; position: number; championName: string }[];
 	}[];
 }
+
+const ROLE_ORDER = ["TOP", "JUNGLE", "MID", "BOTTOM", "SUPPORT"] as const;
 
 export function AuctionResult({
 	tournamentId,
@@ -127,11 +131,53 @@ export function AuctionResult({
 										{t1?.captainName} <strong>{t1Wins}</strong> : <strong>{t2Wins}</strong> {t2?.captainName}
 									</span>
 								</div>
-								{md.games.map((g) => (
-									<div key={g.id} className="text-xs text-base-content/60">
-										Game {g.gameNumber} — {g.winningTeam === "TEAM_1" ? "1팀" : "2팀"} 승
-									</div>
-								))}
+								{md.games.map((g) => {
+									const picksByTeamRole = new Map<string, string>();
+									for (const p of g.picks) picksByTeamRole.set(`${p.team}_${p.role}`, p.championName);
+									return (
+										<details key={g.id} className="collapse collapse-arrow bg-base-100/40 mt-1">
+											<summary className="collapse-title text-xs min-h-0 py-1">
+												Game {g.gameNumber} — {g.winningTeam === "TEAM_1" ? "1팀" : "2팀"} 승
+												{g.team1Side && ` · 1팀 ${g.team1Side}`}
+											</summary>
+											<div className="collapse-content text-xs px-3 pb-2">
+												<div className="grid grid-cols-2 gap-2 mt-1">
+													{(["TEAM_1", "TEAM_2"] as const).map((team) => (
+														<div key={team}>
+															<div className="font-bold mb-0.5 text-base-content/70">
+																{team === "TEAM_1" ? "1팀" : "2팀"} 픽
+															</div>
+															{ROLE_ORDER.map((r) => (
+																<div key={r} className="flex gap-1">
+																	<span className="w-8 text-base-content/50">{r.slice(0, 3)}</span>
+																	<span>{picksByTeamRole.get(`${team}_${r}`) ?? "-"}</span>
+																</div>
+															))}
+														</div>
+													))}
+												</div>
+												{g.bans && g.bans.length > 0 && (
+													<div className="mt-1">
+														<div className="font-bold text-base-content/70">BAN</div>
+														<div className="text-base-content/60">
+															1팀:{" "}
+															{g.bans
+																.filter((b) => b.team === "TEAM_1")
+																.map((b) => b.championName)
+																.join(", ") || "-"}
+															{" / "}
+															2팀:{" "}
+															{g.bans
+																.filter((b) => b.team === "TEAM_2")
+																.map((b) => b.championName)
+																.join(", ") || "-"}
+														</div>
+													</div>
+												)}
+											</div>
+										</details>
+									);
+								})}
 							</div>
 						</div>
 					);

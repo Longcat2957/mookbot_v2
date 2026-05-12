@@ -3,6 +3,7 @@
 
 import { useEffect, useState } from "react";
 import { api } from "../../api/rest.js";
+import { ConfirmButton } from "../../components/ConfirmButton.js";
 import { usePerms } from "../../state/perms.js";
 import type {
 	AuctionRecruitmentDetail,
@@ -514,14 +515,12 @@ function BiddingPanel({
 										)}
 										{m.acquiredVia === "MANUAL" && <span className="badge badge-xs badge-ghost">수동</span>}
 										{canEdit && t.captainUserId !== m.userId && (
-											<button
-												type="button"
-												className="btn btn-xs btn-ghost text-error"
-												onClick={() => onRevertBid(m.userId)}
-												title="낙찰 취소"
-											>
-												✕
-											</button>
+											<ConfirmButton
+												label="✕"
+												onConfirm={() => onRevertBid(m.userId)}
+												variant="error"
+												className="btn-xs"
+											/>
 										)}
 									</div>
 								))}

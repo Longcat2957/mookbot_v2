@@ -2,7 +2,7 @@
 
 > 현재 버전 기준 진척 상태. 시간순 기획서는 [`PLAN.md`](./PLAN.md), 코드 리뷰 워킹노트는 [`docs/internal/`](./docs/internal/) 참조.
 
-## 현재 (v0.5.0)
+## 현재 (v0.5.1)
 
 활성 도메인: `bot.mooklol.com` (Cloudflare proxied → 단일 VPS · Docker compose 4컨테이너 stack: bot · api · activity · nginx).
 실서비스 운영 중.
@@ -152,6 +152,17 @@
 - **검증된 동작**: 첫 로드 (server draft 없음/있음), dirty 보호, `setSide`/`setCurrentGame`/`setGameDraft` (게임 게이팅 포함), `fearlessUsedIds` 도메인 계산 (이전 게임 + draft 합산, 현재 제외), `revert`/`undoLast` 성공/실패, debounced save (canEdit on/off), WS callback 시 refresh + toast, 1/2/3 단축키 (input 안 무시), `moveTo` (빈/점유 unassigned/점유 swap/null), `swapTeams`, `allFilled`, `submit` (성공/미충족/실패), Tap-to-Place 흐름 (`handleParticipantTap`/`handleSlotTap`/`handlePoolTap`, canEdit off 시 no-op), Esc 키 selected 해제, `recentlyChanged` diff.
 - **vitest config**: `apps/activity/src/screens/*/use*State.ts` 만 coverage include 로 추가 (전체 activity src 는 UI 영역으로 exclude 유지).
 - **테스트 총합**: 256 → 291 (+35). lint warnings 가 +20 (mock data 의 `!` non-null assertion — 테스트에서는 의도적 패턴, errors 0).
+
+### Phase 18 — 경매내전 UX 보강 + 후속 (v0.5.1)
+- **BAN 입력 UI** — AuctionBracket 의 GameInputForm 에 각 팀 5밴 슬롯 추가. 기존엔 `bans: []` 하드코딩이었음.
+- **챔프 그리드 모달** — 신규 `ChampPickerModal` (검색 + 8x N 그리드, PickBan 의 `ChampCell` 재사용). 픽/밴 슬롯 클릭 시 모달 열림, 이미 선택된 챔프는 비활성. 기존 단순 `<select>` 대체.
+- **직전 게임 되돌리기 UI** — AuctionBracket 의 매치 카드에 `↺ 직전 게임` 버튼 (ConfirmButton, 게임 ≥1 일 때만 노출).
+- **BO1/BO3 변경 UI** — 매치 카드에 `↔ BO1/BO3 변경` 토글 (게임 0개일 때만).
+- **토너먼트 강제 취소** — AuctionBracket 헤더에 `⛔ 토너먼트 강제 취소` (ConfirmButton, COMPLETED 제외 모든 상태에서 운영자만).
+- **낙찰 취소 confirm** — AuctionDraft 의 BiddingPanel 에서 ✕ 클릭 → ConfirmButton 으로 2-step 확인 (실수 방지).
+- **AuctionResult 매치 디테일** — 매치별 게임 collapse: 라인별 픽 챔프 + 1팀 사이드 + BAN. SeriesResult 와 통일성 향상.
+- **`/시리즈목록` AUCTION 표시** (Q16) — 슬래시 응답에 `🎟️ 경매` 뱃지 노출. `SeriesRow.type` 필드 type 추가.
+- **`/내정보갱신` 슬래시** (🥈 백로그 처리) — 본인 라이엇 계정의 소환사 아이콘을 Summoner-V4 로 재 fetch. 변경 / 변경 없음 / 실패 별로 상태 표시. League 안에서 아이콘 변경 시 즉시 반영 경로.
 
 ### Phase 17 — 경매내전 (이벤트성 드래프트) (v0.5.0)
 - **신규 모드** — `/경매내전모집 정원:10/20` 으로 시작하는 이벤트성 드래프트. 일반 내전과 완전 분리된 lifecycle, MMR 영향 0 (이벤트성), 챔프 픽/밴 / 승패 전적은 일반 통계와 통합. 기획서: [`AUCTION_PLAN.md`](./AUCTION_PLAN.md).

@@ -5,6 +5,8 @@ import { multiInsert } from "./sql.js";
 export type { Role, Team };
 export type SeriesStatus = "IN_PROGRESS" | "COMPLETED" | "CANCELLED";
 
+export type SeriesType = "RANKED" | "AUCTION";
+
 export interface SeriesRow {
 	id: number;
 	season_id: number;
@@ -17,6 +19,8 @@ export interface SeriesRow {
 	message_id: string | null;
 	end_card_channel_id: string | null;
 	end_card_message_id: string | null;
+	type: SeriesType;
+	auction_tournament_id: number | null;
 	deleted_at: number | null;
 }
 

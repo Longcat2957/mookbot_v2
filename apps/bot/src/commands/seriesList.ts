@@ -90,8 +90,9 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
 				? ` · ${s.winning_team === "TEAM_1" ? "1팀" : "2팀"} 승`
 				: "";
 		const sizeLabel = teamSize > 0 ? `${teamSize}v${teamSize}` : "—";
+		const typeBadge = s.type === "AUCTION" ? " · 🎟️ 경매" : "";
 		return [
-			`**시리즈 #${s.id}** · ${STATUS_LABEL[s.status]}`,
+			`**시리즈 #${s.id}** · ${STATUS_LABEL[s.status]}${typeBadge}`,
 			`Bo3 (${score})${winSuffix} · ${sizeLabel} · 시즌 #${s.season_id}`,
 			`시작 ${formatKstDate(s.started_at)} · 운영자 ${creator}`,
 		].join("\n");
