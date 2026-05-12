@@ -19,8 +19,14 @@ export async function registerAuctionTournamentRoutes(app: FastifyInstance): Pro
 		}
 		const rec = await db.getAuctionRecruitment(recruitmentId);
 		if (!rec) return reply.code(404).send({ error: "recruitment not found" });
-		if (rec.status !== "OPEN") {
+		// OPEN (정원 도달 직후 직접 변환) 또는 CLOSED (봇 [▶ 경매 시작] 으로 마감된 상태) 둘 다 허용.
+		// CONVERTED 면 이미 토너먼트 있음 — 별도 endpoint 로 진입.
+		if (rec.status !== "OPEN" && rec.status !== "CLOSED") {
 			return reply.code(409).send({ error: `status=${rec.status} — 변환 불가` });
+		}
+		if (rec.converted_tournament_id) {
+			// 이미 변환됨 — 동일 id 반환 (멱등)
+			return { tournamentId: rec.converted_tournament_id };
 		}
 		const participants = await db.listAuctionRecruitmentParticipants(recruitmentId);
 		if (participants.length !== rec.target_count) {

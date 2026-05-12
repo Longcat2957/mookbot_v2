@@ -2,7 +2,7 @@
 
 > 현재 버전 기준 진척 상태. 시간순 기획서는 [`PLAN.md`](./PLAN.md), 코드 리뷰 워킹노트는 [`docs/internal/`](./docs/internal/) 참조.
 
-## 현재 (v0.5.5)
+## 현재 (v0.5.6)
 
 활성 도메인: `bot.mooklol.com` (Cloudflare proxied → 단일 VPS · Docker compose 4컨테이너 stack: bot · api · activity · nginx).
 실서비스 운영 중.
@@ -152,6 +152,11 @@
 - **검증된 동작**: 첫 로드 (server draft 없음/있음), dirty 보호, `setSide`/`setCurrentGame`/`setGameDraft` (게임 게이팅 포함), `fearlessUsedIds` 도메인 계산 (이전 게임 + draft 합산, 현재 제외), `revert`/`undoLast` 성공/실패, debounced save (canEdit on/off), WS callback 시 refresh + toast, 1/2/3 단축키 (input 안 무시), `moveTo` (빈/점유 unassigned/점유 swap/null), `swapTeams`, `allFilled`, `submit` (성공/미충족/실패), Tap-to-Place 흐름 (`handleParticipantTap`/`handleSlotTap`/`handlePoolTap`, canEdit off 시 no-op), Esc 키 selected 해제, `recentlyChanged` diff.
 - **vitest config**: `apps/activity/src/screens/*/use*State.ts` 만 coverage include 로 추가 (전체 activity src 는 UI 영역으로 exclude 유지).
 - **테스트 총합**: 256 → 291 (+35). lint warnings 가 +20 (mock data 의 `!` non-null assertion — 테스트에서는 의도적 패턴, errors 0).
+
+### Phase 23 — 경매 토너먼트 변환 핫픽스 (v0.5.6)
+- **버그: `POST /api/auction-tournaments` 가 `status === 'OPEN'` 만 허용** — 봇 [▶ 경매 시작] 으로 CLOSED 된 모집은 변환 차단 → "409: status=CLOSED — 변환 불가". 정상 사용자 흐름이 막힘.
+- **fix**: OPEN 또는 CLOSED 둘 다 허용. 또 이미 `converted_tournament_id` 가 있으면 동일 id 반환 (멱등) — 재변환 시 충돌 없음.
+- **사용자 흐름 정상화**: `/경매내전모집` (OPEN) → 정원 채움 → 봇 [▶ 경매 시작] (CLOSED) → Activity 진입 → 카드 클릭 → AuctionDraft 의 [▶ 경매 시작] (CONVERTED) → CAPTAIN_PICK.
 
 ### Phase 22 — 경매 Activity 노출 핫픽스 (v0.5.5)
 - **버그 1: AuctionDraft 의 React Hook 규칙 위반** — `if (!s.detail) return ...` 의 early return 아래에 `useEffect(onEnterBracket)` 가 있어 첫 렌더 vs 후속 렌더의 hook 호출 개수 불일치 → invariant violation, 컴포넌트 crash. ErrorBoundary fallback 으로 표시되거나 흰 화면. → useEffect 를 early return 전으로 이동, `status` 대신 `tournamentStatus = s.detail?.tournament.status` 사용 (undefined safe).
