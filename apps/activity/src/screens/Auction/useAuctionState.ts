@@ -26,6 +26,7 @@ export interface UseAuctionStateResult {
 	manualAssign: (input: { targetUserId: string; teamId: number }) => Promise<void>;
 	revertBid: (targetUserId: string) => Promise<void>;
 	startBracket: () => Promise<void>;
+	revertStage: (target: "CAPTAIN_PICK" | "POINT_ALLOC" | "BIDDING") => Promise<void>;
 	createMatch: (input: {
 		round: MatchRound;
 		bracketIndex: number | null;
@@ -128,6 +129,17 @@ export function useAuctionState(tournamentId: number | null): UseAuctionStateRes
 		swr.refresh();
 	}, [tournamentId, swr]);
 
+	const revertStage = useCallback(
+		async (target: "CAPTAIN_PICK" | "POINT_ALLOC" | "BIDDING") => {
+			await api(`/auction-tournaments/${tournamentId}/revert-stage`, {
+				method: "POST",
+				body: JSON.stringify({ target }),
+			});
+			swr.refresh();
+		},
+		[tournamentId, swr],
+	);
+
 	const createMatch = useCallback(
 		async (input: {
 			round: MatchRound;
@@ -163,6 +175,7 @@ export function useAuctionState(tournamentId: number | null): UseAuctionStateRes
 		manualAssign,
 		revertBid,
 		startBracket,
+		revertStage,
 		createMatch,
 		cancel,
 	};

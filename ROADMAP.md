@@ -2,7 +2,7 @@
 
 > 현재 버전 기준 진척 상태. 시간순 기획서는 [`PLAN.md`](./PLAN.md), 코드 리뷰 워킹노트는 [`docs/internal/`](./docs/internal/) 참조.
 
-## 현재 (v0.5.7)
+## 현재 (v0.5.8)
 
 활성 도메인: `bot.mooklol.com` (Cloudflare proxied → 단일 VPS · Docker compose 4컨테이너 stack: bot · api · activity · nginx).
 실서비스 운영 중.
@@ -152,6 +152,15 @@
 - **검증된 동작**: 첫 로드 (server draft 없음/있음), dirty 보호, `setSide`/`setCurrentGame`/`setGameDraft` (게임 게이팅 포함), `fearlessUsedIds` 도메인 계산 (이전 게임 + draft 합산, 현재 제외), `revert`/`undoLast` 성공/실패, debounced save (canEdit on/off), WS callback 시 refresh + toast, 1/2/3 단축키 (input 안 무시), `moveTo` (빈/점유 unassigned/점유 swap/null), `swapTeams`, `allFilled`, `submit` (성공/미충족/실패), Tap-to-Place 흐름 (`handleParticipantTap`/`handleSlotTap`/`handlePoolTap`, canEdit off 시 no-op), Esc 키 selected 해제, `recentlyChanged` diff.
 - **vitest config**: `apps/activity/src/screens/*/use*State.ts` 만 coverage include 로 추가 (전체 activity src 는 UI 영역으로 exclude 유지).
 - **테스트 총합**: 256 → 291 (+35). lint warnings 가 +20 (mock data 의 `!` non-null assertion — 테스트에서는 의도적 패턴, errors 0).
+
+### Phase 25 — `/모집강제삭제` 가드 + 경매 단계 되돌리기 (v0.5.8)
+- **버그: `/모집강제삭제` 가 in-progress series 가 있어도 모집 row 삭제 → 시리즈 잔존** — recruitment.status==='CONVERTED' 만 차단했는데, edge case (setRecruitmentStatus 미적용 등) 로 status 가 CLOSED/OPEN 인데 같은 id 의 series 가 INSERT 된 경우 모집은 삭제되고 series 만 남음. → `getSeries(id).status === 'IN_PROGRESS'` 도 차단 + `/시리즈강제삭제` 안내.
+- **신규: `POST /api/auction-tournaments/:id/revert-stage`** — 운영자가 잘못 진행한 단계 되돌리기. `body: { target: "CAPTAIN_PICK" | "POINT_ALLOC" | "BIDDING" }`.
+  - **CAPTAIN_PICK**: 모든 팀 / 팀원 / 입찰 cascade 삭제 → 팀장 처음부터 재선출
+  - **POINT_ALLOC**: 입찰 + 팀원 (팀장 외) 삭제 + `current_points = initial_points` 복원 → 팀장 유지, 경매부터 다시
+  - **BIDDING**: PLACEMENT 같은 transient 에서 BIDDING 으로 복귀 (현재 거의 동일)
+  - **가드**: COMPLETED / CANCELLED / IN_GAME / BRACKET_SETUP 단계는 매치 영향 → 거부, 강제 취소 권장
+- **Activity UI: AuctionDraft 헤더에 `↩ 단계` dropdown** — 운영자만, POINT_ALLOC / BIDDING 단계에서 노출. ConfirmButton 으로 2-step. 각 옵션의 영향 (팀/포인트/입찰 초기화) 명시.
 
 ### Phase 24 — 경매 UX 후속 (v0.5.7)
 - **버그: 🎲 추출 시 "모두 배치 완료" 가 409 에러로 표시** — 정상 종료 케이스를 error 응답으로 처리해 사용자에게 빨간 alert. → API 가 200 + `{ done: true, remainingCount: 0, userId: null, displayName: null }` 반환, Activity 측은 done 플래그 보고 정상 안내 ("✅ 모두 배치 완료 — [▶ 토너먼트 진행] 클릭"). 🎲 버튼은 `allPlaced` 시 disabled.

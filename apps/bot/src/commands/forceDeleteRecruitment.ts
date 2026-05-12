@@ -14,7 +14,7 @@ import {
 import { notify } from "../utils/notify.js";
 import { requireOperator } from "../utils/operator.js";
 
-const { getRecruitment, listRecruitmentParticipants, deleteRecruitment, recordAudit } = db;
+const { getRecruitment, listRecruitmentParticipants, deleteRecruitment, recordAudit, getSeries } = db;
 
 export const data = new SlashCommandBuilder()
 	.setName("모집강제삭제")
@@ -36,7 +36,16 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
 	}
 	if (rec.status === "CONVERTED" && rec.converted_series_id) {
 		await interaction.editReply(
-			`❌ 이미 시리즈 #${rec.converted_series_id} 로 변환된 모집입니다. \`/시리즈강제삭제 series_id:${rec.converted_series_id}\` 사용.`,
+			`❌ 이미 시리즈 #${rec.converted_series_id} 로 변환된 모집입니다. \`/시리즈강제삭제 series_id:${rec.converted_series_id} rollback_mmr:true\` 사용.`,
+		);
+		return;
+	}
+	// 같은 id 의 active series 가 있으면 차단 — status 가 CONVERTED 가 아닌
+	// edge case (createSeries 후 setRecruitmentStatus 미적용 등) 도 caught.
+	const linkedSeries = await getSeries(recruitmentId);
+	if (linkedSeries && linkedSeries.status === "IN_PROGRESS") {
+		await interaction.editReply(
+			`❌ 시리즈 #${recruitmentId} 가 IN_PROGRESS 상태입니다. \`/시리즈강제삭제 series_id:${recruitmentId} rollback_mmr:true\` 로 먼저 정리하세요.`,
 		);
 		return;
 	}
@@ -100,6 +109,15 @@ export async function handleButton(interaction: ButtonInteraction): Promise<void
 	if (rec.status === "CONVERTED" && rec.converted_series_id) {
 		await interaction.editReply({
 			content: `❌ 시리즈 #${rec.converted_series_id} 로 변환된 모집입니다. \`/시리즈강제삭제\` 사용.`,
+			embeds: [],
+			components: [],
+		});
+		return;
+	}
+	const linkedSeries = await getSeries(recruitmentId);
+	if (linkedSeries && linkedSeries.status === "IN_PROGRESS") {
+		await interaction.editReply({
+			content: `❌ 시리즈 #${recruitmentId} 가 IN_PROGRESS — \`/시리즈강제삭제 series_id:${recruitmentId} rollback_mmr:true\` 로 먼저 정리.`,
 			embeds: [],
 			components: [],
 		});

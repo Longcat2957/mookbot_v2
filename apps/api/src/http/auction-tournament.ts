@@ -411,6 +411,75 @@ export async function registerAuctionTournamentRoutes(app: FastifyInstance): Pro
 		},
 	);
 
+	// 단계 되돌리기 — 운영자가 잘못 진행한 단계를 이전으로 복원.
+	// target 옵션:
+	//   - CAPTAIN_PICK: 모든 팀 / 팀원 / 입찰 정리 → CAPTAIN_PICK 단계로
+	//   - POINT_ALLOC: 입찰 + 팀원 (팀장 제외) 정리 + current_points = initial_points → POINT_ALLOC
+	//   - BIDDING: 그대로 BIDDING (PLACEMENT 같은 transient 상태에서 복귀)
+	app.post<{
+		Params: { id: string };
+		Body: { target: "CAPTAIN_PICK" | "POINT_ALLOC" | "BIDDING" };
+	}>("/api/auction-tournaments/:id/revert-stage", async (req, reply) => {
+		const sid = await requireEditor(req, reply);
+		if (!sid) return;
+		const id = Number(req.params.id);
+		const t = await db.getAuctionTournament(id);
+		if (!t) return reply.code(404).send({ error: "not found" });
+		// COMPLETED / CANCELLED / IN_GAME 이상은 매치 결과 영향 — 강제 취소 사용 권장.
+		if (t.status === "COMPLETED" || t.status === "CANCELLED") {
+			return reply.code(409).send({ error: `status=${t.status} — 단계 되돌리기 불가` });
+		}
+		if (t.status === "IN_GAME" || t.status === "BRACKET_SETUP") {
+			return reply.code(409).send({
+				error: `status=${t.status} — 매치/브래킷 진행 중. 강제 취소 후 다시 시작 권장.`,
+			});
+		}
+		const target = req.body?.target;
+		if (!target) return reply.code(400).send({ error: "target required" });
+
+		const teams = await db.listAuctionTeams(id);
+
+		if (target === "CAPTAIN_PICK") {
+			// 모든 입찰 / 팀원 / 팀 정리. CASCADE 로 자동.
+			for (const team of teams) {
+				await import("@mookbot/core").then((m) =>
+					m.cloudflare.execute(`DELETE FROM auction_teams WHERE id = ?`, [team.id]),
+				);
+			}
+			await db.setAuctionTournamentStatus(id, "CAPTAIN_PICK");
+		} else if (target === "POINT_ALLOC") {
+			// 입찰 + 팀원 (팀장 외) 정리, 포인트 reset
+			for (const team of teams) {
+				await import("@mookbot/core").then(async (m) => {
+					await m.cloudflare.execute(
+						`DELETE FROM auction_team_members WHERE team_id = ? AND user_id != ?`,
+						[team.id, team.captain_user_id],
+					);
+					await m.cloudflare.execute(
+						`UPDATE auction_teams SET current_points = initial_points WHERE id = ?`,
+						[team.id],
+					);
+				});
+			}
+			await import("@mookbot/core").then((m) =>
+				m.cloudflare.execute(`DELETE FROM auction_bids WHERE tournament_id = ?`, [id]),
+			);
+			await db.setAuctionTournamentStatus(id, "POINT_ALLOC");
+		} else if (target === "BIDDING") {
+			await db.setAuctionTournamentStatus(id, "BIDDING");
+		}
+
+		await db.recordAudit({
+			operatorId: sid,
+			action: "auction-tournament.stage-reverted",
+			targetType: "auction-tournament",
+			targetId: String(id),
+			payload: { from: t.status, to: target },
+		});
+		invalidate(`auction-tournament:${id}`, sid);
+		return { ok: true };
+	});
+
 	// BIDDING → PLACEMENT (모두 배치 확인) → BRACKET_SETUP
 	app.post<{ Params: { id: string } }>(
 		"/api/auction-tournaments/:id/start-bracket",
