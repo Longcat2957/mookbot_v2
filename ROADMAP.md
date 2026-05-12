@@ -2,7 +2,7 @@
 
 > 현재 버전 기준 진척 상태. 시간순 기획서는 [`PLAN.md`](./PLAN.md), 코드 리뷰 워킹노트는 [`docs/internal/`](./docs/internal/) 참조.
 
-## 현재 (v0.5.3)
+## 현재 (v0.5.4)
 
 활성 도메인: `bot.mooklol.com` (Cloudflare proxied → 단일 VPS · Docker compose 4컨테이너 stack: bot · api · activity · nginx).
 실서비스 운영 중.
@@ -152,6 +152,16 @@
 - **검증된 동작**: 첫 로드 (server draft 없음/있음), dirty 보호, `setSide`/`setCurrentGame`/`setGameDraft` (게임 게이팅 포함), `fearlessUsedIds` 도메인 계산 (이전 게임 + draft 합산, 현재 제외), `revert`/`undoLast` 성공/실패, debounced save (canEdit on/off), WS callback 시 refresh + toast, 1/2/3 단축키 (input 안 무시), `moveTo` (빈/점유 unassigned/점유 swap/null), `swapTeams`, `allFilled`, `submit` (성공/미충족/실패), Tap-to-Place 흐름 (`handleParticipantTap`/`handleSlotTap`/`handlePoolTap`, canEdit off 시 no-op), Esc 키 selected 해제, `recentlyChanged` diff.
 - **vitest config**: `apps/activity/src/screens/*/use*State.ts` 만 coverage include 로 추가 (전체 activity src 는 UI 영역으로 exclude 유지).
 - **테스트 총합**: 256 → 291 (+35). lint warnings 가 +20 (mock data 의 `!` non-null assertion — 테스트에서는 의도적 패턴, errors 0).
+
+### Phase 21 — `/랜덤인원추가` 테스트 도구 (v0.5.4)
+- **신규 슬래시 `/랜덤인원추가 모집:N 인원:M`** — 운영자 전용 테스트 도구. 등록된 사용자 (`users` 테이블) 풀에서 랜덤 M명을 모집 #N 에 추가. 일반 (`recruitments`) / 경매 (`auction_recruitments`) 모집 자동 감지.
+- **dummy 안 만듦** — 실제 등록된 사용자만 사용. 검색 / 리더보드 / 프로필에 추가 노출 없음 (이미 활동 중인 사용자). 사후 cleanup 은 운영자 책임.
+- **자동 제외** — 운영자 본인, 이미 모집에 참가한 사용자, `discord_id LIKE 'test-%'` (혹시 모를 dummy). `ORDER BY RANDOM()` 으로 매번 다른 사용자.
+- **정원 가드** — 요청 인원 > 남은 자리면 남은 자리만큼만. 풀 부족 시 가능한 만큼 + 경고. 정원 가득 시 거부.
+- **모집 메시지 자동 갱신** — `refreshRecruitMessage` / `refreshAuctionRecruitMessage` 호출. 정원 도달 시 봇 채널 메시지에 [▶ 엔트리 수정 / 경매 시작] 버튼 자연 노출 — 운영자가 일반 흐름 그대로 진행.
+- **Audit** — `recruitment.random-bulk-add` / `auction-recruitment.random-bulk-add` action 으로 기록. `/로그` 에서 추적.
+- **사후 cleanup 가이드** — 응답 ephemeral 에 명시: `/시리즈강제삭제 series_id:N rollback_mmr:true` 로 영향 받은 사용자의 `user_lane_mmr` 정확 복원 (기존 `inspectSeriesForDelete` + `forceDeleteSeriesWithRollback` 패턴, v0.2.x 부터).
+- **사용 흐름**: `/내전모집` 또는 `/경매내전모집` → 운영자 [참석] → `/랜덤인원추가 인원:9` → 정원 도달 → 일반 흐름 → 종료 → `/시리즈강제삭제` → MMR 정확 복원.
 
 ### Phase 20 — 봇 버튼 핸들러 token expire 방어 (v0.5.3)
 - **DiscordAPIError 10062 fix** — `recruit:cancel:48` 같은 버튼 클릭이 D1 fetch (`getRecruitment`) 가 3초 ack 윈도우를 초과해 interaction token 만료 후 `reply` 시도하던 long-standing 버그.

@@ -15,6 +15,7 @@ import * as logs from "./logs.js";
 import * as lookup from "./lookup.js";
 import * as recruit from "./recruit.js";
 import * as recruitMemberAdd from "./recruitMemberAdd.js";
+import * as randomRecruitMembers from "./randomRecruitMembers.js";
 import * as recruitMemberRemove from "./recruitMemberRemove.js";
 import * as refreshProfileIcon from "./refreshProfileIcon.js";
 import * as register from "./register.js";
@@ -46,4 +47,5 @@ export const ALL_COMMANDS = [
 	auctionRecruitMemberRemove,
 	auctionForceDelete,
 	refreshProfileIcon,
+	randomRecruitMembers,
 ] as const;
