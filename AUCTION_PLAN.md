@@ -21,15 +21,26 @@
 
 - 10인 / 20인 경매내전 모집부터 종료까지 한 화면 (Activity) 안에서 수행
 - 운영자 수동 컨트롤 (포인트 입찰 / 유찰 / 수동 배치) 중심 — 자동 매칭 없음
-- 챔프 픽/밴은 DB 기록, 사용자 프로필 / 전적 조회 시 별도 표시
+- 챔프 픽/밴 / 승패 전적은 **일반 사용자 통계와 통합** — 한 번 픽한 챔프는 어떤 흐름에서든 누적
 - 종료 후 모집 채널에 결과 카드 발행 (일반 내전 v0.4.3 패턴 재사용)
 
-### 1.3 비목표
+### 1.3 통합 / 격리 매트릭스
 
-- **MMR / ELO 계산** — `mmr_changes` / `user_lane_mmr` 테이블에 **절대 쓰지 않음**
-- **시즌 통계 누적** — `getRecentGamesForUser` 등 일반 조회에서 경매 게임은 제외
-- **리더보드 반영** — 라인별 / 종합 모두 영향 0
+| 데이터 | 일반 내전 | 경매내전 | 동작 |
+|---|---|---|---|
+| `games` (게임 row) | ✅ INSERT | ✅ INSERT | **통합** — 같은 테이블 |
+| `game_stats` (W/L per user) | ✅ INSERT | ✅ INSERT | **통합** — `/내전기록` 라인별 W/L 자동 누적 |
+| `game_picks` / `game_bans` | ✅ INSERT | ✅ INSERT | **통합** — 사용자 챔프 누적 자동 |
+| `mmr_changes` | ✅ INSERT | ❌ skip | **격리** — `series.type='AUCTION'` 분기 |
+| `user_lane_mmr` | ✅ UPDATE | ❌ skip | **격리** — 동일 |
+| 리더보드 (라인별 / 종합 MMR) | 영향 | 영향 0 | 자동 (user_lane_mmr 안 건드림) |
+| `/랭킹` (시즌 MMR Top 10) | 영향 | 영향 0 | 자동 |
+
+### 1.4 비목표
+
+- **MMR / ELO 계산** — 경매 게임은 `mmr_changes` / `user_lane_mmr` 에 절대 쓰지 않음 (이벤트성)
 - **자동 팀 분배 / 추천 매칭** — 운영자 수동만
+- **별도 "경매 전적" 페이지** — 통합 통계에 자연 반영, 별도 페이지 불필요
 
 ---
 
@@ -167,18 +178,40 @@ RECRUITING   →   CAPTAIN_PICK   →   POINT_ALLOC   →   BIDDING   →   PLAC
 
 ## 7. 데이터 모델 (D1 스키마)
 
-### 7.1 격리 원칙
+### 7.1 통합 / 격리 원칙
 
-**별도 테이블** 로 격리. 기존 `series` / `games` / `game_picks` / `mmr_changes` 등에 절대 영향 없음.
+- **모집 / 토너먼트 메타 / 경매 입찰** = 별도 테이블 (`auction_*`) — UX·lifecycle 이 다름
+- **매치 (`series`) / 게임 / 픽 / 밴 / 통계** = **기존 테이블 재사용** + `series.type='AUCTION'` 마킹
+- **MMR 변동** = `series.type='AUCTION'` 분기로 skip
+
+### 7.2 기존 테이블 ALTER
 
 ```sql
--- 7.1.1 모집
+-- series 에 type + auction_tournament 연결 컬럼 추가
+ALTER TABLE series ADD COLUMN type TEXT NOT NULL DEFAULT 'RANKED';
+ALTER TABLE series ADD COLUMN auction_tournament_id INTEGER REFERENCES auction_tournaments(id);
+
+-- type 값: 'RANKED' (일반 내전, MMR 영향) | 'AUCTION' (경매 매치, MMR skip)
+-- auction_tournament_id: RANKED 면 NULL. AUCTION 이면 토너먼트 FK.
+-- 한 토너먼트 (20인) 에 series 가 3개까지 (4강 2 + 결승 1), 10인은 1개.
+
+-- 인덱스 — type 별 조회
+CREATE INDEX IF NOT EXISTS idx_series_type ON series(type) WHERE deleted_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_series_auction_tournament ON series(auction_tournament_id) WHERE auction_tournament_id IS NOT NULL;
+```
+
+`game_picks`, `game_bans`, `game_stats` 는 **그대로** — series 단위로 묶이고, series.type 으로 자동 분리/통합.
+
+### 7.3 신규 테이블 (경매 메타만)
+
+```sql
+-- 7.3.1 모집 (별도 — lifecycle 다름)
 CREATE TABLE auction_recruitments (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   season_id INTEGER NOT NULL,
-  target_count INTEGER NOT NULL,    -- 10 or 20
-  status TEXT NOT NULL,              -- OPEN | CLOSED | CONVERTED | CANCELLED
-  converted_series_id INTEGER,       -- → auction_series.id (1:1)
+  target_count INTEGER NOT NULL,             -- 10 or 20
+  status TEXT NOT NULL,                       -- OPEN | CLOSED | CONVERTED | CANCELLED
+  converted_tournament_id INTEGER,            -- → auction_tournaments.id (1:1)
   created_by TEXT NOT NULL,
   channel_id TEXT,
   message_id TEXT,
@@ -193,107 +226,102 @@ CREATE TABLE auction_recruitment_participants (
   PRIMARY KEY (recruitment_id, user_id)
 );
 
--- 7.1.2 경매 시리즈 (전체 토너먼트 한 단위)
-CREATE TABLE auction_series (
-  id INTEGER PRIMARY KEY,            -- 명시 부여 = auction_recruitment.id
+-- 7.3.2 토너먼트 (한 경매내전 행사 — 4강 + 결승 = 한 토너먼트, 10인은 1매치 토너먼트)
+CREATE TABLE auction_tournaments (
+  id INTEGER PRIMARY KEY,                     -- 명시 부여 = auction_recruitment.id (v0.3.4 패턴)
   season_id INTEGER NOT NULL,
-  format INTEGER NOT NULL,            -- 10 or 20
-  status TEXT NOT NULL,               -- CAPTAIN_PICK | POINT_ALLOC | BIDDING | PLACEMENT | BRACKET_SETUP | IN_GAME | COMPLETED | CANCELLED
-  champion_team_id INTEGER,           -- 우승 팀 → auction_teams.id
+  format INTEGER NOT NULL,                    -- 10 or 20
+  status TEXT NOT NULL,                       -- CAPTAIN_PICK | POINT_ALLOC | BIDDING | PLACEMENT | BRACKET_SETUP | IN_GAME | COMPLETED | CANCELLED
+  champion_team_id INTEGER,                   -- 우승 팀 → auction_teams.id
   started_at INTEGER DEFAULT (unixepoch()),
   ended_at INTEGER,
   created_by TEXT NOT NULL,
-  end_card_channel_id TEXT,           -- 종료 카드 (v0.4.3 패턴)
+  end_card_channel_id TEXT,                   -- 종료 카드 (v0.4.3 패턴)
   end_card_message_id TEXT,
   deleted_at INTEGER
 );
 
--- 7.1.3 팀
+-- 7.3.3 팀 (한 토너먼트 안의 2팀 / 4팀)
 CREATE TABLE auction_teams (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
-  series_id INTEGER NOT NULL REFERENCES auction_series(id) ON DELETE CASCADE,
-  team_index INTEGER NOT NULL,        -- 1..4 (20인) 또는 1..2 (10인)
+  tournament_id INTEGER NOT NULL REFERENCES auction_tournaments(id) ON DELETE CASCADE,
+  team_index INTEGER NOT NULL,                -- 1..4 (20인) 또는 1..2 (10인)
   captain_user_id TEXT NOT NULL,
-  team_name TEXT,                     -- 운영자가 옵션으로 부여 가능
+  team_name TEXT,                             -- 운영자가 옵션으로 부여 가능
   initial_points INTEGER NOT NULL DEFAULT 1000,
   current_points INTEGER NOT NULL DEFAULT 1000,
-  UNIQUE (series_id, team_index)
+  UNIQUE (tournament_id, team_index)
 );
 
--- 7.1.4 팀원 (낙찰 + 수동 배치)
+-- 7.3.4 팀원 (낙찰 + 수동 배치)
 CREATE TABLE auction_team_members (
   team_id INTEGER NOT NULL REFERENCES auction_teams(id) ON DELETE CASCADE,
   user_id TEXT NOT NULL,
-  role TEXT,                          -- TOP/JUNGLE/MID/BOTTOM/SUPPORT — 픽/밴 시점에 결정, 경매 시점엔 NULL 가능
-  acquired_via TEXT NOT NULL,         -- BID | MANUAL
-  acquired_at_points INTEGER,         -- 낙찰 포인트 (수동 배치는 NULL)
+  acquired_via TEXT NOT NULL,                 -- BID | MANUAL
+  acquired_at_points INTEGER,                 -- 낙찰 포인트 (수동 배치는 NULL)
   PRIMARY KEY (team_id, user_id)
 );
+-- 라인 (TOP/JUNGLE/...) 은 series_participants.role 에 저장 — 매치 시작 시점에 결정.
 
--- 7.1.5 입찰 기록 (audit)
+-- 7.3.5 입찰 기록 (audit)
 CREATE TABLE auction_bids (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
-  series_id INTEGER NOT NULL REFERENCES auction_series(id) ON DELETE CASCADE,
+  tournament_id INTEGER NOT NULL REFERENCES auction_tournaments(id) ON DELETE CASCADE,
   target_user_id TEXT NOT NULL,
   team_id INTEGER NOT NULL REFERENCES auction_teams(id) ON DELETE CASCADE,
   points INTEGER NOT NULL,
-  is_final BOOLEAN DEFAULT FALSE,     -- 낙찰 입찰만 TRUE
+  is_final BOOLEAN DEFAULT FALSE,             -- 낙찰 입찰만 TRUE
   created_at INTEGER DEFAULT (unixepoch())
 );
 
--- 7.1.6 토너먼트 매치 (4강 + 결승, 또는 10인의 단일 매치)
+-- 7.3.6 토너먼트 매치 메타 — 기존 series 와 1:1 매핑
+-- (series 가 곧 한 매치 — BO1 또는 BO3 자체 lifecycle)
 CREATE TABLE auction_matches (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  series_id INTEGER NOT NULL REFERENCES auction_series(id) ON DELETE CASCADE,
-  round TEXT NOT NULL,                 -- SEMI | FINAL | SINGLE (10인)
-  bracket_index INTEGER,               -- 4강 매치 1/2 구분 (NULL for FINAL/SINGLE)
+  series_id INTEGER PRIMARY KEY REFERENCES series(id) ON DELETE CASCADE,
+  tournament_id INTEGER NOT NULL REFERENCES auction_tournaments(id) ON DELETE CASCADE,
+  round TEXT NOT NULL,                        -- SEMI | FINAL | SINGLE (10인)
+  bracket_index INTEGER,                      -- 4강 매치 1/2 구분 (NULL for FINAL/SINGLE)
   team1_id INTEGER NOT NULL REFERENCES auction_teams(id),
   team2_id INTEGER NOT NULL REFERENCES auction_teams(id),
-  format TEXT NOT NULL,                -- BO1 | BO3
-  winning_team_id INTEGER REFERENCES auction_teams(id),
-  status TEXT NOT NULL,                -- PENDING | IN_PROGRESS | COMPLETED
-  UNIQUE (series_id, round, bracket_index)
-);
-
--- 7.1.7 매치 안의 게임 (BO1 = 1행, BO3 = 1~3행)
-CREATE TABLE auction_games (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  match_id INTEGER NOT NULL REFERENCES auction_matches(id) ON DELETE CASCADE,
-  game_number INTEGER NOT NULL,        -- 1/2/3
-  team1_side TEXT NOT NULL,            -- BLUE | RED
-  winning_team_id INTEGER NOT NULL,    -- match.team1_id or team2_id
-  duration_sec INTEGER,
-  played_at INTEGER DEFAULT (unixepoch()),
-  UNIQUE (match_id, game_number)
-);
-
--- 7.1.8 픽/밴 (기존 game_picks/bans 패턴 재사용)
-CREATE TABLE auction_game_picks (
-  game_id INTEGER NOT NULL REFERENCES auction_games(id) ON DELETE CASCADE,
-  team_id INTEGER NOT NULL REFERENCES auction_teams(id),
-  role TEXT NOT NULL,                  -- TOP/JUNGLE/MID/BOTTOM/SUPPORT
-  champion_name TEXT NOT NULL,
-  PRIMARY KEY (game_id, team_id, role)
-);
-
-CREATE TABLE auction_game_bans (
-  game_id INTEGER NOT NULL REFERENCES auction_games(id) ON DELETE CASCADE,
-  team_id INTEGER NOT NULL REFERENCES auction_teams(id),
-  position INTEGER NOT NULL,
-  champion_name TEXT NOT NULL,
-  PRIMARY KEY (game_id, team_id, position)
+  UNIQUE (tournament_id, round, bracket_index)
 );
 ```
 
-### 7.2 격리 보장
+### 7.4 통합 흐름 (자연스럽게 동작하는 것들)
 
-- `mmr_changes` / `user_lane_mmr` / `game_stats` 에 **insert 코드 경로 없음** — `auction_*` 흐름이 `recordGameAndUpdateMmr` 를 절대 호출하지 않음
-- `getRecentGamesForUser` / `getLeaderboard` 등은 `games` 만 쿼리 — 자동 분리
-- 사용자 프로필에 "경매내전 전적" 별도 섹션 (선택, 백로그 가능)
+| 흐름 | 동작 |
+|---|---|
+| 게임 결과 INSERT | `games` (series_id 가 AUCTION type) — 같은 테이블 |
+| 픽/밴 INSERT | `game_picks` / `game_bans` — 같은 테이블 |
+| 게임 통계 | `game_stats` (W/L per user/role) — 같은 테이블 |
+| 사용자 챔프 누적 | `game_picks` 쿼리 — 별도 분기 없이 자동 통합 |
+| `/내전기록` 라인별 W/L | `game_stats` 쿼리 — 자동 통합 (auction 게임도 포함) |
+| BalancePreview 의 챔프 Top5 | `game_picks` 쿼리 — 자동 통합 |
 
-### 7.3 마이그레이션
+### 7.5 격리 흐름 (분기 코드 필요)
 
-`packages/core/src/db/schema.sql` 에 위 7개 테이블 추가. 기존 idempotent migration 흐름 그대로. 백워드 호환 0 — 새 테이블만 추가.
+```ts
+// apps/api/src/http/games.ts — recordGame 흐름
+const series = await db.getSeries(seriesId);
+if (series.type === "AUCTION") {
+  // auction 경로: mmr 부분 완전 skip
+  await db.recordGameOnly({ seriesId, gameNumber, winningTeam, team1Side, stats, durationSec });
+  // game + game_stats + game_picks + game_bans 만 INSERT, mmr_changes / user_lane_mmr 안 건드림
+} else {
+  // 일반 경로: 기존 recordGameAndUpdateMmr
+  await db.recordGameAndUpdateMmr({ ... });
+}
+```
+
+`getLeaderboard` / `/랭킹` 등은 `user_lane_mmr` 쿼리 → auction 은 그 테이블에 안 들어가므로 자동 격리.
+
+`countSeriesWins` / `completeSeries` 등 series-level 흐름은 type 무관 동일 (BO3 종료 검사 등은 series 단위 동일).
+
+### 7.6 마이그레이션
+
+- `packages/core/src/db/schema.sql` 에 `ALTER series ADD COLUMN type` + `auction_tournament_id` + 6개 신규 테이블 (`auction_recruitments`, `auction_recruitment_participants`, `auction_tournaments`, `auction_teams`, `auction_team_members`, `auction_bids`, `auction_matches`) 추가
+- 기존 idempotent ALTER ADD COLUMN 패턴 사용 — `type` 컬럼 default `'RANKED'` 라 기존 데이터 자동 호환
+- 백워드 호환: 기존 쿼리 모두 동작 (type 무시), MMR 흐름도 default RANKED 로 그대로 작동
 
 ---
 
@@ -424,22 +452,58 @@ BIDDING 단계:
 
 ---
 
-## 10. MMR 격리 — 구현 가드
+## 10. MMR 격리 + 통합 — 구현 가드
 
-### 10.1 코드 경로 분리
+### 10.1 코드 경로 분기
 
-- `apps/api/src/http/games.ts` 의 `recordGameAndUpdateMmr` 는 **일반 시리즈만** 호출
-- 경매 게임 결과는 별도 함수 `recordAuctionGame` — `mmr_changes` 절대 INSERT 안 함, `user_lane_mmr` 절대 UPDATE 안 함
-- core 의 `record.ts` 와 별도 파일 (`apps/api/src/http/auction-games.ts`) 에 작성, mmr import 자체 안 함
-
-### 10.2 통합 테스트 가드
+기존 `recordGameAndUpdateMmr` (`packages/core/src/db/record.ts`) 를 둘로 나눔:
 
 ```
-describe("경매 게임 결과 → MMR 영향 0", () => {
-  it("recordAuctionGame 후 user_lane_mmr 변동 없음", ...)
-  it("recordAuctionGame 후 mmr_changes 행 없음", ...)
-  it("getRecentGamesForUser 가 경매 게임을 제외", ...)
-  it("getLeaderboard 가 경매 게임을 제외", ...)
+recordGameOnly({...})            // game + game_stats + game_picks + game_bans INSERT
+  └─ AUCTION 흐름에서만 호출
+
+recordGameAndUpdateMmr({...})     // 위 + mmr_changes INSERT + user_lane_mmr UPDATE
+  └─ RANKED 흐름에서만 호출
+  └─ 내부적으로 recordGameOnly 부터 호출 후 mmr 부분 추가
+```
+
+`games.ts` 에서 series.type 에 따라 분기:
+
+```ts
+const series = await db.getSeries(seriesId);
+if (series.type === "AUCTION") {
+  await db.recordGameOnly({ ... });
+} else {
+  await db.recordGameAndUpdateMmr({ ... });
+}
+```
+
+### 10.2 통합 통계 — 자연 동작 확인
+
+| 동작 | 통합? | 메커니즘 |
+|---|---|---|
+| 사용자 라인별 W/L (`/내전기록`) | ✅ | `game_stats` 쿼리, type 무관 |
+| 사용자 챔프 누적 (`game_picks` 기반) | ✅ | `game_picks` 쿼리, type 무관 |
+| 시리즈 목록 (`/시리즈목록`) | 결정 필요 | type 필터 옵션? 기본은 type 무관? |
+| 대시보드 "지난 내전" | 결정 필요 | type 표시 (`🎟️ 경매` 뱃지) + 같이 노출? 분리? |
+| BalancePreview Top5 챔프 | ✅ | `game_picks` 쿼리, type 무관 |
+
+→ §12 Q16, Q17 로 추가.
+
+### 10.3 통합 테스트 가드 (필수)
+
+```ts
+describe("경매 게임 결과 — MMR 격리", () => {
+  it("AUCTION series 의 game record 후 mmr_changes 행 0", ...)
+  it("AUCTION series 의 game record 후 user_lane_mmr 변동 없음", ...)
+  it("getLeaderboard 가 AUCTION 게임을 제외", ...)
+  it("`/랭킹` 시즌 MMR 이 AUCTION 게임을 제외", ...)
+})
+
+describe("경매 게임 결과 — 통계 통합", () => {
+  it("`/내전기록` 라인별 W/L 에 AUCTION 게임 포함", ...)
+  it("사용자 챔프 누적 (game_picks) 에 AUCTION 픽 포함", ...)
+  it("BalancePreview Top5 챔프에 AUCTION 픽 포함", ...)
 })
 ```
 
@@ -449,8 +513,8 @@ describe("경매 게임 결과 → MMR 영향 0", () => {
 
 | Phase | 내용 | 예상 |
 |---|---|---|
-| A | DB schema + core 헬퍼 (auction-recruitments, auction-series, auction-teams, auction-bids, auction-matches, auction-games, auction-picks/bans) | 4~6h |
-| B | api 라우트 (모집 → 시리즈 → 경매 단계 전이 + 입찰 + 게임 결과) + 통합 테스트 | 6~10h |
+| A | DB schema — `series` ALTER (type + auction_tournament_id) + 7개 신규 테이블 (`auction_recruitments`, `auction_recruitment_participants`, `auction_tournaments`, `auction_teams`, `auction_team_members`, `auction_bids`, `auction_matches`). `recordGame` 분기 (`recordGameOnly` 추출) + MMR 격리 / 통계 통합 테스트 가드. | 4~6h |
+| B | api 라우트 (모집 → 토너먼트 전이 + 팀장 + 포인트 + 입찰 + 배치 + 매치 생성 + 게임 결과) + 통합 테스트 | 8~12h |
 | C | 봇 슬래시 (`/경매내전모집` + 인원관리 + 강제삭제) + 채널 메시지 빌더 | 4~6h |
 | D | Activity AuctionDraft 화면 (CAPTAIN_PICK → POINT_ALLOC → BIDDING → PLACEMENT) | 8~12h |
 | E | Activity AuctionBracket 화면 (BRACKET_SETUP → IN_GAME — 4강 / 결승) | 6~10h |
@@ -477,13 +541,16 @@ describe("경매 게임 결과 → MMR 영향 0", () => {
 | Q6 | 유찰자 재경매 시 동일 절차? 포인트 그대로? | Yes, 같은 절차 |
 | Q7 | 운영자 수동 배치 시 포인트 영향? | 포인트 무관 — `acquired_via='MANUAL'`, `acquired_at_points=NULL` |
 | Q8 | 라인 (TOP/JUNGLE/MID/BOTTOM/SUPPORT) 결정 시점 — 경매 시점? 픽/밴 시점? | 픽/밴 시점 — 매치 시작 직전에 운영자가 라인 배치 (BRACKET_SETUP 안에 라인 슬롯) |
-| Q9 | 경매내전 챔프/밴은 일반 전적 (`/전적` `/내전기록`) 에 같이 노출? | 별도 — `/경매전적` 새 슬래시 또는 Profile 별도 섹션 (백로그) |
+| Q9 | 경매내전 챔프/밴은 일반 전적 (`/전적` `/내전기록`) 에 같이 노출? | **통합** (user 결정 2026-05-12). `game_stats` / `game_picks` 같은 테이블 공유, type 무관 누적. |
 | Q10 | hard fearless 룰 (Bo3 안 같은 챔프 금지) 적용? | Yes — 매치 안에서 fearless. 매치 간 (4강 → 결승) 은 미적용 (다른 매치업) |
 | Q11 | 종료 카드의 정보량 — 일반 종료 카드 (v0.4.3) 와 같은 수준? | Yes, 같은 수준 + 토너먼트 사다리 시각화 |
 | Q12 | 모집 정원 다른 옵션 — 16인? 8인? | 일단 10/20 만, 추가 정원은 향후 |
 | Q13 | 경매내전 시즌 분리? 일반 시즌과 같은 ID 공유? | 같은 `season_id` 공유 (자동 시즌 전환 시 같이 전환) |
 | Q14 | 팀장 본인이 픽/밴을 할 수 있는지 | 팀장도 팀의 일원 — 라인 배정 시 자기 라인 정함 |
 | Q15 | 입찰 중 운영자가 실수했을 때 되돌리기 — 매물 단위? 입찰 단위? | 매물 단위 (낙찰 취소 → 매물 다시 BIDDING, 차감 포인트 복원) |
+| Q16 | `/시리즈목록` / 대시보드 "지난 내전" 에 AUCTION 매치 포함? | 포함 + `🎟️ 경매` 뱃지 노출 (분리 필터 옵션 가능) |
+| Q17 | BalancePreview Top5 챔프 (라인별) 에 AUCTION 픽 포함? | 포함 — 통합 통계 원칙 일관. |
+| Q18 | AUCTION 매치의 시리즈 / 모집 강제삭제 흐름은 일반과 동일? | 동일 — `series.type` 만 차이, soft-delete / revert 동일 패턴 |
 
 ---
 
@@ -493,7 +560,8 @@ describe("경매 게임 결과 → MMR 영향 0", () => {
 - **공개 입찰 — 참가자가 직접 입찰 버튼 클릭** — 운영자 중심 (보이스 협의 결과만 기록)
 - **포인트 인플레이션 / 시즌 누적** — 1회성 1000 포인트, 다음 경매에 영향 없음
 - **시상 / 보상 시스템** — 별도 외부 인센티브 (시즌 통계 무관)
-- **경매내전 리더보드** — 경매는 이벤트성이라 누적 의미 작음 (필요 시 향후)
+- **경매 MMR / 라인 MMR 별도 누적** — 경매는 MMR 영향 0. 일반 MMR 만 의미 있음.
+- **별도 "경매 전적" 페이지** — 통합 통계에 자연 반영, 별도 페이지 불필요 (Q9 결정).
 
 ---
 
