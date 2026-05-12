@@ -391,10 +391,11 @@ export function PickBanBoard({
 				<BulkInput champions={champions} teamSize={teamSize} onApply={handleApplyBulk} />
 			)}
 
-			{/* D1 split layout — 보드 좌 60% + 챔프 그리드 우 40% sticky (lg+ 만) */}
+			{/* D1 split layout — 보드 좌 60% + 챔프 그리드 우 40% sticky (lg+ 만).
+			    좌측 column 도 우측 max-h 와 같은 viewport 기준 min-h 부여 — 양쪽 하단 align. */}
 			<div className="grid grid-cols-1 lg:grid-cols-[3fr_2fr] gap-4 items-start">
 				{/* 픽/밴 보드 (1팀 + 2팀 stack) — split 안에선 좌측 60% */}
-				<div className="space-y-3 min-w-0">
+				<div className="space-y-3 min-w-0 lg:min-h-[calc(100vh-1rem)]">
 					<TeamColumn
 						team="TEAM_1"
 						side={team1Side}

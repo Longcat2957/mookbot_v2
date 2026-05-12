@@ -2,7 +2,7 @@
 
 > 현재 버전 기준 진척 상태. 시간순 기획서는 [`PLAN.md`](./PLAN.md), 코드 리뷰 워킹노트는 [`docs/internal/`](./docs/internal/) 참조.
 
-## 현재 (v0.8.0)
+## 현재 (v0.8.1)
 
 활성 도메인: `bot.mooklol.com` (Cloudflare proxied → 단일 VPS · Docker compose 4컨테이너 stack: bot · api · activity · nginx).
 실서비스 운영 중.
@@ -152,6 +152,9 @@
 - **검증된 동작**: 첫 로드 (server draft 없음/있음), dirty 보호, `setSide`/`setCurrentGame`/`setGameDraft` (게임 게이팅 포함), `fearlessUsedIds` 도메인 계산 (이전 게임 + draft 합산, 현재 제외), `revert`/`undoLast` 성공/실패, debounced save (canEdit on/off), WS callback 시 refresh + toast, 1/2/3 단축키 (input 안 무시), `moveTo` (빈/점유 unassigned/점유 swap/null), `swapTeams`, `allFilled`, `submit` (성공/미충족/실패), Tap-to-Place 흐름 (`handleParticipantTap`/`handleSlotTap`/`handlePoolTap`, canEdit off 시 no-op), Esc 키 selected 해제, `recentlyChanged` diff.
 - **vitest config**: `apps/activity/src/screens/*/use*State.ts` 만 coverage include 로 추가 (전체 activity src 는 UI 영역으로 exclude 유지).
 - **테스트 총합**: 256 → 291 (+35). lint warnings 가 +20 (mock data 의 `!` non-null assertion — 테스트에서는 의도적 패턴, errors 0).
+
+### Phase 34 — 픽밴 split layout 좌/우 하단 align fix (v0.8.1)
+- PickBanBoard 의 lg+ split layout 에서 좌측 (1팀+2팀 stack) 자연 height (~800px) 가 우측 챔프 그리드 (`lg:max-h-[calc(100vh-1rem)]` ≈ viewport 끝) 보다 짧아 2팀 카드 하단과 챔프 그리드 하단 misalign 시각. 좌측 column 에도 `lg:min-h-[calc(100vh-1rem)]` 부여 — 양쪽 동일 frame 높이로 하단 일치.
 
 ### Phase 33 — 코인토스 사이드 결정 + 1팀=BLUE 정렬 (v0.8.0)
 - **비즈니스 로직 반영** — 1경기 시작 전 엔트리 작성자들이 코인토스로 BLUE/RED 결정하는 흐름이 PickBan 으로 넘어가서 꼬이는 문제. 사이드 결정을 EntryEditing 단계로 이동.
