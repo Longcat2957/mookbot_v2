@@ -44,8 +44,10 @@ export default defineConfig({
 				"packages/core/src/db/backup.ts",
 				"packages/core/src/db/_assert.ts",
 				"apps/bot/src/deploy-commands.ts",
-				// React UI / Discord 인터랙션 — 단위테스트 비효율 (E2E 영역)
+				// React UI / Discord 인터랙션 — 단위테스트 비효율 (E2E 영역).
+				// 단, 화면 상태 hook (use*State.ts) 은 도메인 로직 비중이 높아 별도 cover.
 				"apps/activity/src/**",
+				"!apps/activity/src/screens/*/use*State.ts",
 				"apps/bot/src/commands/**",
 				"apps/bot/src/events/**",
 				"apps/bot/src/webhooks/**",

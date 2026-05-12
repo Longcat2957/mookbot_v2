@@ -2,7 +2,7 @@
 
 > 현재 버전 기준 진척 상태. 시간순 기획서는 [`PLAN.md`](./PLAN.md), 코드 리뷰 워킹노트는 [`docs/internal/`](./docs/internal/) 참조.
 
-## 현재 (v0.4.3)
+## 현재 (v0.4.4)
 
 활성 도메인: `bot.mooklol.com` (Cloudflare proxied → 단일 VPS · Docker compose 4컨테이너 stack: bot · api · activity · nginx).
 실서비스 운영 중.
@@ -145,6 +145,13 @@
 - **신규 파일**: `apps/bot/src/commands/series/endCardBuilder.ts` (renderEndCardComponents + publishSeriesEndCard), `packages/core/src/db/series.ts:setSeriesEndMessage` helper, `SeriesRow` 에 `end_card_channel_id` / `end_card_message_id` 필드 추가 (DB 컬럼은 기존).
 - **신규 endpoint**: 봇 `POST /internal/series-completed` (`{seriesId}` body, X-Internal-Key 인증), api `notifyBotSeriesCompleted` helper (`apps/api/src/bot/notify.ts`).
 - **운영 영향**: 새 환경변수 0, 새 DB 마이그레이션 0 (기존 미사용 컬럼 활용). `INTERNAL_API_KEY` / `BOT_INTERNAL_BASE` 그대로 재사용.
+
+### Phase 15 — Wave 3.x 후속 hook 단위 vitest (v0.4.4)
+- **35개 신규 테스트** — `usePickBanState.test.ts` 15건 + `useEntryEditingState.test.ts` 20건. happy-dom + `@testing-library/react` 새 dev dep, `@vitest-environment happy-dom` 주석으로 per-file 환경 분기 (다른 server-side 테스트는 node 환경 그대로).
+- **mock 전략**: `useStaleWhileRevalidate` 를 mock 해서 `onApply` 캡처 + data 직접 제공 — SWR 사이클 통합 대신 hook 의 dirty 보호 로직만 격리 검증. `api/rest`, `api/ws`, `state/perms`, `components/Toaster` 도 mock. `usePickBanState` 의 hook 안 두 SWR 호출 (detail / champions) 은 호출 카운트의 짝/홀로 구분.
+- **검증된 동작**: 첫 로드 (server draft 없음/있음), dirty 보호, `setSide`/`setCurrentGame`/`setGameDraft` (게임 게이팅 포함), `fearlessUsedIds` 도메인 계산 (이전 게임 + draft 합산, 현재 제외), `revert`/`undoLast` 성공/실패, debounced save (canEdit on/off), WS callback 시 refresh + toast, 1/2/3 단축키 (input 안 무시), `moveTo` (빈/점유 unassigned/점유 swap/null), `swapTeams`, `allFilled`, `submit` (성공/미충족/실패), Tap-to-Place 흐름 (`handleParticipantTap`/`handleSlotTap`/`handlePoolTap`, canEdit off 시 no-op), Esc 키 selected 해제, `recentlyChanged` diff.
+- **vitest config**: `apps/activity/src/screens/*/use*State.ts` 만 coverage include 로 추가 (전체 activity src 는 UI 영역으로 exclude 유지).
+- **테스트 총합**: 256 → 291 (+35). lint warnings 가 +20 (mock data 의 `!` non-null assertion — 테스트에서는 의도적 패턴, errors 0).
 
 ### 메타 — 운영 / 워크플로우 (cross-cutting)
 - **`.claude/settings.json` committed** — Claude Code 권한 prompt 감소 + release 자동화 allowlist (typecheck/test/build, gh, git, ssh, docker:release 등). destructive 명령은 deny 명시 (force push, hard reset, db:migrate:drop, wrangler d1 execute 등).
