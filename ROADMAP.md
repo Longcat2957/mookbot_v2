@@ -2,7 +2,7 @@
 
 > 현재 버전 기준 진척 상태. 시간순 기획서는 [`PLAN.md`](./PLAN.md), 코드 리뷰 워킹노트는 [`docs/internal/`](./docs/internal/) 참조.
 
-## 현재 (v0.4.4)
+## 현재 (v0.4.5)
 
 활성 도메인: `bot.mooklol.com` (Cloudflare proxied → 단일 VPS · Docker compose 4컨테이너 stack: bot · api · activity · nginx).
 실서비스 운영 중.
@@ -152,6 +152,17 @@
 - **검증된 동작**: 첫 로드 (server draft 없음/있음), dirty 보호, `setSide`/`setCurrentGame`/`setGameDraft` (게임 게이팅 포함), `fearlessUsedIds` 도메인 계산 (이전 게임 + draft 합산, 현재 제외), `revert`/`undoLast` 성공/실패, debounced save (canEdit on/off), WS callback 시 refresh + toast, 1/2/3 단축키 (input 안 무시), `moveTo` (빈/점유 unassigned/점유 swap/null), `swapTeams`, `allFilled`, `submit` (성공/미충족/실패), Tap-to-Place 흐름 (`handleParticipantTap`/`handleSlotTap`/`handlePoolTap`, canEdit off 시 no-op), Esc 키 selected 해제, `recentlyChanged` diff.
 - **vitest config**: `apps/activity/src/screens/*/use*State.ts` 만 coverage include 로 추가 (전체 activity src 는 UI 영역으로 exclude 유지).
 - **테스트 총합**: 256 → 291 (+35). lint warnings 가 +20 (mock data 의 `!` non-null assertion — 테스트에서는 의도적 패턴, errors 0).
+
+### Phase 16 — navbar 모집↔시리즈 breadcrumbs (v0.4.5)
+- **`ContextChip` → daisyUI breadcrumbs 교체** — 기존 단일 라벨 chip ("📋 모집 #5 · 엔트리 수정", "🎮 시리즈 #5 · 픽/밴") 을 다단 breadcrumbs (`📋 모집 #5  ›  🎮 시리즈 #5  ›  픽/밴`) 로 확장. v0.3.4 의 "모집 ID = 시리즈 ID" 1:1 매핑이 사용자에게 자연 노출 — 모집과 시리즈가 같은 #N 임을 시각으로 즉시 인지.
+- **단계별 항목**:
+  - `ENTRY_EDITING`: `📋 모집 #N` → `엔트리 수정` (시리즈 row 미생성 — 엔트리 제출 시점 INSERT)
+  - `IN_GAME`: `📋 모집 #N` → `🎮 시리즈 #N` → `픽/밴`
+  - `COMPLETED`: `📋 모집 #N` → `🎮 시리즈 #N` → `✅ 종료`
+  - `PROFILE` / `LEADERBOARD` / `MINIGAME` / `MY_RIOT_ACCOUNTS`: 단일 항목 (페이지 이름)
+- **시각 위계**: 마지막 항목은 `text-base-content` (active), 이전 항목들은 `text-base-content/55` (muted) — 현재 위치 즉시 식별.
+- **clickable X (정적 표시)** — 대시보드 복귀 길은 좌측 monkey 로고가 담당, breadcrumbs 항목은 navigation 안 함. (필요 시 향후 추가 가능)
+- **× 닫기 버튼 제거** — monkey 로고와 중복 동작이라 정리. UI 잡음 ↓.
 
 ### 메타 — 운영 / 워크플로우 (cross-cutting)
 - **`.claude/settings.json` committed** — Claude Code 권한 prompt 감소 + release 자동화 allowlist (typecheck/test/build, gh, git, ssh, docker:release 등). destructive 명령은 deny 명시 (force push, hard reset, db:migrate:drop, wrangler d1 execute 등).

@@ -27,52 +27,64 @@ function describeError(err: unknown): string {
 	}
 }
 
-// 좌측 컨텍스트 — 사용자가 지금 어디 있는지 한 눈에. 클릭 시 대시보드로.
+// 좌측 컨텍스트 — daisyUI breadcrumbs 로 현재 위치 시각화.
+// 시리즈 단계 (IN_GAME / COMPLETED) 에서 모집↔시리즈 1:1 매핑 (v0.3.4 부터
+// series.id == recruitment.id) 을 두 항목으로 같이 표시 — 사용자가 "모집 #5
+// → 시리즈 #5" 가 같은 객체임을 자연 인지.
+// 정적 표시 (clickable X) — 대시보드로 돌아가는 길은 좌측 monkey 로고가 담당.
 function ContextChip({
 	stage,
 	recruitmentId,
 	seriesId,
-	onClickHome,
 }: {
 	stage: StageKey;
 	recruitmentId: number | null;
 	seriesId: number | null;
-	onClickHome: () => void;
 }) {
 	if (stage === "LIST") return null;
 
-	const label = (() => {
+	const items: string[] = (() => {
 		switch (stage) {
 			case "ENTRY_EDITING":
-				return recruitmentId !== null ? `📋 모집 #${recruitmentId} · 엔트리 수정` : "📋 엔트리 수정";
+				// 시리즈는 엔트리 제출 시점에 INSERT — 이 단계엔 미존재. 모집만 표시.
+				return recruitmentId !== null
+					? [`📋 모집 #${recruitmentId}`, "엔트리 수정"]
+					: ["📋 엔트리 수정"];
 			case "IN_GAME":
-				return seriesId !== null ? `🎮 시리즈 #${seriesId} · 픽/밴` : "🎮 시리즈";
+				return seriesId !== null
+					? [`📋 모집 #${seriesId}`, `🎮 시리즈 #${seriesId}`, "픽/밴"]
+					: ["🎮 시리즈"];
 			case "COMPLETED":
-				return seriesId !== null ? `✅ 시리즈 #${seriesId} · 종료` : "✅ 시리즈 종료";
+				return seriesId !== null
+					? [`📋 모집 #${seriesId}`, `🎮 시리즈 #${seriesId}`, "✅ 종료"]
+					: ["✅ 시리즈 종료"];
 			case "PROFILE":
-				return "👤 프로필";
+				return ["👤 프로필"];
 			case "MY_RIOT_ACCOUNTS":
-				return "🔗 라이엇 계정 관리";
+				return ["🔗 라이엇 계정 관리"];
 			case "LEADERBOARD":
-				return "🏆 리더보드";
+				return ["🏆 리더보드"];
 			case "MINIGAME":
-				return "🎲 도구";
+				return ["🎲 도구"];
 			default:
-				return null;
+				return [];
 		}
 	})();
-	if (!label) return null;
+	if (items.length === 0) return null;
 
 	return (
-		<button
-			type="button"
-			onClick={onClickHome}
-			className="btn btn-ghost btn-sm gap-1.5 normal-case font-medium text-xs px-2.5 min-w-0"
-			title="← 대시보드로"
-		>
-			<span className="truncate">{label}</span>
-			<span className="text-base-content/40">×</span>
-		</button>
+		<div className="breadcrumbs text-xs font-medium max-w-full min-w-0 py-0">
+			<ul>
+				{items.map((item, i) => (
+					<li
+						key={item}
+						className={i === items.length - 1 ? "text-base-content" : "text-base-content/55"}
+					>
+						<span className="truncate">{item}</span>
+					</li>
+				))}
+			</ul>
+		</div>
 	);
 }
 
@@ -173,12 +185,7 @@ function AppInner() {
 					>
 						monkey
 					</button>
-					<ContextChip
-						stage={stage}
-						recruitmentId={recruitmentId}
-						seriesId={seriesId}
-						onClickHome={goHome}
-					/>
+					<ContextChip stage={stage} recruitmentId={recruitmentId} seriesId={seriesId} />
 				</div>
 				<div className="navbar-center hidden md:flex">
 					<SearchBar onSelectUser={openProfile} />
