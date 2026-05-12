@@ -198,9 +198,14 @@ ALTER TABLE series ADD COLUMN auction_tournament_id INTEGER REFERENCES auction_t
 -- 인덱스 — type 별 조회
 CREATE INDEX IF NOT EXISTS idx_series_type ON series(type) WHERE deleted_at IS NULL;
 CREATE INDEX IF NOT EXISTS idx_series_auction_tournament ON series(auction_tournament_id) WHERE auction_tournament_id IS NOT NULL;
+
+-- series_participants.role 을 nullable 로 (AUCTION 은 라인 자유 — Q8 결정)
+-- SQLite 는 ALTER COLUMN nullable 직접 안 됨 → 새 컬럼 추가 + 옮기는 방식
+-- 또는 기존 NOT NULL 유지 + AUCTION 만 placeholder 'FLEX' 사용
+-- → 후자 채택 — 스키마 migration 0, 코드만 'FLEX' 분기
 ```
 
-`game_picks`, `game_bans`, `game_stats` 는 **그대로** — series 단위로 묶이고, series.type 으로 자동 분리/통합.
+`game_picks`, `game_bans`, `game_stats` 는 **그대로** — series 단위로 묶이고, series.type 으로 자동 분리/통합. 라인은 `game_picks.role` 로 게임 단위 저장되므로 AUCTION 의 "매 게임마다 라인 다름" 자연 표현.
 
 ### 7.3 신규 테이블 (경매 메타만)
 
@@ -527,30 +532,39 @@ describe("경매 게임 결과 — 통계 통합", () => {
 
 ---
 
-## 12. Open Questions
+## 12. Open Questions — 결정 완료 (2026-05-12)
 
-> 구현 시작 전 결정 필요.
+> 모든 Q 결정 완료. 변경 시 본 표 갱신.
 
-| # | 질문 | 기본안 |
+| # | 질문 | 결정 |
 |---|---|---|
-| Q1 | 10인 경매에서도 같은 코드 경로 (BRACKET_SETUP 자동 skip)? | Yes, 같은 경로 |
-| Q2 | 팀장 선출 방법 — 자유 클릭? UserSelectMenu? 자기추천 허용? | 자유 클릭 (참가자 명단 안에서). 자기추천 허용. |
-| Q3 | 4강 대진 결정 방법 — 팀장 입찰 순서? 운영자 수동? 추첨? | 운영자 수동 (좌측 패널에서 4팀 드래그&드롭) |
-| Q4 | 입찰 단위 / 최소 금액 / 동률 처리 | 1 포인트 단위 · 최소 0 · 동률 시 운영자가 어느 팀에 줄지 선택 |
-| Q5 | 한 매물 입찰 중 후 입찰 더 들어오면 (보이스로) 어떻게 트래킹? | 운영자가 "최종 입찰" 값만 기입하면 충분 — 중간 입찰은 audit 안 함 (사용자 의도 확인) |
-| Q6 | 유찰자 재경매 시 동일 절차? 포인트 그대로? | Yes, 같은 절차 |
-| Q7 | 운영자 수동 배치 시 포인트 영향? | 포인트 무관 — `acquired_via='MANUAL'`, `acquired_at_points=NULL` |
-| Q8 | 라인 (TOP/JUNGLE/MID/BOTTOM/SUPPORT) 결정 시점 — 경매 시점? 픽/밴 시점? | 픽/밴 시점 — 매치 시작 직전에 운영자가 라인 배치 (BRACKET_SETUP 안에 라인 슬롯) |
-| Q9 | 경매내전 챔프/밴은 일반 전적 (`/전적` `/내전기록`) 에 같이 노출? | **통합** (user 결정 2026-05-12). `game_stats` / `game_picks` 같은 테이블 공유, type 무관 누적. |
-| Q10 | hard fearless 룰 (Bo3 안 같은 챔프 금지) 적용? | Yes — 매치 안에서 fearless. 매치 간 (4강 → 결승) 은 미적용 (다른 매치업) |
-| Q11 | 종료 카드의 정보량 — 일반 종료 카드 (v0.4.3) 와 같은 수준? | Yes, 같은 수준 + 토너먼트 사다리 시각화 |
-| Q12 | 모집 정원 다른 옵션 — 16인? 8인? | 일단 10/20 만, 추가 정원은 향후 |
-| Q13 | 경매내전 시즌 분리? 일반 시즌과 같은 ID 공유? | 같은 `season_id` 공유 (자동 시즌 전환 시 같이 전환) |
-| Q14 | 팀장 본인이 픽/밴을 할 수 있는지 | 팀장도 팀의 일원 — 라인 배정 시 자기 라인 정함 |
-| Q15 | 입찰 중 운영자가 실수했을 때 되돌리기 — 매물 단위? 입찰 단위? | 매물 단위 (낙찰 취소 → 매물 다시 BIDDING, 차감 포인트 복원) |
-| Q16 | `/시리즈목록` / 대시보드 "지난 내전" 에 AUCTION 매치 포함? | 포함 + `🎟️ 경매` 뱃지 노출 (분리 필터 옵션 가능) |
-| Q17 | BalancePreview Top5 챔프 (라인별) 에 AUCTION 픽 포함? | 포함 — 통합 통계 원칙 일관. |
-| Q18 | AUCTION 매치의 시리즈 / 모집 강제삭제 흐름은 일반과 동일? | 동일 — `series.type` 만 차이, soft-delete / revert 동일 패턴 |
+| Q1 | 10인 경매에서도 같은 코드 경로 (BRACKET_SETUP 자동 skip)? | ✅ Yes, 같은 경로 |
+| Q2 | 팀장 선출 방법 | ✅ 자유 클릭 (참가자 명단 안에서). 자기추천 허용. |
+| Q3 | 4강 대진 결정 방법 | ✅ **운영자 수동** (좌측 패널에서 4팀 드래그&드롭 또는 클릭으로 매치업 구성) |
+| Q4 | 입찰 단위 / 최소 / 동률 | ✅ 1 포인트 단위 · 최소 0 · 동률 시 **운영자가 어느 팀에 줄지 수동 선택** |
+| Q5 | 중간 입찰 트래킹 | ✅ 운영자가 "최종 입찰" 값만 기입. 중간 입찰은 audit X. |
+| Q6 | 유찰자 재경매 동일 절차 | ✅ Yes, 같은 절차 |
+| Q7 | 운영자 수동 배치 시 포인트 | ✅ 포인트 무관 — `acquired_via='MANUAL'`, `acquired_at_points=NULL` |
+| Q8 | 라인 결정 시점 | ✅ **프리 선택 (명시 X)** — 경매 시점엔 팀만 구성, 매 게임 픽/밴 시 운영자가 5명을 5라인 자유 배치. `series_participants.role='FLEX'` placeholder, 실제 라인은 `game_picks.role` 게임 단위 저장. |
+| Q9 | 경매내전 챔프/밴 일반 전적 통합? | ✅ **통합**. `game_stats` / `game_picks` 같은 테이블 공유, type 무관 누적. |
+| Q10 | hard fearless (Bo3 안 같은 챔프 금지) | ✅ Yes — 매치 안에서. 매치 간 (4강 → 결승) 은 미적용 |
+| Q11 | 종료 카드 정보량 | ✅ 일반 종료 카드 (v0.4.3) 수준 + 토너먼트 사다리 시각화 |
+| Q12 | 추가 정원 옵션 | ✅ 일단 10/20 만 |
+| Q13 | 시즌 ID 공유? | ✅ 같은 `season_id` (자동 시즌 전환 시 같이 전환) |
+| Q14 | 팀장 본인 픽/플레이? | ✅ Yes, 팀장도 5명 중 1명으로 플레이 |
+| Q15 | 입찰 되돌리기 단위 | ✅ 매물 단위 (낙찰 취소 → 매물 다시 BIDDING, 차감 포인트 복원) |
+| Q16 | `/시리즈목록` / 대시보드 AUCTION 포함? | ✅ 포함 + `🎟️ 경매` 뱃지 노출 |
+| Q17 | BalancePreview Top5 챔프 AUCTION 포함? | ✅ 포함 — 통합 통계 원칙 일관 |
+| Q18 | AUCTION 매치 강제삭제 흐름 일반과 동일? | ✅ 동일 — `series.type` 만 차이 |
+
+### 12.1 Q8 결정 (프리 선택) 의 코드 영향
+
+| 영역 | 영향 |
+|---|---|
+| `series_participants.role` | AUCTION 매치는 placeholder `'FLEX'` 값 저장 (스키마 변경 X). 실제 라인은 picks 시점에 게임 단위로 결정. |
+| picks 입력 UI | 일반 PickBan = 라인 슬롯 5개에 고정 사용자. **AUCTION PickBan = 팀 5명 풀에서 매 게임 라인 자유 배치** — 별도 컴포넌트 (`AuctionMatchupPanel`) |
+| `game_picks` 쿼리 / 통계 | 영향 X — `role` 이 게임 단위라 자연 동작 (사용자 챔프 누적, BalancePreview Top5 등) |
+| Hard Fearless | 같은 매치 안에서 챔프 단위 (라인 무관) 적용 — 기존 로직 그대로 |
 
 ---
 
