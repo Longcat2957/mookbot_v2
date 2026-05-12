@@ -7,6 +7,7 @@ import { ConfirmButton } from "../../components/ConfirmButton.js";
 import { UserAvatar } from "../../components/UserAvatar.js";
 import { usePerms } from "../../state/perms.js";
 import { AuctionSteps } from "./AuctionSteps.js";
+import { CandidateInfo } from "./CandidateInfo.js";
 import type {
 	AuctionRecruitmentDetail,
 	AuctionTeam,
@@ -632,6 +633,9 @@ function BiddingPanel({
 					)}
 				</div>
 			</div>
+
+			{/* 매물 후보 정보 — 라이엇 (가장 높은 ranked + mastery top 3) | 내전 (laneMmr + 주력 챔프) */}
+			{current && <CandidateInfo userId={current.userId} />}
 
 			{/* 입찰 패널 */}
 			{current && (

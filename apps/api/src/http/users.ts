@@ -4,6 +4,13 @@
 // 선호 챔프 (게시판 텍스트 대체) GET/PUT.
 
 import { datadragon, db } from "@mookbot/core";
+import {
+	getLeagueEntries,
+	getTopMasteries,
+	type Rank,
+	type Tier,
+	tierValue,
+} from "@mookbot/core/riot";
 import type { FastifyInstance } from "fastify";
 import { invalidate, requireSession, rewriteDD } from "./_helpers.js";
 import { fetchPlayHistoryFor } from "./_history.js";
@@ -179,6 +186,158 @@ export async function registerUsersRoutes(app: FastifyInstance): Promise<void> {
 			};
 		},
 	);
+
+	// 경매 매물 카드 — BIDDING 단계의 현재 매물 hero 아래 표시.
+	// (1) 라이엇 계정 정보 (가장 높은 ranked tier + 챔프 mastery top 3) — Riot API 호출, 5분 캐시.
+	// (2) 내전 history (라인별 MMR + 주력 챔프) — DB 만, 항상 표시.
+	app.get<{ Params: { id: string } }>("/api/users/:id/auction-card", async (req, reply) => {
+		const sid = requireSession(req, reply);
+		if (!sid) return;
+
+		const userId = req.params.id;
+		const user = await db.getUser(userId);
+		if (!user) return reply.code(404).send({ error: "user not found" });
+
+		const CACHE_KEY = `auction-card:${userId}`;
+		const CACHE_TTL_MS = 5 * 60_000;
+		const cached = await db.getKv(CACHE_KEY);
+		if (cached) {
+			try {
+				const parsed = JSON.parse(cached) as { fetchedAt: number; data: unknown };
+				if (parsed.fetchedAt + CACHE_TTL_MS > Date.now()) return parsed.data;
+			} catch {
+				// 깨진 캐시 → 무시하고 재생성
+			}
+		}
+
+		const cur = await db.getCurrentSeason();
+		if (!cur) return reply.code(404).send({ error: "no active season" });
+		const seasonId = cur.id;
+
+		const [riotAccounts, mmrs, history] = await Promise.all([
+			db.getRiotAccountsByUser(userId),
+			db.getLaneMmrs(
+				ROLES.map((r) => ({ userId, role: r })),
+				seasonId,
+			),
+			fetchPlayHistoryFor([userId]),
+		]);
+
+		// Riot API 병렬 호출 (각 계정 별 best ranked + top 3 mastery). 실패 시 null/[] 로 fail-safe.
+		const accountsWithRiot = await Promise.all(
+			riotAccounts.map(async (a) => {
+				let bestRanked: {
+					queueType: string;
+					tier: Tier;
+					rank: Rank;
+					leaguePoints: number;
+					wins: number;
+					losses: number;
+				} | null = null;
+				let masteries: Array<{
+					championId: number;
+					name: string;
+					iconUrl: string;
+					points: number;
+					level: number;
+				}> = [];
+				try {
+					const entries = await getLeagueEntries(a.puuid);
+					const ranked = entries.slice().sort(
+						(x, y) =>
+							tierValue(y.tier, y.rank, y.leaguePoints) -
+							tierValue(x.tier, x.rank, x.leaguePoints),
+					);
+					const top = ranked[0];
+					if (top) {
+						bestRanked = {
+							queueType: top.queueType,
+							tier: top.tier,
+							rank: top.rank,
+							leaguePoints: top.leaguePoints,
+							wins: top.wins,
+							losses: top.losses,
+						};
+					}
+				} catch (err) {
+					req.log.warn({ err, puuid: a.puuid }, "league entries fetch failed");
+				}
+				try {
+					const top = await getTopMasteries(a.puuid, 3);
+					masteries = top.map((m) => ({
+						championId: m.championId,
+						name: datadragon.getChampionName(m.championId),
+						iconUrl: rewriteDD(datadragon.getChampionImageUrl(m.championId)),
+						points: m.championPoints,
+						level: m.championLevel,
+					}));
+				} catch (err) {
+					req.log.warn({ err, puuid: a.puuid }, "masteries fetch failed");
+				}
+				return {
+					gameName: a.game_name,
+					tagLine: a.tag_line,
+					isMain: a.is_main === 1,
+					profileIconUrl:
+						a.profile_icon_id != null
+							? rewriteDD(datadragon.getProfileIconUrl(a.profile_icon_id))
+							: null,
+					bestRanked,
+					masteries,
+				};
+			}),
+		);
+
+		// 가장 높은 ranked 계정을 먼저 정렬 — UI 에서 첫 카드 = 메인 표시
+		accountsWithRiot.sort((a, b) => {
+			const va = a.bestRanked
+				? tierValue(a.bestRanked.tier, a.bestRanked.rank, a.bestRanked.leaguePoints)
+				: -1;
+			const vb = b.bestRanked
+				? tierValue(b.bestRanked.tier, b.bestRanked.rank, b.bestRanked.leaguePoints)
+				: -1;
+			return vb - va;
+		});
+
+		const userHistory = history.get(userId);
+		const data = {
+			user: {
+				discordId: user.discord_id,
+				displayName: user.display_name,
+			},
+			riotAccounts: accountsWithRiot,
+			laneMmrs: ROLES.map((role) => {
+				const m = mmrs.find((x) => x.role === role);
+				if (!m || m.games_played === 0) {
+					return { role, mmr: null, games: 0, wins: 0, losses: 0 };
+				}
+				return {
+					role,
+					mmr: Math.round(m.mmr),
+					games: m.games_played,
+					wins: m.wins,
+					losses: m.games_played - m.wins,
+				};
+			}),
+			topChampions: (userHistory?.topChampions ?? []).slice(0, 10).map((c) => ({
+				championId: c.championId,
+				championName: c.championName,
+				iconUrl: c.iconUrl,
+				plays: c.plays,
+				wins: c.wins,
+				losses: c.losses,
+			})),
+		};
+
+		// best-effort 캐시 저장 — 실패해도 응답에 영향 X
+		try {
+			await db.setKv(CACHE_KEY, JSON.stringify({ fetchedAt: Date.now(), data }), sid);
+		} catch (err) {
+			req.log.warn({ err, userId }, "auction-card cache save failed");
+		}
+
+		return data;
+	});
 
 	// MMR 시계열 — 그래프용. role 별 / 시즌 필터.
 	app.get<{

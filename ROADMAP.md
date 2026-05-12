@@ -2,7 +2,7 @@
 
 > 현재 버전 기준 진척 상태. 시간순 기획서는 [`PLAN.md`](./PLAN.md), 코드 리뷰 워킹노트는 [`docs/internal/`](./docs/internal/) 참조.
 
-## 현재 (v0.8.1)
+## 현재 (v0.9.0)
 
 활성 도메인: `bot.mooklol.com` (Cloudflare proxied → 단일 VPS · Docker compose 4컨테이너 stack: bot · api · activity · nginx).
 실서비스 운영 중.
@@ -152,6 +152,13 @@
 - **검증된 동작**: 첫 로드 (server draft 없음/있음), dirty 보호, `setSide`/`setCurrentGame`/`setGameDraft` (게임 게이팅 포함), `fearlessUsedIds` 도메인 계산 (이전 게임 + draft 합산, 현재 제외), `revert`/`undoLast` 성공/실패, debounced save (canEdit on/off), WS callback 시 refresh + toast, 1/2/3 단축키 (input 안 무시), `moveTo` (빈/점유 unassigned/점유 swap/null), `swapTeams`, `allFilled`, `submit` (성공/미충족/실패), Tap-to-Place 흐름 (`handleParticipantTap`/`handleSlotTap`/`handlePoolTap`, canEdit off 시 no-op), Esc 키 selected 해제, `recentlyChanged` diff.
 - **vitest config**: `apps/activity/src/screens/*/use*State.ts` 만 coverage include 로 추가 (전체 activity src 는 UI 영역으로 exclude 유지).
 - **테스트 총합**: 256 → 291 (+35). lint warnings 가 +20 (mock data 의 `!` non-null assertion — 테스트에서는 의도적 패턴, errors 0).
+
+### Phase 35 — 경매 매물 후보 정보 카드 (v0.9.0)
+- **새 endpoint `GET /api/users/:userId/auction-card`** — Riot API (League v4 + Champion Mastery v4) + DB 결합. 5분 캐시 (`kv` 테이블, `auction-card:{userId}`).
+- **(1) 라이엇 카드** — 가장 높은 ranked tier 계정 우선. 솔로/자유랭크 + tier/rank/LP + W/L/승률 + 챔프 mastery TOP 3 (icon + 이름 + Lv + points). Riot API 실패 시 fail-safe (`bestRanked: null`, `masteries: []`).
+- **(2) 내전 카드** — 라인별 MMR (5라인 grid + W/L) + 주력 챔프 TOP 8 (icon + 게임수 + 승률). DB only, 항상 표시.
+- **BIDDING UI** — 매물 hero 아래 `CandidateInfo` 컴포넌트 자동 표시 (라이엇 좌 + 내전 우, lg+ 2cols / 그 이하 stack). 매물 변경 시 SWR 키 변경으로 자동 refetch.
+- **운영자 입찰 의사결정 보조** — 진(陣)/실력 가늠 후 입찰가 결정. 라이엇 데이터 못 받으면 (key 미설정 / Unranked / 챔프 mastery API fail) 내전 데이터만으로도 판단 가능.
 
 ### Phase 34 — 픽밴 split layout 좌/우 하단 align fix (v0.8.1)
 - PickBanBoard 의 lg+ split layout 에서 좌측 (1팀+2팀 stack) 자연 height (~800px) 가 우측 챔프 그리드 (`lg:max-h-[calc(100vh-1rem)]` ≈ viewport 끝) 보다 짧아 2팀 카드 하단과 챔프 그리드 하단 misalign 시각. 좌측 column 에도 `lg:min-h-[calc(100vh-1rem)]` 부여 — 양쪽 동일 frame 높이로 하단 일치.
