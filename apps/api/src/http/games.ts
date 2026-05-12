@@ -3,6 +3,7 @@
 
 import { cloudflare, datadragon, db } from "@mookbot/core";
 import type { FastifyInstance } from "fastify";
+import { notifyBotSeriesCompleted } from "../bot/notify.js";
 import { HttpError } from "./_errors.js";
 import { invalidate, requireEditor } from "./_helpers.js";
 
@@ -154,6 +155,15 @@ export async function registerGameRoutes(app: FastifyInstance): Promise<void> {
 		for (const r of affectedRoles) invalidate(`leaderboard:${r}`);
 		invalidate("leaderboard:COMPOSITE");
 		for (const p of parts) invalidate(`user:${p.user_id}`);
+
+		// Bo3 종료 시 — 봇에 시리즈 결과 카드 발행 요청 (모집 채널에).
+		// fire-and-forget: 실패해도 게임 결과 INSERT 자체는 이미 커밋됨.
+		if (completedSeries) {
+			notifyBotSeriesCompleted(id).catch((err) => {
+				req.log.warn({ err, seriesId: id }, "notifyBotSeriesCompleted failed");
+			});
+		}
+
 		return {
 			gameId: result.game.id,
 			wins,

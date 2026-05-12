@@ -15,6 +15,8 @@ export interface SeriesRow {
 	created_by: string | null;
 	channel_id: string | null;
 	message_id: string | null;
+	end_card_channel_id: string | null;
+	end_card_message_id: string | null;
 	deleted_at: number | null;
 }
 
@@ -249,6 +251,22 @@ export async function setSeriesMessage(
 	messageId: string,
 ): Promise<void> {
 	await execute(`UPDATE series SET channel_id = ?, message_id = ? WHERE id = ?`, [
+		channelId,
+		messageId,
+		seriesId,
+	]);
+}
+
+/**
+ * 시리즈 종료 카드 (Bo3 종료 시 모집 채널에 발행되는 결과 요약 메시지) 추적.
+ * 봇이 메시지 발행 / edit 직후 호출. 이미 값이 있으면 edit 으로 멱등 처리.
+ */
+export async function setSeriesEndMessage(
+	seriesId: number,
+	channelId: string,
+	messageId: string,
+): Promise<void> {
+	await execute(`UPDATE series SET end_card_channel_id = ?, end_card_message_id = ? WHERE id = ?`, [
 		channelId,
 		messageId,
 		seriesId,

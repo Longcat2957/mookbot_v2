@@ -2,7 +2,7 @@
 
 > 현재 버전 기준 진척 상태. 시간순 기획서는 [`PLAN.md`](./PLAN.md), 코드 리뷰 워킹노트는 [`docs/internal/`](./docs/internal/) 참조.
 
-## 현재 (v0.4.2)
+## 현재 (v0.4.3)
 
 활성 도메인: `bot.mooklol.com` (Cloudflare proxied → 단일 VPS · Docker compose 4컨테이너 stack: bot · api · activity · nginx).
 실서비스 운영 중.
@@ -130,6 +130,15 @@
 - **MMR ↔ collapse 화살표 겹침 fix** — daisyUI `collapse-arrow` 의 우측 ~24px 영역과 MMR 텍스트가 겹쳐 렌더되던 UI 버그. summary 내부 div 의 padding 을 `pr-3` → `pr-8` 로 확장.
 - **"라인 평균 MMR 차" 라인 제거** — 이미 양 팀 평균 MMR 이 노출돼 있어 차이는 시각적으로 즉시 파악 가능, 별도 텍스트 줄은 잡음.
 - **CS UI 제거** — v0.4.0 의 K/D/A 제거에서 누락된 CS 도 같은 제약. Profile recent games 의 `g.cs` 표시 + `RecentGame` 인터페이스 + `/api/users/:id/profile` 응답 모두에서 제거. DB 컬럼은 미래 인증 후를 위해 보존.
+
+### Phase 14 — 시리즈 종료 카드 (모집 채널 자동 발행) (v0.4.3)
+- **Bo3 종료 시 모집 채널에 결과 카드 자동 발행** — `/내전모집` 슬래시가 게시한 원본 채널에, Bo3 가 종료되는 순간 우승 팀 + 스코어 + 양 팀 라인업 + 게임별 픽 (라인별 챔프) 을 V2 컨테이너로 새 메시지 발행. v0.3.4 의 "모집 ID = 시리즈 ID" 매칭으로 채널 정보 자동 연결 (`recruitments.channel_id`).
+- **흐름**: `apps/api/src/http/games.ts` 의 Bo3 자동 종료 분기 (`completeSeries` 직후) → `notifyBotSeriesCompleted(seriesId)` (X-Internal-Key shared secret) → 봇 `/internal/series-completed` → `publishSeriesEndCard(client, seriesId)`. fire-and-forget — 봇 호출 실패해도 게임 결과 INSERT / 시리즈 COMPLETED 자체는 성공 보장.
+- **멱등성**: `series.end_card_message_id` (Phase 0 부터 schema 에 있던 미사용 컬럼) 을 활용. 이미 발행된 메시지가 있으면 edit, 없으면 send + DB 갱신. revert 후 재완료 시 같은 메시지가 갱신되어 채널 잡음 0.
+- **edit 폴백**: 기존 메시지 fetch 시 50001 (Missing Access) / 10008 (Unknown Message) / 50013 (Missing Permissions) 발생 시 자동으로 새 send 로 폴백 + DB pointer 갱신 (모집 메시지 폴백 패턴 동일).
+- **신규 파일**: `apps/bot/src/commands/series/endCardBuilder.ts` (renderEndCardComponents + publishSeriesEndCard), `packages/core/src/db/series.ts:setSeriesEndMessage` helper, `SeriesRow` 에 `end_card_channel_id` / `end_card_message_id` 필드 추가 (DB 컬럼은 기존).
+- **신규 endpoint**: 봇 `POST /internal/series-completed` (`{seriesId}` body, X-Internal-Key 인증), api `notifyBotSeriesCompleted` helper (`apps/api/src/bot/notify.ts`).
+- **운영 영향**: 새 환경변수 0, 새 DB 마이그레이션 0 (기존 미사용 컬럼 활용). `INTERNAL_API_KEY` / `BOT_INTERNAL_BASE` 그대로 재사용.
 
 ### Phase 13 — Wave 3.x 화면 상태 훅 추출 (v0.4.2)
 - **`usePickBanState` 훅 추출** — `apps/activity/src/screens/PickBan/usePickBanState.ts` 신규. 기존 `PickBan.tsx` 안에 섞여 있던 `draft` state, debounced save, SWR (series/champions), WS sync, dirty 보호 onApply, 1/2/3 단축키, fearless 계산, derived (`teamSize`/`completedGames`/`t1Wins`/`t2Wins`/`team1Side`/`team2Side`/`isCurrentGameRecorded` 등), 액션 (`setSide`/`setCurrentGame`/`setGameDraft`/`revert`/`undoLast`) 을 hook 안으로 응집. `PickBan.tsx` 525 → 348줄 (-34%), navigation callback (`onBack`/`onSelectUser`) 과 `readOnlyDismissed` UI state 만 컴포넌트에 잔존.
