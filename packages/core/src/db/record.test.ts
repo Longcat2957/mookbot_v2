@@ -6,7 +6,7 @@ import { createTestDb, installDbDriver, type TestDb } from "../test-utils/db-har
 
 import { listGamesInSeries } from "./games.js";
 import { getLaneMmr, getMmrChangesForGame } from "./mmr.js";
-import { recordGameAndUpdateMmr, undoLastGame } from "./record.js";
+import { recordGameAndUpdateMmr, recordGameOnly, undoLastGame } from "./record.js";
 import { createSeason } from "./seasons.js";
 import { createSeries, getSeries } from "./series.js";
 import { upsertUser } from "./users.js";
@@ -175,5 +175,91 @@ describe("undoLastGame", () => {
 	it("rejects CANCELLED 시리즈", async () => {
 		db.prepare("UPDATE series SET status = 'CANCELLED' WHERE id = ?").run(seriesId);
 		await expect(undoLastGame(seriesId)).rejects.toThrow(/취소된/);
+	});
+});
+
+describe("recordGameOnly — AUCTION 게임 (MMR 영향 0, 통계 통합)", () => {
+	it("게임 + game_stats 만 INSERT, mmr_changes / user_lane_mmr 변동 없음", async () => {
+		// AUCTION 매치를 시뮬: series.type = 'AUCTION' 으로 변경
+		db.prepare("UPDATE series SET type = 'AUCTION' WHERE id = ?").run(seriesId);
+
+		const result = await recordGameOnly({
+			seriesId,
+			gameNumber: 1,
+			winningTeam: "TEAM_1",
+			team1Side: "BLUE",
+			durationSec: 1500,
+			participants: [
+				{ userId: T1[0]!, team: "TEAM_1", role: "TOP" },
+				{ userId: T1[1]!, team: "TEAM_1", role: "MID" },
+				{ userId: T2[0]!, team: "TEAM_2", role: "TOP" },
+				{ userId: T2[1]!, team: "TEAM_2", role: "MID" },
+			],
+			stats: [
+				{ userId: T1[0]!, championId: 100, kills: 5 },
+				{ userId: T2[0]!, championId: 200, kills: 3 },
+			],
+		});
+
+		expect(result.game.id).toBeGreaterThan(0);
+		expect(result.game.winning_team).toBe("TEAM_1");
+
+		// 격리: mmr_changes 0 행, user_lane_mmr 변동 없음 (1500 default 그대로)
+		const mmrChanges = await getMmrChangesForGame(result.game.id);
+		expect(mmrChanges).toHaveLength(0);
+
+		const t1TopMmr = await getLaneMmr(T1[0]!, seasonId, "TOP");
+		expect(t1TopMmr).toBeUndefined(); // 한 번도 UPSERT 안 됨
+
+		// 통합: game_stats 는 INSERT 됨 (W/L 누적 가능)
+		const stats = db
+			.prepare("SELECT * FROM game_stats WHERE game_id = ? ORDER BY user_id")
+			.all(result.game.id) as { user_id: string; won: 0 | 1; champion_id: number | null }[];
+		expect(stats).toHaveLength(4);
+		expect(stats.find((s) => s.user_id === T1[0])?.won).toBe(1);
+		expect(stats.find((s) => s.user_id === T2[0])?.won).toBe(0);
+		expect(stats.find((s) => s.user_id === T1[0])?.champion_id).toBe(100);
+	});
+
+	it("라인 자유 (매 게임 다른 role) — game_stats 의 role 이 input 따라감", async () => {
+		db.prepare("UPDATE series SET type = 'AUCTION' WHERE id = ?").run(seriesId);
+
+		// 게임 1: T1[0] 가 TOP
+		await recordGameOnly({
+			seriesId,
+			gameNumber: 1,
+			winningTeam: "TEAM_1",
+			team1Side: "BLUE",
+			participants: [
+				{ userId: T1[0]!, team: "TEAM_1", role: "TOP" },
+				{ userId: T1[1]!, team: "TEAM_1", role: "MID" },
+				{ userId: T2[0]!, team: "TEAM_2", role: "TOP" },
+				{ userId: T2[1]!, team: "TEAM_2", role: "MID" },
+			],
+		});
+
+		// 게임 2: T1[0] 가 MID (라인 자유)
+		await recordGameOnly({
+			seriesId,
+			gameNumber: 2,
+			winningTeam: "TEAM_2",
+			team1Side: "RED",
+			participants: [
+				{ userId: T1[0]!, team: "TEAM_1", role: "MID" },
+				{ userId: T1[1]!, team: "TEAM_1", role: "TOP" },
+				{ userId: T2[0]!, team: "TEAM_2", role: "MID" },
+				{ userId: T2[1]!, team: "TEAM_2", role: "TOP" },
+			],
+		});
+
+		// 사용자별 라인별 게임 수가 다름 — 통합 통계에 자연 반영
+		const t1TopGames = db
+			.prepare("SELECT COUNT(*) AS n FROM game_stats WHERE user_id = ? AND role = 'TOP'")
+			.get(T1[0]) as { n: number };
+		const t1MidGames = db
+			.prepare("SELECT COUNT(*) AS n FROM game_stats WHERE user_id = ? AND role = 'MID'")
+			.get(T1[0]) as { n: number };
+		expect(t1TopGames.n).toBe(1);
+		expect(t1MidGames.n).toBe(1);
 	});
 });

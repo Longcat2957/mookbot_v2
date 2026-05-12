@@ -34,10 +34,20 @@ interface CompletedSeries {
 	participants: LineupParticipant[];
 }
 
+interface AuctionRecListItem {
+	id: number;
+	targetCount: number;
+	status: string;
+	createdBy: string;
+	createdAt: number;
+}
+
 export function RecruitmentList({
 	onSelectRecruitment,
 	onSelectSeries,
 	onSelectCompletedSeries,
+	onSelectAuctionRecruitment,
+	onSelectAuctionTournament,
 	onOpenLeaderboard,
 	onOpenMinigame,
 	onOpenHelp,
@@ -46,6 +56,8 @@ export function RecruitmentList({
 	onSelectRecruitment: (id: number) => void;
 	onSelectSeries: (id: number) => void;
 	onSelectCompletedSeries: (id: number) => void;
+	onSelectAuctionRecruitment: (id: number) => void;
+	onSelectAuctionTournament: (id: number) => void;
 	onOpenLeaderboard: () => void;
 	onOpenMinigame: () => void;
 	onOpenHelp: () => void;
@@ -57,11 +69,18 @@ export function RecruitmentList({
 	// pending (recruitments + 진행중) 과 completed (paginated) 분리 SWR.
 	// completed 만 page 변경 시 재 fetch — pending 은 동일 키 유지.
 	const fetchPending = useCallback(async () => {
-		const [r, s] = await Promise.all([
+		const [r, s, ar] = await Promise.all([
 			api<{ recruitments: Recruitment[] }>("/recruitments"),
 			api<{ series: SeriesItem[] }>("/series"),
+			api<{ recruitments: AuctionRecListItem[] }>("/auction-recruitments").catch(() => ({
+				recruitments: [] as AuctionRecListItem[],
+			})),
 		]);
-		return { recruitments: r.recruitments, series: s.series };
+		return {
+			recruitments: r.recruitments,
+			series: s.series,
+			auctionRecs: ar.recruitments,
+		};
 	}, []);
 	const fetchCompleted = useCallback(async () => {
 		const offset = (page - 1) * PAGE_SIZE;
@@ -78,6 +97,7 @@ export function RecruitmentList({
 
 	const recruitments = pendingSwr.data?.recruitments ?? null;
 	const series = pendingSwr.data?.series ?? null;
+	const auctionRecs = pendingSwr.data?.auctionRecs ?? null;
 	const completed = completedSwr.data?.items ?? null;
 	const completedTotal = completedSwr.data?.total ?? 0;
 	const totalPages = Math.max(1, Math.ceil(completedTotal / PAGE_SIZE));
@@ -144,7 +164,8 @@ export function RecruitmentList({
 		);
 	}
 
-	const isLoading = recruitments === null || series === null || completed === null;
+	const isLoading =
+		recruitments === null || series === null || completed === null || auctionRecs === null;
 
 	return (
 		<section className="space-y-6">
@@ -211,6 +232,46 @@ export function RecruitmentList({
 				)}
 			</div>
 
+			{/* 경매내전 — 별도 섹션 (이벤트성, MMR 영향 0). 모집 OPEN/CLOSED 카드 표시. */}
+			{!isLoading && auctionRecs.length > 0 && (
+				<div className="space-y-2">
+					<div className="flex items-baseline gap-2">
+						<h2 className="text-lg font-bold">🎟️ 경매내전</h2>
+						<span className="text-xs text-base-content/60">{auctionRecs.length}개 진행</span>
+					</div>
+					<div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+						{auctionRecs.map((ar) => (
+							<button
+								key={ar.id}
+								type="button"
+								onClick={() => {
+									if (ar.status === "CONVERTED") onSelectAuctionTournament(ar.id);
+									else onSelectAuctionRecruitment(ar.id);
+								}}
+								className="card bg-base-200 hover:bg-base-300 transition cursor-pointer text-left border-l-4 border-warning"
+							>
+								<div className="card-body p-3 gap-1.5">
+									<div className="flex items-center justify-between">
+										<span className="font-bold">🎟️ 경매내전 #{ar.id}</span>
+										<span className="badge badge-warning badge-sm">{ar.targetCount}인</span>
+									</div>
+									<div className="text-xs text-base-content/60">
+										상태:{" "}
+										{ar.status === "OPEN"
+											? "🟦 모집 중"
+											: ar.status === "CLOSED"
+												? "🟡 경매 진행 중"
+												: ar.status === "CONVERTED"
+													? "🟣 토너먼트 진행 중"
+													: ar.status}
+									</div>
+								</div>
+							</button>
+						))}
+					</div>
+				</div>
+			)}
+
 			<div className="divider my-0 opacity-50" />
 
 			{/* 지난 내전 — 기본 펼침 collapse */}
@@ -234,11 +295,7 @@ export function RecruitmentList({
 						<>
 							<div className="grid grid-cols-1 md:grid-cols-2 gap-3">
 								{completed.map((s) => (
-									<CompletedSeriesCard
-										key={s.id}
-										series={s}
-										onClick={() => onSelectCompletedSeries(s.id)}
-									/>
+									<CompletedSeriesCard key={s.id} series={s} onClick={() => onSelectCompletedSeries(s.id)} />
 								))}
 							</div>
 							{totalPages > 1 && (

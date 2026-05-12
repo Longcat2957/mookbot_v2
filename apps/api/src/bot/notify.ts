@@ -62,3 +62,34 @@ export async function notifyBotSeriesCompleted(seriesId: number): Promise<void> 
 		throw new Error(`bot series-completed ${res.status}: ${text}`);
 	}
 }
+
+/**
+ * 봇에 경매내전 종료 카드 발행 요청. 토너먼트 COMPLETED 시 호출.
+ * best-effort.
+ */
+export async function notifyBotAuctionTournamentCompleted(tournamentId: number): Promise<void> {
+	const botBase = process.env.BOT_INTERNAL_BASE ?? "http://bot:3001";
+	const key = process.env.INTERNAL_API_KEY;
+	if (!key) {
+		log.debug(
+			{ tournamentId },
+			"notifyBotAuctionTournamentCompleted: INTERNAL_API_KEY 미설정 — skip",
+		);
+		return;
+	}
+
+	const res = await fetch(`${botBase}/internal/auction-tournament-completed`, {
+		method: "POST",
+		headers: {
+			"Content-Type": "application/json",
+			"X-Internal-Key": key,
+		},
+		body: JSON.stringify({ tournamentId }),
+		signal: AbortSignal.timeout(5000),
+	});
+
+	if (!res.ok) {
+		const text = await res.text().catch(() => "");
+		throw new Error(`bot auction-tournament-completed ${res.status}: ${text}`);
+	}
+}

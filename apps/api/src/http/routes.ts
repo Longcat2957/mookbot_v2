@@ -3,6 +3,9 @@
 // 공유 헬퍼 / 인증 가드 → ./_helpers.ts. 참가자 전적 집계 → ./_history.ts.
 
 import type { FastifyInstance } from "fastify";
+import { registerAuctionMatchRoutes } from "./auction-match.js";
+import { registerAuctionRecruitRoutes } from "./auction-recruit.js";
+import { registerAuctionTournamentRoutes } from "./auction-tournament.js";
 import { registerAuthRoutes } from "./auth.js";
 import { registerBalanceSvgRoute } from "./balance-svg.js";
 import { registerChampionsRoutes } from "./champions.js";
@@ -29,4 +32,7 @@ export async function registerRoutes(app: FastifyInstance): Promise<void> {
 	await registerMeRiotAccountsRoutes(app);
 	await registerLogsRoutes(app);
 	await registerBalanceSvgRoute(app);
+	await registerAuctionRecruitRoutes(app);
+	await registerAuctionTournamentRoutes(app);
+	await registerAuctionMatchRoutes(app);
 }

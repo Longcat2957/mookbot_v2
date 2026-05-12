@@ -6,6 +6,9 @@ import { SearchBar } from "./components/SearchBar.js";
 import { type StageKey, Steps } from "./components/Steps.js";
 import { SystemDot } from "./components/SystemDot.js";
 import { Toaster } from "./components/Toaster.js";
+import { AuctionBracket } from "./screens/Auction/AuctionBracket.js";
+import { AuctionDraft } from "./screens/Auction/AuctionDraft.js";
+import { AuctionResult } from "./screens/Auction/AuctionResult.js";
 import { EntryEditing } from "./screens/EntryEditing.js";
 import { Leaderboard } from "./screens/Leaderboard.js";
 import { MiniGame } from "./screens/MiniGame.js";
@@ -102,6 +105,8 @@ function AppInner() {
 	const [stage, setStage] = useState<StageKey>("LIST");
 	const [recruitmentId, setRecruitmentId] = useState<number | null>(null);
 	const [seriesId, setSeriesId] = useState<number | null>(null);
+	const [auctionRecruitmentId, setAuctionRecruitmentId] = useState<number | null>(null);
+	const [auctionTournamentId, setAuctionTournamentId] = useState<number | null>(null);
 	const [profileUserId, setProfileUserId] = useState<string | null>(null);
 	const [profileBackTo, setProfileBackTo] = useState<StageKey>("LIST");
 	const [helpOpen, setHelpOpen] = useState(false);
@@ -159,6 +164,8 @@ function AppInner() {
 		setStage("LIST");
 		setRecruitmentId(null);
 		setSeriesId(null);
+		setAuctionRecruitmentId(null);
+		setAuctionTournamentId(null);
 		setProfileUserId(null);
 	};
 
@@ -329,6 +336,16 @@ function AppInner() {
 								setRecruitmentId(null);
 								setStage("COMPLETED");
 							}}
+							onSelectAuctionRecruitment={(id) => {
+								setAuctionRecruitmentId(id);
+								setAuctionTournamentId(null);
+								setStage("AUCTION_DRAFT");
+							}}
+							onSelectAuctionTournament={(id) => {
+								setAuctionTournamentId(id);
+								setAuctionRecruitmentId(null);
+								setStage("AUCTION_DRAFT");
+							}}
 							onOpenLeaderboard={() => setStage("LEADERBOARD")}
 							onOpenMinigame={() => setStage("MINIGAME")}
 							onOpenHelp={() => setHelpOpen(true)}
@@ -386,6 +403,47 @@ function AppInner() {
 				{stage === "MY_RIOT_ACCOUNTS" && (
 					<ErrorBoundary key="my-riot-accounts" label="라이엇 계정 관리" onReset={goHome}>
 						<MyRiotAccounts onBack={() => openProfile(user.id)} />
+					</ErrorBoundary>
+				)}
+				{stage === "AUCTION_DRAFT" && (
+					<ErrorBoundary
+						key={`auction-draft-${auctionTournamentId ?? auctionRecruitmentId}`}
+						label="경매내전 드래프트"
+						onReset={goHome}
+					>
+						<AuctionDraft
+							tournamentId={auctionTournamentId}
+							recruitmentId={auctionRecruitmentId}
+							onEnterTournament={(id) => {
+								setAuctionTournamentId(id);
+								setAuctionRecruitmentId(null);
+							}}
+							onEnterBracket={(id) => {
+								setAuctionTournamentId(id);
+								setStage("AUCTION_BRACKET");
+							}}
+						/>
+					</ErrorBoundary>
+				)}
+				{stage === "AUCTION_BRACKET" && (
+					<ErrorBoundary
+						key={`auction-bracket-${auctionTournamentId}`}
+						label="경매내전 토너먼트"
+						onReset={goHome}
+					>
+						<AuctionBracket
+							tournamentId={auctionTournamentId}
+							onCompleted={() => setStage("AUCTION_RESULT")}
+						/>
+					</ErrorBoundary>
+				)}
+				{stage === "AUCTION_RESULT" && (
+					<ErrorBoundary
+						key={`auction-result-${auctionTournamentId}`}
+						label="경매내전 결과"
+						onReset={goHome}
+					>
+						<AuctionResult tournamentId={auctionTournamentId} onBack={goHome} />
 					</ErrorBoundary>
 				)}
 			</main>

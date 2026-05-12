@@ -1,4 +1,8 @@
 import * as adjustMmr from "./adjustMmr.js";
+import * as auctionForceDelete from "./auctionForceDelete.js";
+import * as auctionRecruit from "./auctionRecruit.js";
+import * as auctionRecruitMemberAdd from "./auctionRecruitMemberAdd.js";
+import * as auctionRecruitMemberRemove from "./auctionRecruitMemberRemove.js";
 import * as bulkRegister from "./bulkRegister.js";
 import * as cleanupStale from "./cleanupStale.js";
 import * as currentGame from "./currentGame.js";
@@ -36,4 +40,8 @@ export const ALL_COMMANDS = [
 	cleanupStale,
 	logs,
 	seriesList,
+	auctionRecruit,
+	auctionRecruitMemberAdd,
+	auctionRecruitMemberRemove,
+	auctionForceDelete,
 ] as const;

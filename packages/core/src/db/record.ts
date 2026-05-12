@@ -62,6 +62,91 @@ export interface RecordGameResult {
 	mmrChanges: MmrChangeSummary[];
 }
 
+/**
+ * 게임 결과 INSERT (games + game_stats) 만 — MMR 영향 없음.
+ *
+ * AUCTION 매치 (이벤트성, MMR 영향 0) 가 사용. 통계 통합 원칙에 따라
+ * `game_stats` (W/L per user/role) 와 `games` 는 그대로 INSERT — 사용자
+ * 챔프 누적 / `/내전기록` 라인 W/L 등에 자연 합산됨.
+ *
+ * 참가자 정보는 input.participants 로 직접 전달 (라인이 매 게임 다를 수
+ * 있는 AUCTION 의 특성 — series_participants 의 role 은 placeholder).
+ * 라인 매치업 / ELO 계산은 하지 않음.
+ */
+export interface RecordGameOnlyInput extends RecordGameInput {
+	/**
+	 * 이 게임의 라인업 — (user_id, team, role).
+	 * AUCTION 은 매 게임 라인이 달라질 수 있어 series_participants 가 아니라
+	 * 호출자가 직접 전달.
+	 */
+	participants: ReadonlyArray<{ userId: string; team: Team; role: Role }>;
+}
+
+export async function recordGameOnly(input: RecordGameOnlyInput): Promise<{ game: GameRow }> {
+	if (input.participants.length === 0) {
+		throw new Error(`recordGameOnly: series ${input.seriesId} 참가자 없음`);
+	}
+
+	// Phase 1: INSERT game, capture id
+	const [game] = await query<GameRow>(
+		`INSERT INTO games (series_id, game_number, winning_team, team1_side, duration_sec, riot_match_id)
+		 VALUES (?, ?, ?, ?, ?, ?)
+		 RETURNING *`,
+		[
+			input.seriesId,
+			input.gameNumber,
+			input.winningTeam,
+			input.team1Side,
+			input.durationSec ?? null,
+			input.riotMatchId ?? null,
+		],
+	);
+	if (!game) throw new Error("recordGameOnly: failed to insert game");
+
+	// Phase 2: game_stats batch (MMR 무관)
+	const statsByUser = new Map(input.stats?.map((s) => [s.userId, s]) ?? []);
+	const gameStatsRows = input.participants.map((p) => {
+		const s = statsByUser.get(p.userId);
+		return [
+			game.id,
+			p.userId,
+			p.team,
+			p.role,
+			s?.championId ?? null,
+			s?.kills ?? 0,
+			s?.deaths ?? 0,
+			s?.assists ?? 0,
+			s?.cs ?? 0,
+			p.team === input.winningTeam ? 1 : 0,
+		];
+	});
+	try {
+		await batch([
+			multiInsert(
+				"game_stats",
+				[
+					"game_id",
+					"user_id",
+					"team",
+					"role",
+					"champion_id",
+					"kills",
+					"deaths",
+					"assists",
+					"cs",
+					"won",
+				],
+				gameStatsRows,
+			),
+		]);
+	} catch (err) {
+		await execute(`DELETE FROM games WHERE id = ?`, [game.id]).catch(() => undefined);
+		throw err;
+	}
+
+	return { game };
+}
+
 export async function recordGameAndUpdateMmr(input: RecordGameInput): Promise<RecordGameResult> {
 	const participants = await getSeriesParticipants(input.seriesId);
 	if (participants.length === 0) {

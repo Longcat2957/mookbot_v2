@@ -2,7 +2,7 @@
 
 > 현재 버전 기준 진척 상태. 시간순 기획서는 [`PLAN.md`](./PLAN.md), 코드 리뷰 워킹노트는 [`docs/internal/`](./docs/internal/) 참조.
 
-## 현재 (v0.4.5)
+## 현재 (v0.5.0)
 
 활성 도메인: `bot.mooklol.com` (Cloudflare proxied → 단일 VPS · Docker compose 4컨테이너 stack: bot · api · activity · nginx).
 실서비스 운영 중.
@@ -152,6 +152,17 @@
 - **검증된 동작**: 첫 로드 (server draft 없음/있음), dirty 보호, `setSide`/`setCurrentGame`/`setGameDraft` (게임 게이팅 포함), `fearlessUsedIds` 도메인 계산 (이전 게임 + draft 합산, 현재 제외), `revert`/`undoLast` 성공/실패, debounced save (canEdit on/off), WS callback 시 refresh + toast, 1/2/3 단축키 (input 안 무시), `moveTo` (빈/점유 unassigned/점유 swap/null), `swapTeams`, `allFilled`, `submit` (성공/미충족/실패), Tap-to-Place 흐름 (`handleParticipantTap`/`handleSlotTap`/`handlePoolTap`, canEdit off 시 no-op), Esc 키 selected 해제, `recentlyChanged` diff.
 - **vitest config**: `apps/activity/src/screens/*/use*State.ts` 만 coverage include 로 추가 (전체 activity src 는 UI 영역으로 exclude 유지).
 - **테스트 총합**: 256 → 291 (+35). lint warnings 가 +20 (mock data 의 `!` non-null assertion — 테스트에서는 의도적 패턴, errors 0).
+
+### Phase 17 — 경매내전 (이벤트성 드래프트) (v0.5.0)
+- **신규 모드** — `/경매내전모집 정원:10/20` 으로 시작하는 이벤트성 드래프트. 일반 내전과 완전 분리된 lifecycle, MMR 영향 0 (이벤트성), 챔프 픽/밴 / 승패 전적은 일반 통계와 통합. 기획서: [`AUCTION_PLAN.md`](./AUCTION_PLAN.md).
+- **DB schema (A)** — `series` ALTER (`type='RANKED'|'AUCTION'` + `auction_tournament_id` FK) + 7개 신규 테이블 (`auction_recruitments`, `auction_recruitment_participants`, `auction_tournaments`, `auction_teams`, `auction_team_members`, `auction_bids`, `auction_matches`). 기존 series 자동 `type='RANKED'` 채움 — MMR 흐름 영향 0.
+- **MMR 격리** — `recordGameAndUpdateMmr` ↔ `recordGameOnly` 분기. AUCTION 매치는 후자만 호출 (mmr_changes / user_lane_mmr 안 건드림). 통합 테스트 2건 보장.
+- **api 라우트 (B)** — 19개 신규 endpoint: `/api/auction-recruitments/*`, `/api/auction-tournaments/*` (CAPTAIN_PICK → POINT_ALLOC → BIDDING → PLACEMENT → BRACKET_SETUP → IN_GAME → COMPLETED), `/api/auction-matches/*` (게임 결과 — `recordGameOnly` 호출). 운영자 권한 가드 + WS broadcast (`auction-tournament:N`, `auction-recruitment:N`, `auction-dashboard`).
+- **봇 슬래시 (C)** — 4종 신규: `/경매내전모집`, `/경매내전모집인원추가`, `/경매내전모집인원삭제`, `/경매내전강제삭제`. V2 채널 메시지 (🎟️ 라벨), 정원 도달 시 `[▶ 경매 시작]` 버튼.
+- **Activity 화면 (D-F)** — 신규 stage 3개 (`AUCTION_DRAFT` / `AUCTION_BRACKET` / `AUCTION_RESULT`) + 컴포넌트 4개 (`AuctionDraft` / `AuctionBracket` / `AuctionResult` + `useAuctionState` hook). 운영자 수동 컨트롤 (Q3 4강 매치업 / Q4 입찰 동률 / Q8 라인 자유 / Q14 팀장도 선수). 대시보드에서 경매 모집 별도 섹션.
+- **종료 카드 (F)** — Bo3 시리즈 종료 카드 (v0.4.3) 패턴 그대로 — 토너먼트 COMPLETED 시 모집 채널에 우승 팀 + 매치 결과 V2 메시지 자동 발행 (edit-or-send 멱등).
+- **통합 vs 격리** — `game_stats` / `game_picks` / `game_bans` 는 같은 테이블 (사용자 챔프 누적 / 라인별 W/L 자동 합산), `mmr_changes` / `user_lane_mmr` / `/랭킹` / 리더보드는 자동 격리 (auction 은 안 들어감).
+- **prod D1 마이그레이션 적용 완료** — schema 갱신 + auction 테이블 7개 생성. 기존 series 데이터 모두 `type='RANKED'` 자동 채움. 사용자 facing 변동 0 (코드 배포 전까지).
 
 ### Phase 16 — navbar 모집↔시리즈 breadcrumbs (v0.4.5)
 - **`ContextChip` → daisyUI breadcrumbs 교체** — 기존 단일 라벨 chip ("📋 모집 #5 · 엔트리 수정", "🎮 시리즈 #5 · 픽/밴") 을 다단 breadcrumbs (`📋 모집 #5  ›  🎮 시리즈 #5  ›  픽/밴`) 로 확장. v0.3.4 의 "모집 ID = 시리즈 ID" 1:1 매핑이 사용자에게 자연 노출 — 모집과 시리즈가 같은 #N 임을 시각으로 즉시 인지.

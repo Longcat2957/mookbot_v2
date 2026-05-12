@@ -67,8 +67,11 @@ CREATE TABLE IF NOT EXISTS series (
     end_card_message_id   TEXT,                  -- v2: 종료 카드 (영속 기록)
     end_card_channel_id   TEXT,                  -- v2
     deleted_at            INTEGER,               -- v3: soft-delete (NULL = live). 모든 read 쿼리는 IS NULL 필터.
+    type                  TEXT    NOT NULL DEFAULT 'RANKED',  -- v0.5.0: RANKED | AUCTION (MMR 영향 0)
+    auction_tournament_id INTEGER REFERENCES auction_tournaments(id),  -- v0.5.0: AUCTION 매치 ↔ 토너먼트 FK
     CHECK (status IN ('IN_PROGRESS', 'COMPLETED', 'CANCELLED')),
-    CHECK (winning_team IS NULL OR winning_team IN ('TEAM_1', 'TEAM_2'))
+    CHECK (winning_team IS NULL OR winning_team IN ('TEAM_1', 'TEAM_2')),
+    CHECK (type IN ('RANKED', 'AUCTION'))
 );
 
 CREATE INDEX IF NOT EXISTS idx_series_season ON series(season_id);
@@ -291,6 +294,123 @@ CREATE INDEX IF NOT EXISTS idx_ucp_user_role ON user_champion_preferences(user_i
 
 
 -- ============================================================
+-- 경매내전 (v0.5.0~ 신규 모드) — AUCTION_PLAN.md 참조
+-- ============================================================
+-- 이벤트성 드래프트 — MMR 영향 0, 챔프 픽/밴은 일반 통계와 통합.
+-- 매치 자체는 기존 `series` 재사용 (type='AUCTION' + auction_tournament_id FK).
+-- 모집 / 토너먼트 / 팀 / 입찰 / 매치 메타만 아래 7개 신규 테이블에 저장.
+
+CREATE TABLE IF NOT EXISTS auction_recruitments (
+    id                       INTEGER PRIMARY KEY AUTOINCREMENT,
+    season_id                INTEGER NOT NULL REFERENCES seasons(id),
+    target_count             INTEGER NOT NULL,                       -- 10 or 20
+    status                   TEXT    NOT NULL DEFAULT 'OPEN',
+    converted_tournament_id  INTEGER REFERENCES auction_tournaments(id),
+    created_by               TEXT    NOT NULL REFERENCES users(discord_id),
+    channel_id               TEXT,
+    message_id               TEXT,
+    created_at               INTEGER NOT NULL DEFAULT (unixepoch()),
+    updated_at               INTEGER NOT NULL DEFAULT (unixepoch()),
+    CHECK (status IN ('OPEN', 'CLOSED', 'CONVERTED', 'CANCELLED')),
+    CHECK (target_count IN (10, 20))
+);
+
+CREATE INDEX IF NOT EXISTS idx_auction_recruitments_status ON auction_recruitments(status);
+CREATE INDEX IF NOT EXISTS idx_auction_recruitments_creator ON auction_recruitments(created_by);
+
+CREATE TABLE IF NOT EXISTS auction_recruitment_participants (
+    recruitment_id INTEGER NOT NULL REFERENCES auction_recruitments(id) ON DELETE CASCADE,
+    user_id        TEXT    NOT NULL REFERENCES users(discord_id),
+    joined_at      INTEGER NOT NULL DEFAULT (unixepoch()),
+    PRIMARY KEY (recruitment_id, user_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_arp_user ON auction_recruitment_participants(user_id);
+
+-- 한 경매내전 행사 (20인 = 4강 + 결승, 10인 = 1매치).
+-- id 는 명시 부여 = auction_recruitment.id (v0.3.4 패턴 일관).
+CREATE TABLE IF NOT EXISTS auction_tournaments (
+    id                    INTEGER PRIMARY KEY,
+    season_id             INTEGER NOT NULL REFERENCES seasons(id),
+    format                INTEGER NOT NULL,                           -- 10 or 20
+    status                TEXT    NOT NULL DEFAULT 'CAPTAIN_PICK',
+    champion_team_id      INTEGER,                                    -- 우승 팀 FK (post-completion)
+    started_at            INTEGER NOT NULL DEFAULT (unixepoch()),
+    ended_at              INTEGER,
+    created_by            TEXT    NOT NULL REFERENCES users(discord_id),
+    end_card_channel_id   TEXT,                                       -- 종료 카드 (v0.4.3 패턴 재사용)
+    end_card_message_id   TEXT,
+    deleted_at            INTEGER,                                    -- soft-delete (series 와 동일 패턴)
+    CHECK (format IN (10, 20)),
+    CHECK (status IN ('CAPTAIN_PICK','POINT_ALLOC','BIDDING','PLACEMENT','BRACKET_SETUP','IN_GAME','COMPLETED','CANCELLED'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_auction_tournaments_status ON auction_tournaments(status) WHERE deleted_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_auction_tournaments_season ON auction_tournaments(season_id);
+
+-- 한 토너먼트 안의 2팀 (10인) 또는 4팀 (20인).
+CREATE TABLE IF NOT EXISTS auction_teams (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    tournament_id   INTEGER NOT NULL REFERENCES auction_tournaments(id) ON DELETE CASCADE,
+    team_index      INTEGER NOT NULL,                                 -- 1..4 (20인) 또는 1..2 (10인)
+    captain_user_id TEXT    NOT NULL REFERENCES users(discord_id),
+    team_name       TEXT,
+    initial_points  INTEGER NOT NULL DEFAULT 1000,
+    current_points  INTEGER NOT NULL DEFAULT 1000,
+    UNIQUE (tournament_id, team_index),
+    CHECK (team_index BETWEEN 1 AND 4)
+);
+
+CREATE INDEX IF NOT EXISTS idx_auction_teams_tournament ON auction_teams(tournament_id);
+
+-- 팀원 (낙찰자 + 수동 배치자). 한 user 는 한 토너먼트에서 한 팀에만 속함 — UNIQUE 보장.
+-- 라인은 game_picks.role 에 게임 단위로 저장 (Q8: 프리 선택).
+CREATE TABLE IF NOT EXISTS auction_team_members (
+    team_id              INTEGER NOT NULL REFERENCES auction_teams(id) ON DELETE CASCADE,
+    user_id              TEXT    NOT NULL REFERENCES users(discord_id),
+    acquired_via         TEXT    NOT NULL,                            -- BID | MANUAL
+    acquired_at_points   INTEGER,                                     -- 낙찰 포인트 (MANUAL 은 NULL)
+    PRIMARY KEY (team_id, user_id),
+    CHECK (acquired_via IN ('BID', 'MANUAL'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_atm_user ON auction_team_members(user_id);
+
+-- 입찰 기록 (audit). is_final=TRUE 는 낙찰 입찰.
+CREATE TABLE IF NOT EXISTS auction_bids (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    tournament_id   INTEGER NOT NULL REFERENCES auction_tournaments(id) ON DELETE CASCADE,
+    target_user_id  TEXT    NOT NULL REFERENCES users(discord_id),
+    team_id         INTEGER NOT NULL REFERENCES auction_teams(id) ON DELETE CASCADE,
+    points          INTEGER NOT NULL,
+    is_final        INTEGER NOT NULL DEFAULT 0,                       -- 1 = 낙찰
+    created_at      INTEGER NOT NULL DEFAULT (unixepoch()),
+    CHECK (points >= 0),
+    CHECK (is_final IN (0, 1))
+);
+
+CREATE INDEX IF NOT EXISTS idx_auction_bids_tournament ON auction_bids(tournament_id);
+CREATE INDEX IF NOT EXISTS idx_auction_bids_target ON auction_bids(target_user_id);
+
+-- 토너먼트 매치 메타 — 기존 series 와 1:1.
+-- series 가 곧 한 매치 (BO1 or BO3 자체 lifecycle, 기존 games 흐름 재사용).
+CREATE TABLE IF NOT EXISTS auction_matches (
+    series_id       INTEGER PRIMARY KEY REFERENCES series(id) ON DELETE CASCADE,
+    tournament_id   INTEGER NOT NULL REFERENCES auction_tournaments(id) ON DELETE CASCADE,
+    round           TEXT    NOT NULL,                                 -- SEMI | FINAL | SINGLE (10인)
+    bracket_index   INTEGER,                                          -- 4강 매치 1/2 (FINAL/SINGLE 은 NULL)
+    team1_id        INTEGER NOT NULL REFERENCES auction_teams(id),
+    team2_id        INTEGER NOT NULL REFERENCES auction_teams(id),
+    format          TEXT    NOT NULL DEFAULT 'BO3',                   -- BO1 | BO3
+    UNIQUE (tournament_id, round, bracket_index),
+    CHECK (round IN ('SEMI', 'FINAL', 'SINGLE')),
+    CHECK (format IN ('BO1', 'BO3'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_auction_matches_tournament ON auction_matches(tournament_id);
+
+
+-- ============================================================
 -- Idempotent ALTER TABLE migrations (existing DB 보강용)
 -- ============================================================
 -- 신규 DB 는 위쪽 CREATE TABLE 에 컬럼이 이미 포함되므로 아래는 no-op.
@@ -315,3 +435,11 @@ CREATE INDEX IF NOT EXISTS idx_series_deleted_at ON series(deleted_at);
 -- v0.3.20: League 소환사 아이콘 (Summoner-V4 의 profileIconId).
 -- 신규 등록은 자동 저장, 기존 등록은 별도 backfill 로 채움.
 ALTER TABLE riot_accounts ADD COLUMN profile_icon_id INTEGER;
+
+-- v0.5.0: 경매내전 — series 에 type + auction_tournament_id 추가.
+-- type='AUCTION' 이면 mmr_changes / user_lane_mmr 흐름 skip (game_stats / game_picks 는 통합).
+-- 기존 series 는 자동으로 type='RANKED' 로 채워짐 (DEFAULT) — MMR 흐름 영향 0.
+ALTER TABLE series ADD COLUMN type TEXT NOT NULL DEFAULT 'RANKED';
+ALTER TABLE series ADD COLUMN auction_tournament_id INTEGER REFERENCES auction_tournaments(id);
+CREATE INDEX IF NOT EXISTS idx_series_type ON series(type) WHERE deleted_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_series_auction_tournament ON series(auction_tournament_id) WHERE auction_tournament_id IS NOT NULL;
