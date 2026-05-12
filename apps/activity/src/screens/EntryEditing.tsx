@@ -5,7 +5,6 @@
 // 이 파일은 layout + props wiring 만.
 
 import { useEffect, useState } from "react";
-import { type Hint, KeyboardHints } from "../components/KeyboardHints.js";
 import { SaveStatusIndicator } from "../components/SaveStatus.js";
 import { usePerms } from "../state/perms.js";
 import { EntryEditingSkeleton } from "./EntryEditing/EntryEditingSkeleton.js";
@@ -13,12 +12,6 @@ import { ParticipantCard } from "./EntryEditing/ParticipantCard.js";
 import { SlotRow } from "./EntryEditing/SlotRow.js";
 import { type Slot, TEAM_LABEL } from "./EntryEditing/types.js";
 import { useEntryEditingState } from "./EntryEditing/useEntryEditingState.js";
-
-const ENTRY_HINTS: Hint[] = [
-	{ keys: ["Esc"], label: "선택 취소" },
-	{ keys: ["Ctrl", "Z"], label: "Undo" },
-	{ keys: ["Ctrl", "Shift", "Z"], label: "Redo" },
-];
 
 export function EntryEditing({
 	recruitmentId,
@@ -160,9 +153,6 @@ export function EntryEditing({
 					<span>제출 실패: {s.submitError}</span>
 				</div>
 			)}
-
-			{/* W6 — 키 hint 패널 (운영자 모드만) */}
-			{perms.canEdit && <KeyboardHints hints={ENTRY_HINTS} storageKey="entry:hints:dismissed" />}
 
 			{s.selectedUid &&
 				(() => {

@@ -516,7 +516,7 @@ export function PickBanBoard({
 									{mains.length > 0 && (
 										<div className="text-xs text-base-content/60 mb-1.5">전체 ({usable.length})</div>
 									)}
-									<div className="grid grid-cols-[repeat(auto-fill,minmax(60px,1fr))] gap-1.5 max-h-[280px] overflow-y-auto pr-1">
+									<div className="grid grid-cols-[repeat(auto-fill,minmax(60px,1fr))] gap-1.5">
 										{usable.map((c) => (
 											<ChampCell
 												key={c.id}
@@ -536,7 +536,7 @@ export function PickBanBoard({
 								<summary className="cursor-pointer text-xs font-medium px-3 py-2 text-base-content/70">
 									사용 불가 ({blocked.length}) — 이번 게임 사용 또는 Hard Fearless
 								</summary>
-								<div className="grid grid-cols-[repeat(auto-fill,minmax(60px,1fr))] gap-1.5 max-h-[200px] overflow-y-auto p-3 pt-0">
+								<div className="grid grid-cols-[repeat(auto-fill,minmax(60px,1fr))] gap-1.5 p-3 pt-0">
 									{blocked.map(({ champ, reason }) => (
 										<ChampCell
 											key={champ.id}

@@ -52,7 +52,8 @@
 			"correctness": {
 				"noUnusedVariables": "error",
 				"noUnusedImports": "error",
-				"useExhaustiveDependencies": "warn"
+				"useExhaustiveDependencies": "warn",
+				"useHookAtTopLevel": "error"
 			},
 			"a11y": {
 				"useAriaPropsSupportedByRole": "warn",

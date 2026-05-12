@@ -2,7 +2,7 @@
 
 > 현재 버전 기준 진척 상태. 시간순 기획서는 [`PLAN.md`](./PLAN.md), 코드 리뷰 워킹노트는 [`docs/internal/`](./docs/internal/) 참조.
 
-## 현재 (v0.7.1)
+## 현재 (v0.7.2)
 
 활성 도메인: `bot.mooklol.com` (Cloudflare proxied → 단일 VPS · Docker compose 4컨테이너 stack: bot · api · activity · nginx).
 실서비스 운영 중.
@@ -152,6 +152,12 @@
 - **검증된 동작**: 첫 로드 (server draft 없음/있음), dirty 보호, `setSide`/`setCurrentGame`/`setGameDraft` (게임 게이팅 포함), `fearlessUsedIds` 도메인 계산 (이전 게임 + draft 합산, 현재 제외), `revert`/`undoLast` 성공/실패, debounced save (canEdit on/off), WS callback 시 refresh + toast, 1/2/3 단축키 (input 안 무시), `moveTo` (빈/점유 unassigned/점유 swap/null), `swapTeams`, `allFilled`, `submit` (성공/미충족/실패), Tap-to-Place 흐름 (`handleParticipantTap`/`handleSlotTap`/`handlePoolTap`, canEdit off 시 no-op), Esc 키 selected 해제, `recentlyChanged` diff.
 - **vitest config**: `apps/activity/src/screens/*/use*State.ts` 만 coverage include 로 추가 (전체 activity src 는 UI 영역으로 exclude 유지).
 - **테스트 총합**: 256 → 291 (+35). lint warnings 가 +20 (mock data 의 `!` non-null assertion — 테스트에서는 의도적 패턴, errors 0).
+
+### Phase 32 — lint 강화 + UX 정리 (v0.7.2)
+- **biome `useHookAtTopLevel` 활성** (`correctness/useHookAtTopLevel: "error"`) — early return 뒤 hook 호출 자동 검출. Phase 31 같은 회귀 재발 방지.
+- **챔프 그리드 max-h 제거** — PickBanBoard 의 usable / blocked grid 의 `max-h-[280px]` / `max-h-[200px]` 제거. 보드 우측 sticky column 자체가 viewport 높이 만큼 scroll 하므로 안쪽 그리드는 y축 자연스럽게 꽉 차게.
+- **W4 Bo3 자동 사이드 반전 제거** — 진팀이 BLUE 사이드를 전략적으로 선택할 수 있는데 자동 반전이 그 유연성을 해침. 운영자 수동 결정으로 통일. autoSideFlip state + 2 useEffect + ⋯ dropdown 설정 섹션 제거.
+- **W6 KeyboardHints 패널 제거** — 화면 상단 단축키 hint 한 줄 패널이 실제 사용 가치 낮음. 컴포넌트 + PickBan/EntryEditing 통합 + 관련 상수 삭제. 키 hint 는 사이드 버튼 / 결과 카드 / 기록 버튼의 inline `kbd` badge 만 유지.
 
 ### Phase 31 — PickBan hooks 순서 fix (v0.7.1)
 - **React #310 hotfix** — PickBan.tsx 의 W1 키보드 단축키 `useEffect` 가 early return (line 101-120) 뒤에 위치해 hooks 호출 횟수 불일치. Activity 진입 시 "Rendered more hooks than expected" 에러로 화면 크래시. early return 위로 이동 + closure 안에서 `team1Side` 를 `s.draft` 에서 derive.
