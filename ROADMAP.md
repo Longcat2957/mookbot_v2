@@ -131,6 +131,12 @@
 - **"라인 평균 MMR 차" 라인 제거** — 이미 양 팀 평균 MMR 이 노출돼 있어 차이는 시각적으로 즉시 파악 가능, 별도 텍스트 줄은 잡음.
 - **CS UI 제거** — v0.4.0 의 K/D/A 제거에서 누락된 CS 도 같은 제약. Profile recent games 의 `g.cs` 표시 + `RecentGame` 인터페이스 + `/api/users/:id/profile` 응답 모두에서 제거. DB 컬럼은 미래 인증 후를 위해 보존.
 
+### Phase 13 — Wave 3.x 화면 상태 훅 추출 (v0.4.2)
+- **`usePickBanState` 훅 추출** — `apps/activity/src/screens/PickBan/usePickBanState.ts` 신규. 기존 `PickBan.tsx` 안에 섞여 있던 `draft` state, debounced save, SWR (series/champions), WS sync, dirty 보호 onApply, 1/2/3 단축키, fearless 계산, derived (`teamSize`/`completedGames`/`t1Wins`/`t2Wins`/`team1Side`/`team2Side`/`isCurrentGameRecorded` 등), 액션 (`setSide`/`setCurrentGame`/`setGameDraft`/`revert`/`undoLast`) 을 hook 안으로 응집. `PickBan.tsx` 525 → 348줄 (-34%), navigation callback (`onBack`/`onSelectUser`) 과 `readOnlyDismissed` UI state 만 컴포넌트에 잔존.
+- **`useEntryEditingState` 훅 추출** — `apps/activity/src/screens/EntryEditing/useEntryEditingState.ts` 신규. `assignment` state, debounced entry-draft save, SWR (recruitment), WS sync + ring pulse diff, Esc 키, Tap-to-Place 핸들러 (`handleParticipantTap`/`handleSlotTap`/`handlePoolTap`), `swapTeams`, `submit` (→ `{ seriesId } | null` 반환, navigation 은 컴포넌트가 처리), derived (`teamSize`/`activeLanes`/`unassigned`/`allFilled`) 모두 hook 으로. `EntryEditing.tsx` 488 → 270줄 (-45%).
+- **회귀 영향 0** — 통합 테스트 256개 통과, biome lint baseline (8e/86w/6i) 대비 7e/83w/6i 로 개선 유지. server-side 동작 / WS 메시지 / 저장 흐름 / dirty 보호 정책 모두 동일 (로직 이동만, 변경 없음).
+- **비목표 (다음 wave)**: hook 단위 vitest (renderHook + 모킹) — 별도 wave 로 미룸.
+
 ### Phase 14 — 시리즈 종료 카드 (모집 채널 자동 발행) (v0.4.3)
 - **Bo3 종료 시 모집 채널에 결과 카드 자동 발행** — `/내전모집` 슬래시가 게시한 원본 채널에, Bo3 가 종료되는 순간 우승 팀 + 스코어 + 양 팀 라인업 + 게임별 픽 (라인별 챔프) 을 V2 컨테이너로 새 메시지 발행. v0.3.4 의 "모집 ID = 시리즈 ID" 매칭으로 채널 정보 자동 연결 (`recruitments.channel_id`).
 - **흐름**: `apps/api/src/http/games.ts` 의 Bo3 자동 종료 분기 (`completeSeries` 직후) → `notifyBotSeriesCompleted(seriesId)` (X-Internal-Key shared secret) → 봇 `/internal/series-completed` → `publishSeriesEndCard(client, seriesId)`. fire-and-forget — 봇 호출 실패해도 게임 결과 INSERT / 시리즈 COMPLETED 자체는 성공 보장.
@@ -140,12 +146,6 @@
 - **신규 endpoint**: 봇 `POST /internal/series-completed` (`{seriesId}` body, X-Internal-Key 인증), api `notifyBotSeriesCompleted` helper (`apps/api/src/bot/notify.ts`).
 - **운영 영향**: 새 환경변수 0, 새 DB 마이그레이션 0 (기존 미사용 컬럼 활용). `INTERNAL_API_KEY` / `BOT_INTERNAL_BASE` 그대로 재사용.
 
-### Phase 13 — Wave 3.x 화면 상태 훅 추출 (v0.4.2)
-- **`usePickBanState` 훅 추출** — `apps/activity/src/screens/PickBan/usePickBanState.ts` 신규. 기존 `PickBan.tsx` 안에 섞여 있던 `draft` state, debounced save, SWR (series/champions), WS sync, dirty 보호 onApply, 1/2/3 단축키, fearless 계산, derived (`teamSize`/`completedGames`/`t1Wins`/`t2Wins`/`team1Side`/`team2Side`/`isCurrentGameRecorded` 등), 액션 (`setSide`/`setCurrentGame`/`setGameDraft`/`revert`/`undoLast`) 을 hook 안으로 응집. `PickBan.tsx` 525 → 348줄 (-34%), navigation callback (`onBack`/`onSelectUser`) 과 `readOnlyDismissed` UI state 만 컴포넌트에 잔존.
-- **`useEntryEditingState` 훅 추출** — `apps/activity/src/screens/EntryEditing/useEntryEditingState.ts` 신규. `assignment` state, debounced entry-draft save, SWR (recruitment), WS sync + ring pulse diff, Esc 키, Tap-to-Place 핸들러 (`handleParticipantTap`/`handleSlotTap`/`handlePoolTap`), `swapTeams`, `submit` (→ `{ seriesId } | null` 반환, navigation 은 컴포넌트가 처리), derived (`teamSize`/`activeLanes`/`unassigned`/`allFilled`) 모두 hook 으로. `EntryEditing.tsx` 488 → 270줄 (-45%).
-- **회귀 영향 0** — 통합 테스트 256개 통과, biome lint baseline (8e/86w/6i) 대비 7e/83w/6i 로 개선 유지. server-side 동작 / WS 메시지 / 저장 흐름 / dirty 보호 정책 모두 동일 (로직 이동만, 변경 없음).
-- **비목표 (다음 wave)**: hook 단위 vitest (renderHook + 모킹) — 별도 wave 로 미룸.
-
 ### 메타 — 운영 / 워크플로우 (cross-cutting)
 - **`.claude/settings.json` committed** — Claude Code 권한 prompt 감소 + release 자동화 allowlist (typecheck/test/build, gh, git, ssh, docker:release 등). destructive 명령은 deny 명시 (force push, hard reset, db:migrate:drop, wrangler d1 execute 등).
 - **1인 개발 워크플로우 정착** — PR/리뷰 ceremony 제거, `main` 브랜치 직접 commit + push. release 흐름은 `commit → version:patch → push → docker:release → ssh`.
@@ -153,7 +153,7 @@
 
 ## 🚧 진행 중 / 부분 (Partial)
 
-- **Phase 5 백로그**: 시리즈 종료 알림 (3게임 픽밴 마크다운 표) — 텍스트 스켈레톤만 있음
+_(없음 — v0.4.3 의 시리즈 종료 카드로 마지막 partial 항목이 완료됨)_
 
 ## 📅 백로그 (Backlog)
 
