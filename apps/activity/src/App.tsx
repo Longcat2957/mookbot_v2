@@ -187,10 +187,16 @@ function AppInner() {
 				<div className="navbar-start gap-3 px-4 min-w-0">
 					<button
 						type="button"
-						className="text-xl font-bold tracking-tight hover:text-primary cursor-pointer shrink-0"
+						className="text-xl font-bold tracking-tight hover:text-primary cursor-pointer shrink-0 flex items-baseline gap-1.5"
 						onClick={goHome}
 					>
-						monkey
+						<span>monkey</span>
+						<span
+							className="text-[10px] font-normal text-base-content/40 tabular-nums"
+							title={`Activity 버전 ${__APP_VERSION__}`}
+						>
+							v{__APP_VERSION__}
+						</span>
 					</button>
 					<ContextChip stage={stage} recruitmentId={recruitmentId} seriesId={seriesId} />
 				</div>

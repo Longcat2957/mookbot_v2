@@ -2,7 +2,7 @@
 
 > 현재 버전 기준 진척 상태. 시간순 기획서는 [`PLAN.md`](./PLAN.md), 코드 리뷰 워킹노트는 [`docs/internal/`](./docs/internal/) 참조.
 
-## 현재 (v0.5.1)
+## 현재 (v0.5.2)
 
 활성 도메인: `bot.mooklol.com` (Cloudflare proxied → 단일 VPS · Docker compose 4컨테이너 stack: bot · api · activity · nginx).
 실서비스 운영 중.
@@ -152,6 +152,11 @@
 - **검증된 동작**: 첫 로드 (server draft 없음/있음), dirty 보호, `setSide`/`setCurrentGame`/`setGameDraft` (게임 게이팅 포함), `fearlessUsedIds` 도메인 계산 (이전 게임 + draft 합산, 현재 제외), `revert`/`undoLast` 성공/실패, debounced save (canEdit on/off), WS callback 시 refresh + toast, 1/2/3 단축키 (input 안 무시), `moveTo` (빈/점유 unassigned/점유 swap/null), `swapTeams`, `allFilled`, `submit` (성공/미충족/실패), Tap-to-Place 흐름 (`handleParticipantTap`/`handleSlotTap`/`handlePoolTap`, canEdit off 시 no-op), Esc 키 selected 해제, `recentlyChanged` diff.
 - **vitest config**: `apps/activity/src/screens/*/use*State.ts` 만 coverage include 로 추가 (전체 activity src 는 UI 영역으로 exclude 유지).
 - **테스트 총합**: 256 → 291 (+35). lint warnings 가 +20 (mock data 의 `!` non-null assertion — 테스트에서는 의도적 패턴, errors 0).
+
+### Phase 19 — Activity 버전 표시 (v0.5.2)
+- **monkey 로고 옆 버전 표시** — `<span>v0.5.2</span>` 작게 inline. 사용자가 현재 Activity 가 어떤 버전인지 즉시 확인 가능 (배포 회귀 시 디버깅 도움).
+- **Vite define 으로 빌드 시점 주입** — `vite.config.ts` 가 root `package.json` 의 version 을 읽어 `__APP_VERSION__` 전역 상수로 inline. release 마다 자동 갱신, runtime fetch X.
+- **TypeScript 타입** — `apps/activity/src/vite-env.d.ts` 에 `declare const __APP_VERSION__: string` 추가.
 
 ### Phase 18 — 경매내전 UX 보강 + 후속 (v0.5.1)
 - **BAN 입력 UI** — AuctionBracket 의 GameInputForm 에 각 팀 5밴 슬롯 추가. 기존엔 `bans: []` 하드코딩이었음.
