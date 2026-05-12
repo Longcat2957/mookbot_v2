@@ -1,27 +1,17 @@
 // [2] 엔트리 수정 — 드래그&드롭 슬롯 보드 (1팀 / 2팀).
 // 후보 풀의 카드를 1팀 / 2팀 라인 슬롯으로 끌어다 놓아 엔트리 작성.
 //
-// 서브 컴포넌트 / types / 헬퍼는 ./EntryEditing/ 디렉토리로 분리. 이 파일은 orchestration 만.
+// 상태 / SWR / 저장 / WS / Tap-to-Place / 액션 은 ./EntryEditing/useEntryEditingState.ts 에 응집.
+// 이 파일은 layout + props wiring 만.
 
-import { useCallback, useEffect, useRef, useState } from "react";
-import { api } from "../api/rest.js";
-import { wsClient } from "../api/ws.js";
-import { type SaveStatus, SaveStatusIndicator } from "../components/SaveStatus.js";
-import { showToast } from "../components/Toaster.js";
+import { useEffect, useState } from "react";
+import { SaveStatusIndicator } from "../components/SaveStatus.js";
 import { usePerms } from "../state/perms.js";
-import { useStaleWhileRevalidate } from "../state/useStaleWhileRevalidate.js";
 import { EntryEditingSkeleton } from "./EntryEditing/EntryEditingSkeleton.js";
 import { ParticipantCard } from "./EntryEditing/ParticipantCard.js";
 import { SlotRow } from "./EntryEditing/SlotRow.js";
-import {
-	type Assignment,
-	LANES,
-	type Lane,
-	type RecruitmentDetail,
-	type Slot,
-	TEAM_LABEL,
-	type Team,
-} from "./EntryEditing/types.js";
+import { type Slot, TEAM_LABEL } from "./EntryEditing/types.js";
+import { useEntryEditingState } from "./EntryEditing/useEntryEditingState.js";
 
 export function EntryEditing({
 	recruitmentId,
@@ -30,20 +20,9 @@ export function EntryEditing({
 	recruitmentId: number | null;
 	onSubmit: (seriesId: number) => void;
 }) {
-	const [assignment, setAssignment] = useState<Assignment>(new Map());
-	const [submitting, setSubmitting] = useState(false);
-	const [submitError, setSubmitError] = useState<string | null>(null);
-	// Tap-to-Place 입력 — 모바일/터치 / 키보드 대안. design_upgrade.md §4.4.1
-	const [selectedUid, setSelectedUid] = useState<string | null>(null);
-	// 다른 운영자 변경 시 1.5s ring pulse 로 위치 시각화 (hot_fix.md §3.6).
-	const [recentlyChanged, setRecentlyChanged] = useState<Set<string>>(() => new Set());
-	const recentClearTimer = useRef<number | null>(null);
-	useEffect(
-		() => () => {
-			if (recentClearTimer.current) window.clearTimeout(recentClearTimer.current);
-		},
-		[],
-	);
+	const perms = usePerms();
+	const s = useEntryEditingState({ recruitmentId });
+
 	// 관전 모드 — read-only alert dismissible (세션 단위). design_upgrade.md §6.7
 	const dismissKey = recruitmentId !== null ? `readonly-dismissed-rec-${recruitmentId}` : "";
 	const [readOnlyDismissed, setReadOnlyDismissed] = useState(false);
@@ -51,115 +30,6 @@ export function EntryEditing({
 		if (!dismissKey) return;
 		setReadOnlyDismissed(sessionStorage.getItem(dismissKey) === "1");
 	}, [dismissKey]);
-	const perms = usePerms();
-
-	// Esc 키로 선택 해제
-	useEffect(() => {
-		if (!selectedUid) return;
-		const onKey = (e: KeyboardEvent) => {
-			if (e.key === "Escape") setSelectedUid(null);
-		};
-		window.addEventListener("keydown", onKey);
-		return () => window.removeEventListener("keydown", onKey);
-	}, [selectedUid]);
-
-	// debounced 엔트리 draft 저장 — 본인이 만든 변경만 PUT
-	const draftSaveTimer = useRef<number | null>(null);
-	const lastSaved = useRef<string>("");
-
-	// SWR — fetch 중 화면을 비우지 않고, 본인 dirty 변경은 incoming 에 덮이지
-	// 않게 보호 (hot_fix.md §3.3).
-	const fetcher = useCallback(
-		() => api<RecruitmentDetail>(`/recruitments/${recruitmentId}`),
-		[recruitmentId],
-	);
-	const swr = useStaleWhileRevalidate<RecruitmentDetail>(recruitmentId, fetcher, {
-		debounceMs: 150,
-		enabled: recruitmentId !== null,
-		onApply: (next, prev) => {
-			const incoming = new Map<string, Slot>();
-			if (next.entryDraft?.assignments) {
-				for (const [uid, slot] of Object.entries(next.entryDraft.assignments)) {
-					incoming.set(uid, slot as Slot);
-				}
-			}
-			const incomingSerialized = JSON.stringify(Object.fromEntries(incoming));
-			if (prev === null) {
-				// 첫 로드 — server draft 무조건 반영
-				setAssignment(incoming);
-				lastSaved.current = incomingSerialized;
-				return;
-			}
-			// 변경된 user 추출 — incoming pulse 표시용 (적용 여부와 별개로 diff 는 항상 수집)
-			const prevMap = new Map<string, Slot>();
-			if (prev.entryDraft?.assignments) {
-				for (const [uid, slot] of Object.entries(prev.entryDraft.assignments)) {
-					prevMap.set(uid, slot as Slot);
-				}
-			}
-			const changedUids = new Set<string>();
-			for (const [uid, slot] of incoming) {
-				if (prevMap.get(uid) !== slot) changedUids.add(uid);
-			}
-			for (const [uid, slot] of prevMap) {
-				if (incoming.get(uid) !== slot) changedUids.add(uid);
-			}
-			if (changedUids.size > 0) {
-				setRecentlyChanged(changedUids);
-				if (recentClearTimer.current) window.clearTimeout(recentClearTimer.current);
-				recentClearTimer.current = window.setTimeout(() => {
-					setRecentlyChanged(new Set());
-				}, 1500);
-			}
-			// 본인 dirty (lastSaved 와 다름) 면 incoming 무시 — 본인의 다음 PUT 이
-			// last-write-wins 로 정렬됨. clean 이면 server 값으로 동기화.
-			const localSerialized = JSON.stringify(Object.fromEntries(assignment));
-			const isLocalDirty = localSerialized !== lastSaved.current;
-			if (!isLocalDirty) {
-				setAssignment(incoming);
-				lastSaved.current = incomingSerialized;
-			}
-		},
-	});
-	const detail = swr.data;
-	const error = swr.error;
-
-	// recruitment topic 구독 — 다른 사용자 변경 시 background refresh (플리커 X).
-	useEffect(() => {
-		if (recruitmentId === null) return;
-		return wsClient.subscribe(`recruitment:${recruitmentId}`, () => {
-			swr.refresh();
-			showToast("다른 운영자가 엔트리를 수정했습니다");
-		});
-	}, [recruitmentId, swr]);
-	const [saveStatus, setSaveStatus] = useState<SaveStatus>("idle");
-	const [savedAt, setSavedAt] = useState<number | null>(null);
-	const [retryNonce, setRetryNonce] = useState(0);
-	useEffect(() => {
-		if (recruitmentId === null || !perms.canEdit) return;
-		const serialized = JSON.stringify(Object.fromEntries(assignment));
-		if (serialized === lastSaved.current) return;
-		setSaveStatus("saving");
-		if (draftSaveTimer.current) window.clearTimeout(draftSaveTimer.current);
-		draftSaveTimer.current = window.setTimeout(() => {
-			api(`/recruitments/${recruitmentId}/entry-draft`, {
-				method: "PUT",
-				body: JSON.stringify({ assignments: Object.fromEntries(assignment) }),
-			})
-				.then(() => {
-					lastSaved.current = serialized;
-					setSaveStatus("saved");
-					setSavedAt(performance.now());
-				})
-				.catch((err) => {
-					console.warn("[mookbot] entry-draft save failed", err);
-					setSaveStatus("error");
-				});
-		}, 250);
-		return () => {
-			if (draftSaveTimer.current) window.clearTimeout(draftSaveTimer.current);
-		};
-	}, [assignment, recruitmentId, perms.canEdit, retryNonce]);
 
 	if (recruitmentId === null) {
 		return (
@@ -168,113 +38,27 @@ export function EntryEditing({
 			</div>
 		);
 	}
-	if (error) {
+	if (s.error) {
 		return (
 			<div className="space-y-3">
 				<div className="alert alert-error">
-					<span>모집 정보를 불러오지 못했습니다: {error}</span>
+					<span>모집 정보를 불러오지 못했습니다: {s.error}</span>
 				</div>
-				<button type="button" className="btn btn-sm btn-outline" onClick={swr.refresh}>
+				<button type="button" className="btn btn-sm btn-outline" onClick={s.refresh}>
 					↻ 새로고침
 				</button>
 			</div>
 		);
 	}
-	if (!detail) {
+	if (!s.detail) {
 		return <EntryEditingSkeleton />;
 	}
 
-	const { recruitment, participants } = detail;
-	const teamSize = recruitment.targetCount / 2;
-	const activeLanes = LANES.slice(0, teamSize);
-	const assignedSlots = new Set(assignment.values());
-	const unassigned = participants.filter((p) => !assignment.has(p.userId));
+	const { recruitment, participants } = s.detail;
 
-	const moveTo = (userId: string, slot: Slot | null) => {
-		setAssignment((prev) => {
-			const next = new Map(prev);
-			if (slot) {
-				for (const [uid, s] of next) {
-					if (s === slot && uid !== userId) {
-						const cur = next.get(userId);
-						if (cur) next.set(uid, cur);
-						else next.delete(uid);
-						break;
-					}
-				}
-				next.set(userId, slot);
-			} else {
-				next.delete(userId);
-			}
-			return next;
-		});
-	};
-
-	const allFilled = activeLanes.every(
-		(l) => assignedSlots.has(`TEAM_1_${l}`) && assignedSlots.has(`TEAM_2_${l}`),
-	);
-
-	// 좌/우 swap — 1팀↔2팀 을 한 번에 뒤집어 시각 위치 변경. 1팀/2팀이
-	// BLUE/RED 와 헷갈리는 상황에서 운영자가 직접 좌우를 조정할 수 있게 함.
-	// role 은 그대로, team 만 토글. 빈 슬롯도 그대로 (Map 키 변경 없음).
-	const swapTeams = () => {
-		setAssignment((prev) => {
-			const next = new Map<string, Slot>();
-			for (const [uid, slot] of prev) {
-				const lastUnderscore = slot.lastIndexOf("_");
-				const team = slot.slice(0, lastUnderscore) as Team;
-				const role = slot.slice(lastUnderscore + 1) as Lane;
-				const flipped: Team = team === "TEAM_1" ? "TEAM_2" : "TEAM_1";
-				next.set(uid, `${flipped}_${role}`);
-			}
-			return next;
-		});
-		setSelectedUid(null);
-	};
-
-	// Tap-to-Place 핸들러
-	const handleParticipantTap = (userId: string) => {
-		if (!perms.canEdit) return;
-		setSelectedUid((prev) => (prev === userId ? null : userId));
-	};
-	const handleSlotTap = (slot: Slot, occupantUserId: string | null) => {
-		if (!perms.canEdit) return;
-		if (selectedUid) {
-			moveTo(selectedUid, slot);
-			setSelectedUid(null);
-		} else if (occupantUserId) {
-			// 빈 selected → 슬롯의 사람을 selected (다른 곳으로 보내기 위해)
-			setSelectedUid(occupantUserId);
-		}
-	};
-	const handlePoolTap = () => {
-		if (!perms.canEdit || !selectedUid) return;
-		moveTo(selectedUid, null);
-		setSelectedUid(null);
-	};
-
-	const submit = async () => {
-		if (!allFilled || recruitmentId === null) return;
-		setSubmitting(true);
-		setSubmitError(null);
-		try {
-			const assignments = [...assignment.entries()].map(([userId, slot]) => {
-				// Slot 포맷: "TEAM_1_TOP" / "TEAM_2_MID" — 마지막 _ 기준으로 분리
-				const lastUnderscore = slot.lastIndexOf("_");
-				const team = slot.slice(0, lastUnderscore) as Team;
-				const role = slot.slice(lastUnderscore + 1) as Lane;
-				return { userId, team, role };
-			});
-			const res = await api<{ seriesId: number }>("/series", {
-				method: "POST",
-				body: JSON.stringify({ recruitmentId, assignments }),
-			});
-			onSubmit(res.seriesId);
-		} catch (err) {
-			setSubmitError(err instanceof Error ? err.message : String(err));
-		} finally {
-			setSubmitting(false);
-		}
+	const handleSubmit = async () => {
+		const res = await s.submit();
+		if (res) onSubmit(res.seriesId);
 	};
 
 	return (
@@ -284,53 +68,49 @@ export function EntryEditing({
 					<h2 className="text-xl font-bold flex items-center gap-3">
 						엔트리 수정
 						{perms.canEdit && (
-							<SaveStatusIndicator
-								status={saveStatus}
-								savedAt={savedAt}
-								onRetry={() => setRetryNonce((n) => n + 1)}
-							/>
+							<SaveStatusIndicator status={s.saveStatus} savedAt={s.savedAt} onRetry={s.retrySave} />
 						)}
 					</h2>
 					<p className="text-xs text-base-content/70">
-						모집 #{recruitment.id} · {teamSize}v{teamSize} · 후보 {participants.length}명{" · "}
+						모집 #{recruitment.id} · {s.teamSize}v{s.teamSize} · 후보 {participants.length}명{" · "}
 						배정{" "}
 						<span className="font-bold tabular-nums">
-							{assignment.size}/{recruitment.targetCount}
+							{s.assignment.size}/{recruitment.targetCount}
 						</span>
 					</p>
 				</div>
 				<div className="join">
 					<button
 						className="btn btn-sm btn-ghost join-item"
-						onClick={swr.refresh}
+						onClick={s.refresh}
 						title="새로고침"
-						disabled={submitting}
+						disabled={s.submitting}
 					>
 						↻
 					</button>
 					<button
 						type="button"
 						className="btn btn-sm btn-ghost join-item"
-						onClick={swapTeams}
+						onClick={s.swapTeams}
 						title="1팀과 2팀의 좌/우 위치를 바꿉니다"
 						aria-label="1팀과 2팀 좌우 바꾸기"
-						disabled={submitting || !perms.canEdit || assignment.size === 0}
+						disabled={s.submitting || !perms.canEdit || s.assignment.size === 0}
 					>
 						↔ 좌/우 바꾸기
 					</button>
 					{(() => {
 						const submitTip = !perms.canEdit
 							? "쓰기 권한이 없습니다 (읽기 전용)"
-							: !allFilled
-								? `모든 슬롯을 채워야 제출 가능합니다 (${assignment.size}/${recruitment.targetCount})`
+							: !s.allFilled
+								? `모든 슬롯을 채워야 제출 가능합니다 (${s.assignment.size}/${recruitment.targetCount})`
 								: undefined;
 						const btn = (
 							<button
 								className="btn btn-sm btn-primary join-item"
-								onClick={submit}
-								disabled={!allFilled || submitting || !perms.canEdit}
+								onClick={handleSubmit}
+								disabled={!s.allFilled || s.submitting || !perms.canEdit}
 							>
-								{submitting ? (
+								{s.submitting ? (
 									<>
 										<span className="loading loading-spinner loading-xs" />
 										제출 중…
@@ -368,17 +148,17 @@ export function EntryEditing({
 				</div>
 			)}
 
-			{submitError && (
+			{s.submitError && (
 				<div className="alert alert-error">
-					<span>제출 실패: {submitError}</span>
+					<span>제출 실패: {s.submitError}</span>
 				</div>
 			)}
 
-			{selectedUid &&
+			{s.selectedUid &&
 				(() => {
-					const sel = participants.find((p) => p.userId === selectedUid);
+					const sel = participants.find((p) => p.userId === s.selectedUid);
 					if (!sel) return null;
-					const inSlot = assignment.has(selectedUid);
+					const inSlot = s.assignment.has(s.selectedUid);
 					return (
 						<div className="alert alert-info alert-soft sticky top-2 z-10">
 							<span>
@@ -386,7 +166,7 @@ export function EntryEditing({
 								을 탭하여 배치
 								<span className="text-xs opacity-70 ml-2">(Esc 취소)</span>
 							</span>
-							<button type="button" className="btn btn-xs btn-ghost" onClick={() => setSelectedUid(null)}>
+							<button type="button" className="btn btn-xs btn-ghost" onClick={s.clearSelected}>
 								✕ 취소
 							</button>
 						</div>
@@ -407,9 +187,9 @@ export function EntryEditing({
 								{TEAM_LABEL[team]}
 							</h3>
 							<div className="space-y-1.5">
-								{activeLanes.map((lane) => {
+								{s.activeLanes.map((lane) => {
 									const slot: Slot = `${team}_${lane}`;
-									const assignedUserId = [...assignment.entries()].find(([, s]) => s === slot)?.[0];
+									const assignedUserId = [...s.assignment.entries()].find(([, sl]) => sl === slot)?.[0];
 									const assignedP = assignedUserId
 										? participants.find((p) => p.userId === assignedUserId)
 										: null;
@@ -418,12 +198,12 @@ export function EntryEditing({
 											key={slot}
 											lane={lane}
 											participant={assignedP ?? null}
-											onDrop={(uid) => moveTo(uid, slot)}
-											onClear={() => assignedP && moveTo(assignedP.userId, null)}
-											onTap={() => handleSlotTap(slot, assignedUserId ?? null)}
-											selected={selectedUid !== null && assignedUserId === selectedUid}
-											targetHint={selectedUid !== null && assignedUserId !== selectedUid}
-											recentlyChanged={assignedUserId !== undefined && recentlyChanged.has(assignedUserId)}
+											onDrop={(uid) => s.moveTo(uid, slot)}
+											onClear={() => assignedP && s.moveTo(assignedP.userId, null)}
+											onTap={() => s.handleSlotTap(slot, assignedUserId ?? null)}
+											selected={s.selectedUid !== null && assignedUserId === s.selectedUid}
+											targetHint={s.selectedUid !== null && assignedUserId !== s.selectedUid}
+											recentlyChanged={assignedUserId !== undefined && s.recentlyChanged.has(assignedUserId)}
 										/>
 									);
 								})}
@@ -436,28 +216,30 @@ export function EntryEditing({
 			{/* 후보 풀 — 컴팩트 가로 카드 */}
 			<div
 				className={`card bg-base-200 shadow-sm transition ${
-					selectedUid !== null && assignment.has(selectedUid) ? "ring-2 ring-primary cursor-pointer" : ""
+					s.selectedUid !== null && s.assignment.has(s.selectedUid)
+						? "ring-2 ring-primary cursor-pointer"
+						: ""
 				}`}
 				onDragOver={(e) => e.preventDefault()}
 				onDrop={(e) => {
 					const uid = e.dataTransfer.getData("text/plain");
-					if (uid) moveTo(uid, null);
+					if (uid) s.moveTo(uid, null);
 				}}
 				onClick={(e) => {
 					// 자식 카드 클릭은 자기 핸들러가 처리 — 여기는 풀 영역 빈 클릭만
-					if (e.target === e.currentTarget && selectedUid && assignment.has(selectedUid)) {
-						handlePoolTap();
+					if (e.target === e.currentTarget && s.selectedUid && s.assignment.has(s.selectedUid)) {
+						s.handlePoolTap();
 					}
 				}}
 			>
 				<div className="card-body p-3 gap-2">
 					<div className="flex items-center justify-between flex-wrap gap-2">
 						<h3 className="card-title text-base">
-							후보 풀 · {unassigned.length}명 미배정 / 총 {participants.length}명
+							후보 풀 · {s.unassigned.length}명 미배정 / 총 {participants.length}명
 						</h3>
 						<span className="text-xs text-base-content/50">탭하여 선택 → 슬롯 탭 (또는 드래그)</span>
 					</div>
-					{unassigned.length === 0 ? (
+					{s.unassigned.length === 0 ? (
 						<div className="text-center text-base-content/50 py-4 text-sm">
 							모든 참가자가 슬롯에 배정되었습니다.
 						</div>
@@ -465,18 +247,18 @@ export function EntryEditing({
 						<div
 							className="grid grid-cols-1 md:grid-cols-2 gap-1.5"
 							onClick={(e) => {
-								if (e.target === e.currentTarget && selectedUid && assignment.has(selectedUid)) {
-									handlePoolTap();
+								if (e.target === e.currentTarget && s.selectedUid && s.assignment.has(s.selectedUid)) {
+									s.handlePoolTap();
 								}
 							}}
 						>
-							{unassigned.map((p) => (
+							{s.unassigned.map((p) => (
 								<ParticipantCard
 									key={p.userId}
 									participant={p}
-									selected={selectedUid === p.userId}
-									onTap={() => handleParticipantTap(p.userId)}
-									recentlyChanged={recentlyChanged.has(p.userId)}
+									selected={s.selectedUid === p.userId}
+									onTap={() => s.handleParticipantTap(p.userId)}
+									recentlyChanged={s.recentlyChanged.has(p.userId)}
 								/>
 							))}
 						</div>
