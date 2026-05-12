@@ -2,12 +2,10 @@
 // (1) 라이엇 계정 — 가장 높은 ranked tier + 챔프 mastery top 3. Riot API 호출, 5분 캐시.
 // (2) 내전 — 라인별 MMR + 주력 챔프 (DB only, 항상 표시).
 // 빈 데이터 (라이엇 계정 미연동 / 내전 기록 없음) 시 빈 상태 placeholder.
+//
+// 데이터 fetch 는 부모 (BiddingPanel) 에서 수행 — hero Avatar 의 imageUrl 과 캐시 공유.
 
-import { useCallback } from "react";
-import { api } from "../../api/rest.js";
-import { useStaleWhileRevalidate } from "../../state/useStaleWhileRevalidate.js";
-
-interface AuctionCardData {
+export interface AuctionCardData {
 	user: { discordId: string; displayName: string };
 	riotAccounts: Array<{
 		gameName: string;
@@ -74,16 +72,17 @@ function formatPoints(points: number): string {
 	return String(points);
 }
 
-export function CandidateInfo({ userId }: { userId: string }) {
-	const fetcher = useCallback(() => api<AuctionCardData>(`/users/${userId}/auction-card`), [userId]);
-	const swr = useStaleWhileRevalidate<AuctionCardData>(`auction-card:${userId}`, fetcher);
-
-	if (swr.error) {
-		return (
-			<div className="alert alert-warning text-sm">매물 정보 로딩 실패 — {swr.error}</div>
-		);
+export function CandidateInfo({
+	data,
+	error,
+}: {
+	data: AuctionCardData | null;
+	error: string | null;
+}) {
+	if (error) {
+		return <div className="alert alert-warning text-sm">매물 정보 로딩 실패 — {error}</div>;
 	}
-	if (!swr.data) {
+	if (!data) {
 		return (
 			<div className="card bg-base-200/60 shadow-sm">
 				<div className="card-body p-4">
@@ -96,7 +95,7 @@ export function CandidateInfo({ userId }: { userId: string }) {
 		);
 	}
 
-	const { riotAccounts, laneMmrs, topChampions } = swr.data;
+	const { riotAccounts, laneMmrs, topChampions } = data;
 	const bestAccount = riotAccounts[0]; // 백엔드에서 정렬됨 — 가장 높은 ranked 우선
 
 	return (

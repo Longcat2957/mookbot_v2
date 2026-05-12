@@ -2,7 +2,7 @@
 
 > 현재 버전 기준 진척 상태. 시간순 기획서는 [`PLAN.md`](./PLAN.md), 코드 리뷰 워킹노트는 [`docs/internal/`](./docs/internal/) 참조.
 
-## 현재 (v0.9.0)
+## 현재 (v0.10.0)
 
 활성 도메인: `bot.mooklol.com` (Cloudflare proxied → 단일 VPS · Docker compose 4컨테이너 stack: bot · api · activity · nginx).
 실서비스 운영 중.
@@ -152,6 +152,11 @@
 - **검증된 동작**: 첫 로드 (server draft 없음/있음), dirty 보호, `setSide`/`setCurrentGame`/`setGameDraft` (게임 게이팅 포함), `fearlessUsedIds` 도메인 계산 (이전 게임 + draft 합산, 현재 제외), `revert`/`undoLast` 성공/실패, debounced save (canEdit on/off), WS callback 시 refresh + toast, 1/2/3 단축키 (input 안 무시), `moveTo` (빈/점유 unassigned/점유 swap/null), `swapTeams`, `allFilled`, `submit` (성공/미충족/실패), Tap-to-Place 흐름 (`handleParticipantTap`/`handleSlotTap`/`handlePoolTap`, canEdit off 시 no-op), Esc 키 selected 해제, `recentlyChanged` diff.
 - **vitest config**: `apps/activity/src/screens/*/use*State.ts` 만 coverage include 로 추가 (전체 activity src 는 UI 영역으로 exclude 유지).
 - **테스트 총합**: 256 → 291 (+35). lint warnings 가 +20 (mock data 의 `!` non-null assertion — 테스트에서는 의도적 패턴, errors 0).
+
+### Phase 36 — Riot 아이콘 아바타 + AUCTION 시리즈 필터 (v0.10.0)
+- **매물 hero riot 아이콘** — BIDDING 매물 hero 의 `UserAvatar` 가 메인 라이엇 계정 profile icon 사용 (있을 때). 데이터 fetch 를 부모 `BiddingPanel` 로 올려서 `CandidateInfo` 와 동일 SWR 키 공유 — 1회 fetch.
+- **AUCTION 시리즈 일반 list 제외 (의도하지 않은 노출 fix)** — 경매내전 매치마다 `series` row 가 생성되는데 (type='AUCTION'), 이게 대시보드 진행중 / 완료 시리즈 list 에 같이 나오던 문제. `listAllOpenSeries()` + `GET /api/series/completed` SQL 에 `type = 'RANKED'` 필터 추가. 경매 결과는 `/api/auction-tournaments/:id` 흐름에서만 노출.
+- **일반 시리즈 UI 에 riot 아이콘 아바타** — backend `GET /api/recruitments/:id` / `GET /api/series/:id` / `GET /api/series` / `GET /api/series/completed` 응답 participants 에 `profileIconUrl` 추가 (`listMainRiotAccounts` batch). 클라이언트 `EntryEditing` 의 `ParticipantCard` / `SlotRow` + 공통 `LineupPreview` 에 `UserAvatar` imageUrl 전달.
 
 ### Phase 35 — 경매 매물 후보 정보 카드 (v0.9.0)
 - **새 endpoint `GET /api/users/:userId/auction-card`** — Riot API (League v4 + Champion Mastery v4) + DB 결합. 5분 캐시 (`kv` 테이블, `auction-card:{userId}`).

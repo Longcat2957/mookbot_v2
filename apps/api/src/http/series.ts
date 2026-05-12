@@ -5,7 +5,7 @@ import { cloudflare, datadragon, db } from "@mookbot/core";
 import type { FastifyInstance } from "fastify";
 import { notifyBotRecruitRefresh } from "../bot/notify.js";
 import { HttpError } from "./_errors.js";
-import { invalidate, requireEditor, requireSession } from "./_helpers.js";
+import { invalidate, requireEditor, requireSession, rewriteDD } from "./_helpers.js";
 import { emptyHistory, fetchPlayHistoryFor } from "./_history.js";
 
 const { getRecruitment } = db;
@@ -108,8 +108,10 @@ export async function registerSeriesRoutes(app: FastifyInstance): Promise<void> 
 			const limit = Math.min(50, Math.max(1, Number(req.query.limit ?? 20)));
 			const offset = Math.max(0, Number(req.query.offset ?? 0));
 
+			// 경매내전 (type='AUCTION') 매치는 대시보드 종료 시리즈에서 제외 —
+			// 자체 /api/auction-tournaments/:id 흐름에서 결과 표시.
 			const totalRow = await cloudflare.queryOne<{ count: number }>(
-				`SELECT COUNT(*) AS count FROM series WHERE status = 'COMPLETED'`,
+				`SELECT COUNT(*) AS count FROM series WHERE status = 'COMPLETED' AND type = 'RANKED'`,
 			);
 			const total = totalRow?.count ?? 0;
 
@@ -123,7 +125,7 @@ export async function registerSeriesRoutes(app: FastifyInstance): Promise<void> 
 			}>(
 				`SELECT id, season_id, status, winning_team, started_at, ended_at
 					 FROM series
-					 WHERE status = 'COMPLETED'
+					 WHERE status = 'COMPLETED' AND type = 'RANKED'
 					 ORDER BY ended_at DESC
 					 LIMIT ? OFFSET ?`,
 				[limit, offset],
@@ -133,8 +135,19 @@ export async function registerSeriesRoutes(app: FastifyInstance): Promise<void> 
 			const seriesIds = rows.map((s) => s.id);
 			const partsAll = await Promise.all(seriesIds.map((id) => db.getSeriesParticipants(id)));
 			const allUserIds = [...new Set(partsAll.flat().map((p) => p.user_id))];
-			const users = await db.listUsers(allUserIds);
+			const [users, mains] = await Promise.all([
+				db.listUsers(allUserIds),
+				db.listMainRiotAccounts(allUserIds),
+			]);
 			const nameById = new Map(users.map((u) => [u.discord_id, u.display_name]));
+			const iconById = new Map(
+				mains
+					.filter((m) => m.profile_icon_id != null)
+					.map((m) => [
+						m.user_id,
+						rewriteDD(datadragon.getProfileIconUrl(m.profile_icon_id as number)),
+					]),
+			);
 
 			const winsAll = await Promise.all(rows.map((s) => db.countSeriesWins(s.id)));
 
@@ -152,6 +165,7 @@ export async function registerSeriesRoutes(app: FastifyInstance): Promise<void> 
 						displayName: nameById.get(p.user_id) ?? p.user_id,
 						team: p.team,
 						role: p.role,
+						profileIconUrl: iconById.get(p.user_id) ?? null,
 					})),
 				})),
 				total,
@@ -172,8 +186,16 @@ export async function registerSeriesRoutes(app: FastifyInstance): Promise<void> 
 		const seriesIds = rows.map((s) => s.id);
 		const partsAll = await Promise.all(seriesIds.map((id) => db.getSeriesParticipants(id)));
 		const allUserIds = [...new Set(partsAll.flat().map((p) => p.user_id))];
-		const users = await db.listUsers(allUserIds);
+		const [users, mains] = await Promise.all([
+			db.listUsers(allUserIds),
+			db.listMainRiotAccounts(allUserIds),
+		]);
 		const nameById = new Map(users.map((u) => [u.discord_id, u.display_name]));
+		const iconById = new Map(
+			mains
+				.filter((m) => m.profile_icon_id != null)
+				.map((m) => [m.user_id, rewriteDD(datadragon.getProfileIconUrl(m.profile_icon_id as number))]),
+		);
 
 		return {
 			series: rows.map((s, i) => ({
@@ -186,6 +208,7 @@ export async function registerSeriesRoutes(app: FastifyInstance): Promise<void> 
 					displayName: nameById.get(p.user_id) ?? p.user_id,
 					team: p.team,
 					role: p.role,
+					profileIconUrl: iconById.get(p.user_id) ?? null,
 				})),
 			})),
 		};
@@ -203,8 +226,17 @@ export async function registerSeriesRoutes(app: FastifyInstance): Promise<void> 
 		if (!s) return reply.code(404).send({ error: "not found" });
 
 		const parts = await db.getSeriesParticipants(id);
-		const users = await db.listUsers(parts.map((p) => p.user_id));
+		const partUserIds = parts.map((p) => p.user_id);
+		const [users, mains] = await Promise.all([
+			db.listUsers(partUserIds),
+			db.listMainRiotAccounts(partUserIds),
+		]);
 		const nameById = new Map(users.map((u) => [u.discord_id, u.display_name]));
+		const iconById = new Map(
+			mains
+				.filter((m) => m.profile_icon_id != null)
+				.map((m) => [m.user_id, rewriteDD(datadragon.getProfileIconUrl(m.profile_icon_id as number))]),
+		);
 		// PickBan 의 챔프 그리드 "MY MAINS" 표시용 — 참가자 전적/주력 챔프
 		const stats = await fetchPlayHistoryFor(parts.map((p) => p.user_id));
 
@@ -251,6 +283,7 @@ export async function registerSeriesRoutes(app: FastifyInstance): Promise<void> 
 				displayName: nameById.get(p.user_id) ?? p.user_id,
 				team: p.team,
 				role: p.role,
+				profileIconUrl: iconById.get(p.user_id) ?? null,
 				laneMmr: Math.round(mmrByKey.get(`${p.user_id}|${p.role}`) ?? DEFAULT_MMR),
 				history: stats.get(p.user_id) ?? emptyHistory(),
 			})),

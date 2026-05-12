@@ -4,6 +4,7 @@
 // onSelectUser 가 제공되면 멤버 셀이 클릭 가능 → Profile 화면 진입.
 
 import { Fragment, type ReactElement } from "react";
+import { UserAvatar } from "./UserAvatar.js";
 
 const LANE_LABEL: Record<string, string> = {
 	TOP: "탑",
@@ -20,6 +21,7 @@ export interface LineupParticipant {
 	displayName: string;
 	team: "TEAM_1" | "TEAM_2";
 	role: string;
+	profileIconUrl?: string | null;
 }
 
 export function LineupPreview({
@@ -39,20 +41,34 @@ export function LineupPreview({
 
 	const renderMember = (p: LineupParticipant | undefined): ReactElement => {
 		if (!p) return <div>—</div>;
+		const avatar = p.userId ? (
+			<UserAvatar
+				discordId={p.userId}
+				displayName={p.displayName}
+				size="xs"
+				imageUrl={p.profileIconUrl ?? null}
+			/>
+		) : null;
 		const clickable = onSelectUser && p.userId;
 		if (clickable) {
 			return (
 				<button
 					type="button"
 					onClick={() => onSelectUser(p.userId as string)}
-					className="truncate text-left hover:text-primary hover:underline transition cursor-pointer min-w-0"
+					className="flex items-center gap-1.5 truncate text-left hover:text-primary hover:underline transition cursor-pointer min-w-0"
 					title={`${p.displayName} 프로필 보기`}
 				>
-					{p.displayName}
+					{avatar}
+					<span className="truncate">{p.displayName}</span>
 				</button>
 			);
 		}
-		return <div className="truncate">{p.displayName}</div>;
+		return (
+			<div className="flex items-center gap-1.5 truncate min-w-0">
+				{avatar}
+				<span className="truncate">{p.displayName}</span>
+			</div>
+		);
 	};
 
 	return (

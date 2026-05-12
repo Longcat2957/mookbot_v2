@@ -1,13 +1,14 @@
 // 경매내전 드래프트 화면 — CAPTAIN_PICK / POINT_ALLOC / BIDDING / PLACEMENT 단계.
 // 단계별로 inline 컴포넌트 분기. BRACKET_SETUP 이상은 별도 화면 (AuctionBracket).
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { api } from "../../api/rest.js";
 import { ConfirmButton } from "../../components/ConfirmButton.js";
 import { UserAvatar } from "../../components/UserAvatar.js";
 import { usePerms } from "../../state/perms.js";
+import { useStaleWhileRevalidate } from "../../state/useStaleWhileRevalidate.js";
 import { AuctionSteps } from "./AuctionSteps.js";
-import { CandidateInfo } from "./CandidateInfo.js";
+import { type AuctionCardData, CandidateInfo } from "./CandidateInfo.js";
 import type {
 	AuctionRecruitmentDetail,
 	AuctionTeam,
@@ -563,6 +564,22 @@ function BiddingPanel({
 	const captainCount = detail.teams.length;
 	const recruitPoolSize = expectedTotal; // 정원 = 4팀 × 5명 또는 2팀 × 5명
 
+	// 매물 후보 정보 — hero Avatar 의 imageUrl + CandidateInfo 카드가 같은 데이터 공유.
+	const candidateUserId = current?.userId ?? null;
+	const candidateFetcher = useCallback(
+		() =>
+			candidateUserId
+				? api<AuctionCardData>(`/users/${candidateUserId}/auction-card`)
+				: Promise.reject(new Error("no candidate")),
+		[candidateUserId],
+	);
+	const candidateSwr = useStaleWhileRevalidate<AuctionCardData>(
+		candidateUserId ? `auction-card:${candidateUserId}` : null,
+		candidateFetcher,
+		{ enabled: candidateUserId !== null },
+	);
+	const candidateRiotIcon = candidateSwr.data?.riotAccounts?.[0]?.profileIconUrl ?? null;
+
 	return (
 		<div className="space-y-4">
 			{/* 전체 진행 stats — reader 가 한눈에 */}
@@ -618,7 +635,12 @@ function BiddingPanel({
 					</div>
 					{current ? (
 						<div className="flex items-center gap-4 py-2">
-							<UserAvatar discordId={current.userId} displayName={current.displayName} size="lg" />
+							<UserAvatar
+								discordId={current.userId}
+								displayName={current.displayName}
+								size="lg"
+								imageUrl={candidateRiotIcon}
+							/>
 							<div className="flex-1 min-w-0">
 								<div className="text-3xl font-bold truncate">{current.displayName}</div>
 								<div className="text-sm text-base-content/60">매물 진행 중 · 보이스에서 입찰 협의</div>
@@ -635,7 +657,7 @@ function BiddingPanel({
 			</div>
 
 			{/* 매물 후보 정보 — 라이엇 (가장 높은 ranked + mastery top 3) | 내전 (laneMmr + 주력 챔프) */}
-			{current && <CandidateInfo userId={current.userId} />}
+			{current && <CandidateInfo data={candidateSwr.data} error={candidateSwr.error} />}
 
 			{/* 입찰 패널 */}
 			{current && (

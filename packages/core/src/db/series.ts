@@ -160,9 +160,11 @@ export async function cancelSeries(id: number): Promise<void> {
 	);
 }
 
+// 일반 시리즈 (RANKED) 만 — 경매내전 (AUCTION) 매치 series 는 대시보드에서 제외.
+// 경매내전 매치는 /api/auction-tournaments/:id 흐름에서만 노출.
 export async function listAllOpenSeries(): Promise<SeriesRow[]> {
 	return query<SeriesRow>(
-		`SELECT * FROM series WHERE status = 'IN_PROGRESS' AND deleted_at IS NULL ORDER BY started_at DESC`,
+		`SELECT * FROM series WHERE status = 'IN_PROGRESS' AND type = 'RANKED' AND deleted_at IS NULL ORDER BY started_at DESC`,
 	);
 }
 

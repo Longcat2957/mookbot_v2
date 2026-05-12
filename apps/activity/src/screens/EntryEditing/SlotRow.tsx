@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { UserAvatar } from "../../components/UserAvatar.js";
 import { LANE_LABEL, type Lane, type Participant, ROLE_LABEL } from "./types.js";
 
 export function SlotRow({
@@ -76,6 +77,12 @@ export function SlotRow({
 					}}
 					className="flex-1 min-w-0 bg-base-300 rounded-md px-2 py-1.5 cursor-grab active:cursor-grabbing hover:bg-base-content/10 transition flex items-center gap-1.5"
 				>
+					<UserAvatar
+						discordId={participant.userId}
+						displayName={participant.displayName}
+						size="xs"
+						imageUrl={participant.profileIconUrl ?? null}
+					/>
 					<span className="font-bold text-sm truncate flex-1">{participant.displayName}</span>
 					{participant.history.topRole && (
 						<span className="badge badge-outline badge-xs shrink-0">

@@ -54,6 +54,7 @@ export interface Participant {
 	roles: string[];
 	joinedAt: number;
 	history: PlayHistory;
+	profileIconUrl?: string | null;
 }
 
 export interface EntryDraft {

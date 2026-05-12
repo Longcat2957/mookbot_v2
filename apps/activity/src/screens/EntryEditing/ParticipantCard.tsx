@@ -1,3 +1,4 @@
+import { UserAvatar } from "../../components/UserAvatar.js";
 import { ChampionTile } from "./ChampionTile.js";
 import { type Participant, ROLE_LABEL } from "./types.js";
 
@@ -42,7 +43,15 @@ export function ParticipantCard({
 						: ""
 			}`}
 		>
-			{/* 좌: 이름 + 메타 */}
+			{/* 좌: avatar */}
+			<UserAvatar
+				discordId={participant.userId}
+				displayName={displayName}
+				size="sm"
+				imageUrl={participant.profileIconUrl ?? null}
+			/>
+
+			{/* 중: 이름 + 메타 */}
 			<div className="flex-1 min-w-0">
 				<div className="flex items-center gap-2 mb-0.5">
 					<span className="font-bold text-base truncate">{displayName}</span>

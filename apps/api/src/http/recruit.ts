@@ -1,8 +1,8 @@
 // 모집 (recruitment) 관련 라우트 — 목록 / 상세 / 엔트리 슬롯 draft.
 
-import { db } from "@mookbot/core";
+import { datadragon, db } from "@mookbot/core";
 import type { FastifyInstance } from "fastify";
-import { invalidate, requireEditor, requireSession } from "./_helpers.js";
+import { invalidate, requireEditor, requireSession, rewriteDD } from "./_helpers.js";
 import { emptyHistory, fetchPlayHistoryFor } from "./_history.js";
 
 const { listRecruitmentParticipants, getRecruitment } = db;
@@ -57,8 +57,16 @@ export async function registerRecruitRoutes(app: FastifyInstance): Promise<void>
 
 		const participants = await listRecruitmentParticipants(id);
 		const userIds = participants.map((p) => p.user_id);
-		const users = await db.listUsers(userIds);
+		const [users, mains] = await Promise.all([
+			db.listUsers(userIds),
+			db.listMainRiotAccounts(userIds),
+		]);
 		const nameById = new Map(users.map((u) => [u.discord_id, u.display_name]));
+		const iconById = new Map(
+			mains
+				.filter((m) => m.profile_icon_id != null)
+				.map((m) => [m.user_id, rewriteDD(datadragon.getProfileIconUrl(m.profile_icon_id as number))]),
+		);
 
 		const stats = await fetchPlayHistoryFor(userIds);
 
@@ -85,6 +93,7 @@ export async function registerRecruitRoutes(app: FastifyInstance): Promise<void>
 				displayName: nameById.get(p.user_id) ?? p.user_id,
 				roles: p.roles,
 				joinedAt: p.joined_at,
+				profileIconUrl: iconById.get(p.user_id) ?? null,
 				history: stats.get(p.user_id) ?? emptyHistory(),
 			})),
 			entryDraft,
