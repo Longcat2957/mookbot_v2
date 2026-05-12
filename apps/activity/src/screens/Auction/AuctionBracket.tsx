@@ -5,11 +5,31 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { api } from "../../api/rest.js";
 import { wsClient } from "../../api/ws.js";
 import { ConfirmButton } from "../../components/ConfirmButton.js";
+import { UserAvatar } from "../../components/UserAvatar.js";
 import { usePerms } from "../../state/perms.js";
 import { useStaleWhileRevalidate } from "../../state/useStaleWhileRevalidate.js";
+import { AuctionSteps } from "./AuctionSteps.js";
 import { ChampPickerModal } from "./ChampPickerModal.js";
-import type { AuctionMatch, AuctionTournamentDetail, MatchFormat } from "./types.js";
+import type {
+	AuctionMatch,
+	AuctionTournamentDetail,
+	MatchFormat,
+	TournamentStatus,
+} from "./types.js";
 import { useAuctionState } from "./useAuctionState.js";
+
+function statusLabel(s: TournamentStatus): string {
+	return {
+		CAPTAIN_PICK: "팀장 선출",
+		POINT_ALLOC: "포인트 배정",
+		BIDDING: "경매 진행",
+		PLACEMENT: "배치 완료",
+		BRACKET_SETUP: "매치업 구성",
+		IN_GAME: "매치 진행 중",
+		COMPLETED: "종료",
+		CANCELLED: "취소",
+	}[s];
+}
 
 const ROLE_ORDER = ["TOP", "JUNGLE", "MID", "BOTTOM", "SUPPORT"] as const;
 type Role = (typeof ROLE_ORDER)[number];
@@ -68,13 +88,16 @@ export function AuctionBracket({
 			((s.detail.tournament.format === 20 && semis.length < 2) ||
 				(s.detail.tournament.format === 10 && matches.length === 0)));
 
+	const is20 = s.detail.tournament.format === 20;
+
 	return (
-		<section className="space-y-3">
-			<header className="flex items-center justify-between flex-wrap gap-2">
-				<div>
-					<h2 className="text-xl font-bold">🎟️ 경매내전 #{s.detail.tournament.id} 토너먼트</h2>
-					<p className="text-xs text-base-content/70">
-						{s.detail.tournament.format}인 · 단계: {s.detail.tournament.status}
+		<section className="space-y-4">
+			<header className="flex items-start justify-between flex-wrap gap-3">
+				<div className="space-y-1">
+					<h2 className="text-2xl font-bold">🎟️ 경매내전 #{s.detail.tournament.id} 토너먼트</h2>
+					<p className="text-base text-base-content/70">
+						{s.detail.tournament.format}인 · 현재 단계:{" "}
+						<strong>{statusLabel(s.detail.tournament.status)}</strong>
 					</p>
 				</div>
 				<div className="flex items-center gap-1">
@@ -86,41 +109,77 @@ export function AuctionBracket({
 				</div>
 			</header>
 
+			<AuctionSteps status={s.detail.tournament.status} />
+
 			{/* BRACKET_SETUP — 운영자가 매치업 구성 */}
 			{isSetup && perms.canEdit && <MatchSetup detail={s.detail} onCreate={s.createMatch} />}
 
-			{/* 매치 카드 — SEMI 또는 SINGLE 또는 FINAL */}
-			{(s.detail.tournament.format === 20 ? semis : matches).length > 0 && (
-				<div className="space-y-2">
-					<h3 className="font-bold">{s.detail.tournament.format === 20 ? "4강" : "매치"}</h3>
-					<div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-						{(s.detail.tournament.format === 20 ? semis : matches).map((m) => (
+			{/* 20인 — 4강 grid + 결승 column (시각적 bracket) */}
+			{is20 && (semis.length > 0 || finalOrSingle) && (
+				<div className="grid grid-cols-1 lg:grid-cols-[1fr_auto_1fr] gap-4 items-center">
+					{/* 4강 */}
+					<div className="space-y-3">
+						<h3 className="text-lg font-bold flex items-center gap-2">
+							<span className="badge badge-info badge-lg">4강</span>
+							<span className="text-base-content/60 text-sm">SEMI</span>
+						</h3>
+						{semis.length === 0 ? (
+							<div className="text-base text-base-content/40 py-4">_(매치업 구성 대기)_</div>
+						) : (
+							semis.map((m) => (
+								<MatchCard
+									key={m.seriesId}
+									match={m}
+									detail={s.detail!}
+									canEdit={perms.canEdit}
+									onTournamentRefresh={s.refresh}
+								/>
+							))
+						)}
+					</div>
+
+					{/* 연결선 (lg+ only) */}
+					<div className="hidden lg:flex items-center text-4xl text-base-content/30 px-2 select-none">
+						→
+					</div>
+
+					{/* 결승 */}
+					<div className="space-y-3">
+						<h3 className="text-lg font-bold flex items-center gap-2">
+							<span className="badge badge-warning badge-lg">결승</span>
+							<span className="text-base-content/60 text-sm">FINAL</span>
+						</h3>
+						{finalOrSingle ? (
 							<MatchCard
-								key={m.seriesId}
-								match={m}
-								detail={s.detail!}
+								match={finalOrSingle}
+								detail={s.detail}
 								canEdit={perms.canEdit}
 								onTournamentRefresh={s.refresh}
 							/>
-						))}
+						) : perms.canEdit ? (
+							<FinalSetup detail={s.detail} semis={semis} onCreate={s.createMatch} />
+						) : (
+							<div className="text-base text-base-content/40 py-4">_(4강 결과 대기 중)_</div>
+						)}
 					</div>
 				</div>
 			)}
 
-			{/* 결승 (20인만) — 4강 둘 다 끝나면 운영자가 생성 */}
-			{s.detail.tournament.format === 20 && (
+			{/* 10인 — 단일 매치 */}
+			{!is20 && matches.length > 0 && (
 				<div className="space-y-2">
-					<h3 className="font-bold">결승</h3>
-					{finalOrSingle ? (
+					<h3 className="text-lg font-bold flex items-center gap-2">
+						<span className="badge badge-warning badge-lg">매치</span>
+					</h3>
+					{matches.map((m) => (
 						<MatchCard
-							match={finalOrSingle}
-							detail={s.detail}
+							key={m.seriesId}
+							match={m}
+							detail={s.detail!}
 							canEdit={perms.canEdit}
 							onTournamentRefresh={s.refresh}
 						/>
-					) : (
-						perms.canEdit && <FinalSetup detail={s.detail} semis={semis} onCreate={s.createMatch} />
-					)}
+					))}
 				</div>
 			)}
 		</section>
@@ -194,17 +253,17 @@ function MatchSetup({
 		if (detail.matches.length > 0 || allTeams.length !== 2) return null;
 		const [t1, t2] = allTeams;
 		return (
-			<div className="card bg-base-200">
-				<div className="card-body p-4 gap-2">
-					<h3 className="font-bold">매치 생성</h3>
+			<div className="card bg-base-200 shadow">
+				<div className="card-body p-5 gap-3">
+					<h3 className="text-lg font-bold">매치 생성</h3>
 					<FormatSelect value={format} onChange={setFormat} />
-					<div className="text-sm">
+					<div className="text-base">
 						<strong>{t1?.captainName}</strong> vs <strong>{t2?.captainName}</strong>
 					</div>
-					{error && <div className="alert alert-error alert-sm">{error}</div>}
+					{error && <div className="alert alert-error">{error}</div>}
 					<button
 						type="button"
-						className="btn btn-primary"
+						className="btn btn-primary btn-lg"
 						onClick={() => t1 && t2 && createSingle(t1.id, t2.id)}
 						disabled={submitting}
 					>
@@ -218,12 +277,15 @@ function MatchSetup({
 	// 20인 — 4강 매치업 2개. 운영자가 짝짓기 (Q3 결정: 수동)
 	if (remaining.length === 0) return null;
 	return (
-		<div className="card bg-base-200">
-			<div className="card-body p-4 gap-2">
-				<h3 className="font-bold">4강 매치업 구성 ({remaining.length}/4 팀 남음)</h3>
+		<div className="card bg-base-200 shadow">
+			<div className="card-body p-5 gap-3">
+				<h3 className="text-lg font-bold">4강 매치업 구성</h3>
+				<p className="text-base text-base-content/60">
+					팀 두 개를 선택하면 매치업이 생성됩니다. (남은 팀 {remaining.length}/4)
+				</p>
 				<FormatSelect value={format} onChange={setFormat} />
 				<MatchupBuilder teams={remaining} onPair={createSemi} submitting={submitting} />
-				{error && <div className="alert alert-error alert-sm">{error}</div>}
+				{error && <div className="alert alert-error">{error}</div>}
 			</div>
 		</div>
 	);
@@ -270,16 +332,19 @@ function FinalSetup({
 	};
 
 	return (
-		<div className="card bg-base-200">
-			<div className="card-body p-4 gap-2">
-				<h3 className="font-bold">결승 생성</h3>
+		<div className="card bg-base-200 shadow border-l-4 border-warning">
+			<div className="card-body p-5 gap-3">
+				<h3 className="text-lg font-bold">결승 생성</h3>
 				<FormatSelect value={format} onChange={setFormat} />
-				<div className="text-sm">
-					<strong>{t1?.captainName ?? `팀${t1?.teamIndex}`}</strong> vs{" "}
+				<div className="text-base flex items-center gap-2 flex-wrap">
+					{t1 && <UserAvatar discordId={t1.captainUserId} displayName={t1.captainName} size="sm" />}
+					<strong>{t1?.captainName ?? `팀${t1?.teamIndex}`}</strong>
+					<span className="text-base-content/40">vs</span>
+					{t2 && <UserAvatar discordId={t2.captainUserId} displayName={t2.captainName} size="sm" />}
 					<strong>{t2?.captainName ?? `팀${t2?.teamIndex}`}</strong>
 				</div>
-				{error && <div className="alert alert-error alert-sm">{error}</div>}
-				<button type="button" className="btn btn-primary" onClick={create} disabled={creating}>
+				{error && <div className="alert alert-error">{error}</div>}
+				<button type="button" className="btn btn-primary btn-lg" onClick={create} disabled={creating}>
 					▶ 결승 시작
 				</button>
 			</div>
@@ -299,16 +364,12 @@ function useFinalParticipants(
 
 	const m1Fetcher = useCallback(
 		() =>
-			m1Id !== null
-				? api<SeriesDetail>(`/series/${m1Id}`)
-				: Promise.reject(new Error("no semi 1")),
+			m1Id !== null ? api<SeriesDetail>(`/series/${m1Id}`) : Promise.reject(new Error("no semi 1")),
 		[m1Id],
 	);
 	const m2Fetcher = useCallback(
 		() =>
-			m2Id !== null
-				? api<SeriesDetail>(`/series/${m2Id}`)
-				: Promise.reject(new Error("no semi 2")),
+			m2Id !== null ? api<SeriesDetail>(`/series/${m2Id}`) : Promise.reject(new Error("no semi 2")),
 		[m2Id],
 	);
 	const m1Swr = useStaleWhileRevalidate<SeriesDetail>(m1Id, m1Fetcher, {
@@ -354,14 +415,14 @@ function FormatSelect({
 		<div className="join">
 			<button
 				type="button"
-				className={`btn btn-sm join-item ${value === "BO1" ? "btn-primary" : "btn-ghost"}`}
+				className={`btn join-item ${value === "BO1" ? "btn-primary" : "btn-ghost"}`}
 				onClick={() => onChange("BO1")}
 			>
 				BO1
 			</button>
 			<button
 				type="button"
-				className={`btn btn-sm join-item ${value === "BO3" ? "btn-primary" : "btn-ghost"}`}
+				className={`btn join-item ${value === "BO3" ? "btn-primary" : "btn-ghost"}`}
 				onClick={() => onChange("BO3")}
 			>
 				BO3
@@ -390,30 +451,45 @@ function MatchupBuilder({
 	};
 
 	return (
-		<div className="space-y-2">
-			<div className="flex gap-2 flex-wrap">
-				{teams.map((t) => (
-					<button
-						key={t.id}
-						type="button"
-						onClick={() => {
-							if (t1 === t.id) setT1(null);
-							else if (t2 === t.id) setT2(null);
-							else if (t1 === null) setT1(t.id);
-							else if (t2 === null) setT2(t.id);
-						}}
-						className={`btn btn-sm ${
-							t1 === t.id ? "btn-info" : t2 === t.id ? "btn-error" : "btn-outline"
-						}`}
-					>
-						{t1 === t.id && <span className="badge badge-xs">1</span>}
-						{t2 === t.id && <span className="badge badge-xs">2</span>}팀{t.teamIndex} {t.captainName}
-					</button>
-				))}
+		<div className="space-y-3">
+			<div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+				{teams.map((t) => {
+					const isT1 = t1 === t.id;
+					const isT2 = t2 === t.id;
+					return (
+						<button
+							key={t.id}
+							type="button"
+							onClick={() => {
+								if (t1 === t.id) setT1(null);
+								else if (t2 === t.id) setT2(null);
+								else if (t1 === null) setT1(t.id);
+								else if (t2 === null) setT2(t.id);
+							}}
+							className={`flex items-center gap-2.5 p-2.5 rounded-md border-2 transition text-left ${
+								isT1
+									? "border-info bg-info/10"
+									: isT2
+										? "border-error bg-error/10"
+										: "border-base-300 bg-base-100 hover:bg-base-300/40"
+							}`}
+						>
+							<UserAvatar discordId={t.captainUserId} displayName={t.captainName} size="sm" />
+							<div className="flex-1 min-w-0">
+								<div className="flex items-center gap-1.5">
+									<div className="badge badge-info badge-sm">팀{t.teamIndex}</div>
+									{isT1 && <span className="badge badge-info badge-sm">1번</span>}
+									{isT2 && <span className="badge badge-error badge-sm">2번</span>}
+								</div>
+								<div className="font-bold text-base truncate">{t.captainName}</div>
+							</div>
+						</button>
+					);
+				})}
 			</div>
 			<button
 				type="button"
-				className="btn btn-sm btn-primary"
+				className="btn btn-primary btn-lg w-full"
 				onClick={submit}
 				disabled={!t1 || !t2 || submitting}
 			>
@@ -458,40 +534,114 @@ function MatchCard({
 	const t1Wins = games.filter((g) => g.winningTeam === "TEAM_1").length;
 	const t2Wins = games.filter((g) => g.winningTeam === "TEAM_2").length;
 
+	const inProgress = !completed && games.length > 0;
+	const borderClass = completed
+		? "border-2 border-success"
+		: inProgress
+			? "border-2 border-warning"
+			: "border border-base-300";
+
+	const TeamRow = ({
+		team,
+		isTop,
+		teamSide,
+	}: {
+		team: AuctionTournamentDetail["teams"][number] | undefined;
+		isTop: boolean;
+		teamSide: "TEAM_1" | "TEAM_2";
+	}) => {
+		if (!team) return null;
+		const isWinner = completed && winningTeam === teamSide;
+		const isTeam1 = teamSide === "TEAM_1";
+		const winnerBg = isWinner
+			? isTeam1
+				? "bg-info/10 ring-1 ring-info"
+				: "bg-error/10 ring-1 ring-error"
+			: "bg-base-100/40";
+		const badgeColor = isTeam1 ? "badge-info" : "badge-error";
+		return (
+			<div className={`p-2.5 rounded-md ${winnerBg} ${!isTop ? "mt-0" : ""}`}>
+				<div className="flex items-center gap-2">
+					<div className={`badge ${badgeColor} badge-lg`}>팀{team.teamIndex}</div>
+					<UserAvatar discordId={team.captainUserId} displayName={team.captainName} size="sm" />
+					<div className="flex-1 min-w-0">
+						<div className="font-bold text-base truncate flex items-center gap-1">
+							<span className="badge badge-warning badge-xs">👑</span>
+							{team.captainName}
+						</div>
+					</div>
+					{isWinner && <span className="text-2xl">🏆</span>}
+				</div>
+				{/* 팀원 5명 avatar row */}
+				<div className="flex items-center gap-1 mt-2 flex-wrap">
+					{team.members.map((m) => (
+						<div key={m.userId} className="flex items-center gap-1 text-sm">
+							<UserAvatar discordId={m.userId} displayName={m.displayName} size="xs" />
+							<span
+								className={`truncate max-w-[6rem] ${m.userId === team.captainUserId ? "font-medium" : ""}`}
+							>
+								{m.displayName}
+							</span>
+						</div>
+					))}
+				</div>
+			</div>
+		);
+	};
+
+	const roundLabel =
+		match.round === "FINAL"
+			? "결승"
+			: match.round === "SEMI"
+				? `4강 #${match.bracketIndex ?? ""}`
+				: "매치";
+
 	return (
-		<div className={`card bg-base-200 ${completed ? "border border-success" : ""}`}>
-			<div className="card-body p-3 gap-2">
-				<div className="flex items-center justify-between">
+		<div className={`card bg-base-200 shadow ${borderClass}`}>
+			<div className="card-body p-4 gap-3">
+				{/* 헤더 — round + format + status */}
+				<div className="flex items-center justify-between flex-wrap gap-2">
 					<div className="flex items-center gap-2">
-						<span className="badge badge-sm">{match.round}</span>
-						<span className="badge badge-sm badge-ghost">{match.format}</span>
-					</div>
-					{completed && winningTeam && (
-						<span className="badge badge-success badge-sm">
-							🏆 팀{winningTeam === "TEAM_1" ? t1?.teamIndex : t2?.teamIndex} 승
-						</span>
-					)}
-				</div>
-				<div className="flex items-center justify-center gap-4 py-2 tabular-nums">
-					<div className="text-right">
-						<div className="text-xs text-info">팀{t1?.teamIndex}</div>
-						<div className="font-bold">{t1?.captainName}</div>
-					</div>
-					<div className="text-2xl font-bold">
-						<span className={winningTeam === "TEAM_1" ? "text-info" : ""}>{t1Wins}</span>
-						<span className="opacity-30 mx-2">:</span>
-						<span className={winningTeam === "TEAM_2" ? "text-error" : ""}>{t2Wins}</span>
-					</div>
-					<div className="text-left">
-						<div className="text-xs text-error">팀{t2?.teamIndex}</div>
-						<div className="font-bold">{t2?.captainName}</div>
+						<span className="text-base font-bold">{roundLabel}</span>
+						<span className="badge badge-ghost">{match.format}</span>
+						{inProgress && (
+							<span className="badge badge-warning gap-1.5">
+								<span className="inline-block size-2 rounded-full bg-warning-content animate-pulse" />
+								진행 중
+							</span>
+						)}
+						{completed && (
+							<span className="badge badge-success">
+								🏆 팀{winningTeam === "TEAM_1" ? t1?.teamIndex : t2?.teamIndex} 승
+							</span>
+						)}
 					</div>
 				</div>
+
+				{/* TEAM_1 (위) — 큰 스코어 — TEAM_2 (아래) */}
+				<TeamRow team={t1} isTop teamSide="TEAM_1" />
+
+				<div className="flex items-center justify-center gap-4 py-1 tabular-nums">
+					<span
+						className={`text-5xl font-bold ${winningTeam === "TEAM_1" ? "text-info" : "text-base-content/70"}`}
+					>
+						{t1Wins}
+					</span>
+					<span className="text-3xl opacity-30">:</span>
+					<span
+						className={`text-5xl font-bold ${winningTeam === "TEAM_2" ? "text-error" : "text-base-content/70"}`}
+					>
+						{t2Wins}
+					</span>
+				</div>
+
+				<TeamRow team={t2} isTop={false} teamSide="TEAM_2" />
+
 				{canEdit && !completed && (
 					<div className="flex gap-1.5 flex-wrap">
 						<button
 							type="button"
-							className="btn btn-sm btn-primary flex-1"
+							className="btn btn-primary flex-1"
 							onClick={() => setExpanded((v) => !v)}
 						>
 							{expanded ? "접기" : `Game ${games.length + 1} 입력`}
@@ -517,7 +667,7 @@ function MatchCard({
 									onTournamentRefresh();
 								}}
 								variant="error"
-								className="btn-sm"
+								className="btn"
 							/>
 						)}
 					</div>
@@ -534,8 +684,10 @@ function MatchCard({
 				{/* 게임별 요약 */}
 				{games.length > 0 && (
 					<details className="collapse collapse-arrow bg-base-100/40 mt-1">
-						<summary className="collapse-title text-xs py-1 min-h-0">게임 ({games.length})</summary>
-						<div className="collapse-content text-xs">
+						<summary className="collapse-title text-sm py-1.5 min-h-0">
+							게임 기록 ({games.length})
+						</summary>
+						<div className="collapse-content text-sm">
 							{games.map((g) => (
 								<div key={g.id} className="py-1">
 									<strong>Game {g.gameNumber}</strong> · {g.winningTeam === "TEAM_1" ? "1팀 승" : "2팀 승"} ·{" "}

@@ -2,7 +2,7 @@
 
 > 현재 버전 기준 진척 상태. 시간순 기획서는 [`PLAN.md`](./PLAN.md), 코드 리뷰 워킹노트는 [`docs/internal/`](./docs/internal/) 참조.
 
-## 현재 (v0.5.11)
+## 현재 (v0.6.0)
 
 활성 도메인: `bot.mooklol.com` (Cloudflare proxied → 단일 VPS · Docker compose 4컨테이너 stack: bot · api · activity · nginx).
 실서비스 운영 중.
@@ -152,6 +152,15 @@
 - **검증된 동작**: 첫 로드 (server draft 없음/있음), dirty 보호, `setSide`/`setCurrentGame`/`setGameDraft` (게임 게이팅 포함), `fearlessUsedIds` 도메인 계산 (이전 게임 + draft 합산, 현재 제외), `revert`/`undoLast` 성공/실패, debounced save (canEdit on/off), WS callback 시 refresh + toast, 1/2/3 단축키 (input 안 무시), `moveTo` (빈/점유 unassigned/점유 swap/null), `swapTeams`, `allFilled`, `submit` (성공/미충족/실패), Tap-to-Place 흐름 (`handleParticipantTap`/`handleSlotTap`/`handlePoolTap`, canEdit off 시 no-op), Esc 키 selected 해제, `recentlyChanged` diff.
 - **vitest config**: `apps/activity/src/screens/*/use*State.ts` 만 coverage include 로 추가 (전체 activity src 는 UI 영역으로 exclude 유지).
 - **테스트 총합**: 256 → 291 (+35). lint warnings 가 +20 (mock data 의 `!` non-null assertion — 테스트에서는 의도적 패턴, errors 0).
+
+### Phase 29 — 경매내전 reader 친화 UI/UX 리디자인 (v0.6.0)
+- **AuctionSteps 공통 헤더** — 8-상태 internal lifecycle 을 5단계 reader label 로 매핑 (`팀장 / 포인트 / 경매 / 토너먼트 / 종료`). daisyUI `steps-horizontal` + 단계별 step-primary/✓ active 표시. 3개 Auction 화면 (Draft/Bracket/Result) 헤더 통일.
+- **BIDDING 시각화 강화 (가장 큰 변경)** — daisyUI `stats` 4분할 헤더 (매물 풀 / 배치 완료 / 잔여 인원 / 유찰) + 매물 hero (`UserAvatar size=lg` + `text-3xl` displayName + LIVE pulse dot) + 팀 카드 (`radial-progress` 잔여 포인트 도넛 + `progress` 팀원 충족률 + 팀원 avatar 줄) + 유찰 badge 콜렉션. reader 19명이 멀리서 보는 화면에 맞춤.
+- **CAPTAIN_PICK / POINT_ALLOC 정리** — 후보 grid 를 avatar + 이름 큰 카드 (UserAvatar + ring-warning 선택 표시). 포인트 분배는 총합 stats + 팀별 radial-progress + 큰 input.
+- **AuctionBracket bracket 시각화** — 20인은 4강 grid + 결승 column + `→` 연결선. 매치 카드는 양 팀을 위/아래 stack + 큰 점수 (text-5xl) + 팀원 5명 avatar row. status별 border 색 (success/warning).
+- **AuctionResult trophy hero** — 우승 팀 큰 emoji + 멤버 avatar lg 5명 줄 + 결승 스코어. bracket 결과 (`ResultMatchCard`) 재사용. 전체 팀 카드는 우승/준우승 border 색으로 차별.
+- **typography 전반 키움** — H1 `text-2xl`, 섹션 `text-lg`, 본문 `text-base`, 큰 숫자 `text-3xl~5xl`. 보이스 채널에서 멀리서도 읽기 쉽게.
+- **모바일 의도적 제외** — Activity 는 Discord Desktop/Web 만 가정. md/lg responsive 도 데스크탑 기준.
 
 ### Phase 28 — BO 토글 UI 갱신 fix + Activity cancel 버튼 제거 (v0.5.11)
 - **버그: BO1/BO3 toggle 후 UI 갱신 안 됨** — DB 의 `auction_matches.format` 은 변경되지만 Activity 의 MatchCard 가 받는 `match.format` 은 tournament detail (matches[]) 에서 옴. `onChanged` 가 series detail SWR 만 refresh → tournament detail 미갱신. WS invalidate broadcast 는 본인 origin 제외라 본인 클라이언트는 자동 수신 X.

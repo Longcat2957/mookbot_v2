@@ -4,7 +4,9 @@
 import { useEffect, useState } from "react";
 import { api } from "../../api/rest.js";
 import { ConfirmButton } from "../../components/ConfirmButton.js";
+import { UserAvatar } from "../../components/UserAvatar.js";
 import { usePerms } from "../../state/perms.js";
+import { AuctionSteps } from "./AuctionSteps.js";
 import type {
 	AuctionRecruitmentDetail,
 	AuctionTeam,
@@ -80,17 +82,22 @@ export function AuctionDraft({
 			return <div className="alert alert-info">경매 모집 로딩 중…</div>;
 		}
 		return (
-			<section className="space-y-3">
-				<h2 className="text-xl font-bold">🎟️ 경매내전 모집 #{recruitDetail.recruitment.id}</h2>
-				<div className="text-sm text-base-content/70">
-					{recruitDetail.recruitment.targetCount}인 · 참가자 {recruitDetail.participants.length}/
-					{recruitDetail.recruitment.targetCount}
-				</div>
+			<section className="space-y-4">
+				<header className="space-y-3">
+					<h2 className="text-2xl font-bold">🎟️ 경매내전 모집 #{recruitDetail.recruitment.id}</h2>
+					<p className="text-base text-base-content/70">
+						{recruitDetail.recruitment.targetCount}인 · 참가자{" "}
+						<span className="font-bold tabular-nums">
+							{recruitDetail.participants.length}/{recruitDetail.recruitment.targetCount}
+						</span>
+					</p>
+					<AuctionSteps status="RECRUITMENT" />
+				</header>
 				<div className="card bg-base-200">
-					<div className="card-body p-4 gap-1.5">
-						<h3 className="font-bold">참가자</h3>
+					<div className="card-body p-5 gap-2">
+						<h3 className="text-base font-bold">참가자</h3>
 						{recruitDetail.participants.map((p, i) => (
-							<div key={p.userId} className="text-sm">
+							<div key={p.userId} className="text-base">
 								<span className="text-base-content/50 tabular-nums">{i + 1}.</span>{" "}
 								<strong>{p.displayName}</strong>
 							</div>
@@ -101,7 +108,7 @@ export function AuctionDraft({
 				{perms.canEdit && (
 					<button
 						type="button"
-						className="btn btn-primary"
+						className="btn btn-primary btn-lg"
 						onClick={enterTournament}
 						disabled={
 							creating || recruitDetail.participants.length !== recruitDetail.recruitment.targetCount
@@ -129,12 +136,12 @@ export function AuctionDraft({
 	const status = s.detail.tournament.status;
 
 	return (
-		<section className="space-y-3">
-			<header className="flex items-center justify-between flex-wrap gap-2">
-				<div>
-					<h2 className="text-xl font-bold">🎟️ 경매내전 #{s.detail.tournament.id}</h2>
-					<p className="text-xs text-base-content/70">
-						{s.detail.tournament.format}인 · 단계: <strong>{statusLabel(status)}</strong>
+		<section className="space-y-4">
+			<header className="flex items-start justify-between flex-wrap gap-3">
+				<div className="space-y-1">
+					<h2 className="text-2xl font-bold">🎟️ 경매내전 #{s.detail.tournament.id}</h2>
+					<p className="text-base text-base-content/70">
+						{s.detail.tournament.format}인 · 현재 단계: <strong>{statusLabel(status)}</strong>
 					</p>
 				</div>
 				<div className="flex items-center gap-1">
@@ -176,6 +183,8 @@ export function AuctionDraft({
 					)}
 				</div>
 			</header>
+
+			<AuctionSteps status={status} />
 
 			{status === "CAPTAIN_PICK" && (
 				<CaptainPicker
@@ -276,14 +285,27 @@ function CaptainPicker({
 
 	if (!recruit) return <div className="alert alert-info">참가자 로딩 중…</div>;
 
+	const remaining = expected - selected.length;
+
 	return (
-		<div className="card bg-base-200">
-			<div className="card-body p-4 gap-2">
-				<h3 className="font-bold">
-					팀장 {expected}명 선출 ({selected.length}/{expected})
-				</h3>
-				<p className="text-xs text-base-content/60">참가자 중에서 팀장이 될 사람을 클릭하세요.</p>
-				<div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+		<div className="card bg-base-200 shadow">
+			<div className="card-body p-5 gap-4">
+				<div className="flex items-center justify-between flex-wrap gap-3">
+					<div>
+						<h3 className="text-lg font-bold">팀장 선출</h3>
+						<p className="text-base text-base-content/60">참가자 중에서 팀장이 될 사람을 클릭하세요.</p>
+					</div>
+					<div className="stats shadow bg-base-100">
+						<div className="stat py-2 px-4">
+							<div className="stat-title text-sm">선택</div>
+							<div className="stat-value text-3xl text-primary tabular-nums">{selected.length}</div>
+							<div className="stat-desc text-sm tabular-nums">
+								/ {expected} {remaining > 0 ? `(${remaining}명 더)` : "(완료)"}
+							</div>
+						</div>
+					</div>
+				</div>
+				<div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2.5">
 					{recruit.participants.map((p) => {
 						const isSelected = selected.includes(p.userId);
 						return (
@@ -292,19 +314,31 @@ function CaptainPicker({
 								type="button"
 								onClick={() => toggle(p.userId)}
 								disabled={!canEdit}
-								className={`btn btn-sm justify-start ${isSelected ? "btn-primary" : "btn-outline"}`}
+								className={`flex items-center gap-2.5 p-2.5 rounded-md border-2 transition ${
+									isSelected
+										? "border-warning bg-warning/15"
+										: "border-base-300 bg-base-100 hover:bg-base-300/40"
+								} ${!canEdit ? "cursor-not-allowed opacity-60" : ""}`}
+								aria-pressed={isSelected}
 							>
-								{isSelected && <span className="badge badge-xs">팀장</span>}
-								<span className="truncate">{p.displayName}</span>
+								<div className={isSelected ? "ring-2 ring-warning rounded-full" : ""}>
+									<UserAvatar discordId={p.userId} displayName={p.displayName} size="sm" />
+								</div>
+								<div className="flex-1 min-w-0 text-left">
+									<div className="font-bold text-base truncate">{p.displayName}</div>
+									{isSelected && (
+										<div className="text-sm text-warning font-medium flex items-center gap-1">👑 팀장</div>
+									)}
+								</div>
 							</button>
 						);
 					})}
 				</div>
-				{error && <div className="alert alert-error alert-sm">{error}</div>}
+				{error && <div className="alert alert-error">{error}</div>}
 				{canEdit && (
 					<button
 						type="button"
-						className="btn btn-primary"
+						className="btn btn-primary btn-lg"
 						onClick={submit}
 						disabled={selected.length !== expected || submitting}
 					>
@@ -353,32 +387,86 @@ function PointAllocator({
 		}
 	};
 
+	const total = teams.reduce((acc, t) => acc + (points[t.id] ?? 0), 0);
+	const baseline = teams.length * 1000; // 기준값 (4팀 = 4000)
+
 	return (
-		<div className="card bg-base-200">
-			<div className="card-body p-4 gap-3">
-				<h3 className="font-bold">팀장별 초기 포인트</h3>
-				<p className="text-xs text-base-content/60">
-					기본 1000 — 실력 격차 핸디캡으로 조정 가능 (잘하는 팀장 ↓, 못하는 팀장 ↑).
-				</p>
-				<div className="space-y-2">
-					{teams.map((t) => (
-						<div key={t.id} className="flex items-center gap-3">
-							<div className="badge badge-info badge-lg">팀{t.teamIndex}</div>
-							<span className="flex-1 font-medium truncate">{t.captainName}</span>
-							<input
-								type="number"
-								value={points[t.id]}
-								onChange={(e) => setPoints((prev) => ({ ...prev, [t.id]: Number(e.target.value) }))}
-								disabled={!canEdit}
-								min={0}
-								className="input input-bordered input-sm w-24 text-right tabular-nums"
-							/>
+		<div className="card bg-base-200 shadow">
+			<div className="card-body p-5 gap-4">
+				<div className="flex items-center justify-between flex-wrap gap-3">
+					<div>
+						<h3 className="text-lg font-bold">팀장별 초기 포인트</h3>
+						<p className="text-base text-base-content/60">
+							기본 1000 — 실력 격차 핸디캡으로 조정 (잘하는 팀장 ↓, 못하는 팀장 ↑).
+						</p>
+					</div>
+					<div className="stats shadow bg-base-100">
+						<div className="stat py-2 px-4">
+							<div className="stat-title text-sm">총 분배</div>
+							<div
+								className={`stat-value text-3xl tabular-nums ${total === baseline ? "text-success" : "text-warning"}`}
+							>
+								{total}
+							</div>
+							<div className="stat-desc text-sm tabular-nums">
+								기준 {baseline}
+								{total !== baseline && (
+									<span className="ml-1 text-warning">
+										({total > baseline ? "+" : ""}
+										{total - baseline})
+									</span>
+								)}
+							</div>
 						</div>
-					))}
+					</div>
 				</div>
-				{error && <div className="alert alert-error alert-sm">{error}</div>}
+				<div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+					{teams.map((t) => {
+						const p = points[t.id] ?? 0;
+						const pct = baseline > 0 ? Math.round((p / 1000) * 50) : 50; // 1000p = 50% (중앙). 2000p = 100%
+						return (
+							<div key={t.id} className="card bg-base-100">
+								<div className="card-body p-4 gap-2.5">
+									<div className="flex items-center gap-3">
+										<div
+											className="radial-progress text-warning tabular-nums"
+											style={{ "--value": pct, "--size": "4rem", "--thickness": "5px" } as React.CSSProperties}
+											aria-valuenow={pct}
+											role="progressbar"
+										>
+											<span className="text-sm font-bold">{p}p</span>
+										</div>
+										<UserAvatar discordId={t.captainUserId} displayName={t.captainName} size="sm" />
+										<div className="flex-1 min-w-0">
+											<div className="flex items-center gap-1.5">
+												<div className="badge badge-info badge-lg">팀{t.teamIndex}</div>
+												<span className="badge badge-warning badge-sm">👑</span>
+											</div>
+											<div className="font-bold text-base truncate">{t.captainName}</div>
+										</div>
+									</div>
+									<input
+										type="number"
+										value={p}
+										onChange={(e) => setPoints((prev) => ({ ...prev, [t.id]: Number(e.target.value) }))}
+										disabled={!canEdit}
+										min={0}
+										step={50}
+										className="input input-bordered w-full text-right tabular-nums text-lg font-bold"
+									/>
+								</div>
+							</div>
+						);
+					})}
+				</div>
+				{error && <div className="alert alert-error">{error}</div>}
 				{canEdit && (
-					<button type="button" className="btn btn-primary" onClick={startBidding} disabled={submitting}>
+					<button
+						type="button"
+						className="btn btn-primary btn-lg"
+						onClick={startBidding}
+						disabled={submitting}
+					>
 						{submitting ? "진행 중…" : "▶ 경매 시작"}
 					</button>
 				)}
@@ -470,17 +558,56 @@ function BiddingPanel({
 	const allPlaced = detail.teams.every((t) => t.members.length === 5);
 	const totalPlaced = detail.teams.reduce((acc, t) => acc + t.members.length, 0);
 	const expectedTotal = detail.teams.length * 5;
+	const unsoldCount = detail.unsold.length;
+	const captainCount = detail.teams.length;
+	const recruitPoolSize = expectedTotal; // 정원 = 4팀 × 5명 또는 2팀 × 5명
 
 	return (
-		<div className="space-y-3">
-			{/* 현재 매물 */}
-			<div className="card bg-base-200 border-l-4 border-primary">
-				<div className="card-body p-4 gap-2">
-					<div className="flex items-center justify-between">
-						<h3 className="font-bold">📦 현재 매물</h3>
+		<div className="space-y-4">
+			{/* 전체 진행 stats — reader 가 한눈에 */}
+			<div className="stats stats-horizontal shadow w-full bg-base-200">
+				<div className="stat py-3">
+					<div className="stat-title text-sm">매물 풀</div>
+					<div className="stat-value text-3xl tabular-nums">{recruitPoolSize - captainCount}</div>
+					<div className="stat-desc text-sm">팀장 제외</div>
+				</div>
+				<div className="stat py-3">
+					<div className="stat-title text-sm">배치 완료</div>
+					<div className="stat-value text-3xl text-success tabular-nums">
+						{totalPlaced - captainCount}
+					</div>
+					<div className="stat-desc text-sm tabular-nums">/ {recruitPoolSize - captainCount}</div>
+				</div>
+				<div className="stat py-3">
+					<div className="stat-title text-sm">잔여 인원</div>
+					<div className="stat-value text-3xl text-info tabular-nums">
+						{recruitPoolSize - totalPlaced}
+					</div>
+					<div className="stat-desc text-sm">{current ? "1명 진행 중" : "—"}</div>
+				</div>
+				<div className="stat py-3">
+					<div className="stat-title text-sm">유찰</div>
+					<div className="stat-value text-3xl text-warning tabular-nums">{unsoldCount}</div>
+					<div className="stat-desc text-sm">재경매 대기</div>
+				</div>
+			</div>
+
+			{/* 현재 매물 hero */}
+			<div className="card bg-base-200 border-l-4 border-primary shadow">
+				<div className="card-body p-5 gap-3">
+					<div className="flex items-center justify-between flex-wrap gap-2">
+						<h3 className="text-lg font-bold flex items-center gap-2">
+							📦 현재 매물
+							{current && (
+								<span
+									className="inline-block size-2.5 rounded-full bg-success animate-pulse"
+									aria-label="LIVE"
+								/>
+							)}
+						</h3>
 						<button
 							type="button"
-							className="btn btn-sm btn-primary"
+							className="btn btn-primary"
 							onClick={draw}
 							disabled={!canEdit || allPlaced}
 							title={allPlaced ? "모든 인원 배치 완료" : "랜덤 1명 추출"}
@@ -489,59 +616,78 @@ function BiddingPanel({
 						</button>
 					</div>
 					{current ? (
-						<div className="text-lg font-bold">{current.displayName}</div>
+						<div className="flex items-center gap-4 py-2">
+							<UserAvatar discordId={current.userId} displayName={current.displayName} size="lg" />
+							<div className="flex-1 min-w-0">
+								<div className="text-3xl font-bold truncate">{current.displayName}</div>
+								<div className="text-sm text-base-content/60">매물 진행 중 · 보이스에서 입찰 협의</div>
+							</div>
+						</div>
 					) : allPlaced ? (
-						<div className="text-sm text-success">
+						<div className="text-lg text-success font-medium">
 							✅ 모두 배치 완료 — 아래 [▶ 토너먼트 진행] 클릭하세요.
 						</div>
 					) : (
-						<div className="text-sm text-base-content/60">🎲 버튼으로 다음 인원 추출</div>
+						<div className="text-base text-base-content/60">🎲 버튼으로 다음 인원 추출</div>
 					)}
 				</div>
 			</div>
 
 			{/* 입찰 패널 */}
 			{current && (
-				<div className="card bg-base-200">
-					<div className="card-body p-4 gap-2">
-						<h3 className="font-bold">팀별 입찰 — {current.displayName}</h3>
+				<div className="card bg-base-200 shadow">
+					<div className="card-body p-5 gap-3">
+						<h3 className="text-lg font-bold">팀별 입찰</h3>
 						<div className="space-y-2">
-							{detail.teams.map((t) => (
-								<div key={t.id} className="flex items-center gap-2">
-									<div className="badge badge-info badge-lg">팀{t.teamIndex}</div>
-									<span className="flex-1 truncate text-sm">
-										{t.captainName} <span className="text-base-content/50">잔 {t.currentPoints}p</span>
-									</span>
-									<input
-										type="number"
-										placeholder="입찰가"
-										value={bidPoints[t.id] ?? ""}
-										onChange={(e) => setBidPoints((prev) => ({ ...prev, [t.id]: e.target.value }))}
-										disabled={!canEdit || t.members.length >= 5}
-										min={0}
-										className="input input-bordered input-sm w-20 text-right tabular-nums"
-									/>
-									<button
-										type="button"
-										className="btn btn-sm btn-success"
-										onClick={() => finalize(t.id)}
-										disabled={!canEdit || submitting || t.members.length >= 5}
+							{detail.teams.map((t) => {
+								const full = t.members.length >= 5;
+								return (
+									<div
+										key={t.id}
+										className={`flex items-center gap-2 p-2 rounded-md ${full ? "opacity-40" : "bg-base-100/40"}`}
 									>
-										✓ 낙찰
-									</button>
-									<button
-										type="button"
-										className="btn btn-sm btn-ghost"
-										onClick={() => manualAssign(t.id)}
-										disabled={!canEdit || submitting || t.members.length >= 5}
-										title="포인트 무관 수동 배치"
-									>
-										➕ 수동
-									</button>
-								</div>
-							))}
+										<div className="badge badge-info badge-lg">팀{t.teamIndex}</div>
+										<UserAvatar discordId={t.captainUserId} displayName={t.captainName} size="sm" />
+										<div className="flex-1 min-w-0">
+											<div className="font-bold text-base truncate flex items-center gap-1">
+												<span className="badge badge-warning badge-xs">👑</span>
+												{t.captainName}
+											</div>
+											<div className="text-sm text-base-content/60 tabular-nums">
+												잔 {t.currentPoints}p · {t.members.length}/5
+											</div>
+										</div>
+										<input
+											type="number"
+											placeholder="입찰가"
+											value={bidPoints[t.id] ?? ""}
+											onChange={(e) => setBidPoints((prev) => ({ ...prev, [t.id]: e.target.value }))}
+											disabled={!canEdit || full}
+											min={0}
+											className="input input-bordered w-24 text-right tabular-nums text-base"
+										/>
+										<button
+											type="button"
+											className="btn btn-success"
+											onClick={() => finalize(t.id)}
+											disabled={!canEdit || submitting || full}
+										>
+											✓ 낙찰
+										</button>
+										<button
+											type="button"
+											className="btn btn-ghost"
+											onClick={() => manualAssign(t.id)}
+											disabled={!canEdit || submitting || full}
+											title="포인트 무관 수동 배치"
+										>
+											➕ 수동
+										</button>
+									</div>
+								);
+							})}
 						</div>
-						<button type="button" className="btn btn-sm btn-ghost" onClick={() => setCurrent(null)}>
+						<button type="button" className="btn btn-ghost" onClick={() => setCurrent(null)}>
 							유찰 / 다음으로
 						</button>
 					</div>
@@ -550,59 +696,95 @@ function BiddingPanel({
 
 			{error && <div className="alert alert-error">{error}</div>}
 
-			{/* 팀 현황 */}
+			{/* 팀 현황 — radial-progress (포인트) + progress (충족률) + avatar 줄 */}
 			<div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-				{detail.teams.map((t) => (
-					<div key={t.id} className="card bg-base-200">
-						<div className="card-body p-3 gap-1.5">
-							<div className="flex items-center gap-2">
-								<div className="badge badge-info">팀{t.teamIndex}</div>
-								<span className="font-bold truncate">{t.captainName}</span>
-								<span className="ml-auto text-xs text-base-content/60 tabular-nums">
-									{t.currentPoints}/{t.initialPoints}p
-								</span>
-							</div>
-							<div className="space-y-0.5">
-								{t.members.length === 0 && (
-									<div className="text-sm text-base-content/40">_(아직 없음)_</div>
-								)}
-								{t.members.map((m) => (
-									<div key={m.userId} className="flex items-center gap-2 text-sm">
-										<span className="flex-1 truncate">{m.displayName}</span>
-										{m.acquiredVia === "BID" && m.acquiredAtPoints != null && (
-											<span className="text-xs text-base-content/50 tabular-nums">{m.acquiredAtPoints}p</span>
-										)}
-										{m.acquiredVia === "MANUAL" && <span className="badge badge-xs badge-ghost">수동</span>}
-										{canEdit && t.captainUserId !== m.userId && (
-											<ConfirmButton
-												label="✕"
-												onConfirm={() => onRevertBid(m.userId)}
-												variant="error"
-												className="btn-xs"
-											/>
-										)}
+				{detail.teams.map((t) => {
+					const pointPct =
+						t.initialPoints > 0 ? Math.round((t.currentPoints / t.initialPoints) * 100) : 0;
+					const fillPct = Math.round((t.members.length / 5) * 100);
+					return (
+						<div key={t.id} className="card bg-base-200 shadow-sm">
+							<div className="card-body p-4 gap-2">
+								<div className="flex items-center gap-3">
+									<div
+										className="radial-progress text-warning tabular-nums"
+										style={
+											{ "--value": pointPct, "--size": "4rem", "--thickness": "5px" } as React.CSSProperties
+										}
+										aria-valuenow={pointPct}
+										role="progressbar"
+									>
+										<span className="text-sm font-bold">{t.currentPoints}p</span>
 									</div>
-								))}
+									<div className="flex-1 min-w-0">
+										<div className="flex items-center gap-1.5">
+											<div className="badge badge-info badge-lg">팀{t.teamIndex}</div>
+											<span className="badge badge-warning badge-sm">👑</span>
+										</div>
+										<div className="font-bold text-base truncate">{t.captainName}</div>
+										<div className="text-xs text-base-content/60 tabular-nums">
+											초기 {t.initialPoints}p · 사용 {t.initialPoints - t.currentPoints}p
+										</div>
+									</div>
+								</div>
+
+								{/* 팀원 충족률 progress */}
+								<div className="space-y-1">
+									<div className="flex items-center justify-between text-sm">
+										<span className="font-medium">팀원</span>
+										<span className="text-base-content/60 tabular-nums">{t.members.length}/5</span>
+									</div>
+									<progress
+										className={`progress ${t.members.length === 5 ? "progress-success" : "progress-info"} w-full`}
+										value={fillPct}
+										max={100}
+									/>
+								</div>
+
+								{/* 팀원 avatar 줄 + 이름 */}
+								<div className="space-y-1.5">
+									{t.members.length === 0 && (
+										<div className="text-base text-base-content/40 text-center py-2">_(아직 없음)_</div>
+									)}
+									{t.members.map((m) => (
+										<div key={m.userId} className="flex items-center gap-2 text-base">
+											<UserAvatar discordId={m.userId} displayName={m.displayName} size="xs" />
+											<span className="flex-1 truncate">{m.displayName}</span>
+											{m.acquiredVia === "BID" && m.acquiredAtPoints != null && (
+												<span className="text-sm text-base-content/50 tabular-nums">{m.acquiredAtPoints}p</span>
+											)}
+											{m.acquiredVia === "MANUAL" && <span className="badge badge-xs badge-ghost">수동</span>}
+											{canEdit && t.captainUserId !== m.userId && (
+												<ConfirmButton
+													label="✕"
+													onConfirm={() => onRevertBid(m.userId)}
+													variant="error"
+													className="btn-xs"
+												/>
+											)}
+										</div>
+									))}
+								</div>
 							</div>
-							<div className="text-xs text-base-content/50">{t.members.length}/5</div>
 						</div>
-					</div>
-				))}
+					);
+				})}
 			</div>
 
-			{/* 유찰 리스트 */}
+			{/* 유찰 리스트 — badge 콜렉션 */}
 			{detail.unsold.length > 0 && (
-				<div className="card bg-base-200 border-l-4 border-warning">
-					<div className="card-body p-3 gap-1.5">
-						<h3 className="font-bold">유찰 리스트 ({detail.unsold.length})</h3>
-						<div className="grid grid-cols-2 md:grid-cols-3 gap-1.5">
+				<div className="card bg-base-200 border-l-4 border-warning shadow-sm">
+					<div className="card-body p-4 gap-2">
+						<h3 className="text-base font-bold">🟡 유찰 ({detail.unsold.length}) — 재경매 대기</h3>
+						<div className="flex flex-wrap gap-2">
 							{detail.unsold.map((u) => (
-								<div key={u.userId} className="text-sm py-1 px-2 bg-base-100 rounded">
-									{u.displayName}
+								<div key={u.userId} className="badge badge-warning badge-lg gap-1.5 py-3 px-2">
+									<UserAvatar discordId={u.userId} displayName={u.displayName} size="xs" />
+									<span className="text-sm font-medium">{u.displayName}</span>
 								</div>
 							))}
 						</div>
-						<p className="text-xs text-base-content/60">
+						<p className="text-sm text-base-content/60">
 							🎲 다음 인원 으로 재추출 또는 ➕ 수동 으로 직접 배치하세요.
 						</p>
 					</div>
@@ -610,23 +792,23 @@ function BiddingPanel({
 			)}
 
 			{/* 모두 배치 완료 → 토너먼트 진행 */}
-			<div className="card bg-base-200">
-				<div className="card-body p-3 gap-2">
-					<div className="flex items-center justify-between">
-						<span className="font-bold">
-							배치 현황:{" "}
-							<span className="tabular-nums">
+			<div className="card bg-base-200 shadow">
+				<div className="card-body p-4 gap-2">
+					<div className="flex items-center justify-between flex-wrap gap-2">
+						<span className="text-base font-bold">
+							배치 현황{" "}
+							<span className="tabular-nums text-lg">
 								{totalPlaced}/{expectedTotal}
 							</span>
 						</span>
 						{canEdit && (
 							<button
 								type="button"
-								className="btn btn-sm btn-success"
+								className="btn btn-success btn-lg"
 								onClick={onStartBracket}
 								disabled={!allPlaced || submitting}
 							>
-								{allPlaced ? "▶ 토너먼트 진행" : `배치 완료 후`}
+								{allPlaced ? "▶ 토너먼트 진행" : "배치 완료 후"}
 							</button>
 						)}
 					</div>
