@@ -35,6 +35,12 @@ export const data = new SlashCommandBuilder()
 			.setRequired(true)
 			.setMinValue(1)
 			.setMaxValue(20),
+	)
+	.addStringOption((o) =>
+		o
+			.setName("종류")
+			.setDescription("일반/경매 (ID 가 같을 수 있어 명시 권장)")
+			.addChoices({ name: "일반 내전", value: "normal" }, { name: "경매내전", value: "auction" }),
 	);
 
 interface UserRow {
@@ -47,22 +53,59 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
 
 	const recruitmentId = interaction.options.getInteger("모집", true);
 	const requested = interaction.options.getInteger("인원", true);
+	const typeOpt = interaction.options.getString("종류") as "normal" | "auction" | null;
 	const operatorId = interaction.user.id;
 
 	await interaction.deferReply({ ephemeral: true });
 
-	// 일반 / 경매 자동 감지
-	const normalRec = await db.getRecruitment(recruitmentId);
-	const auctionRec = !normalRec ? await db.getAuctionRecruitment(recruitmentId) : null;
+	// 일반 / 경매 둘 다 fetch (ID 가 양쪽 테이블 모두에 있을 수 있음 — AUTOINCREMENT 별도)
+	const [normalRec, auctionRec] = await Promise.all([
+		db.getRecruitment(recruitmentId),
+		db.getAuctionRecruitment(recruitmentId),
+	]);
 	if (!normalRec && !auctionRec) {
-		await interaction.editReply(`❌ 모집 #${recruitmentId} 를 찾을 수 없습니다.`);
+		await interaction.editReply(`❌ 모집 #${recruitmentId} 를 찾을 수 없습니다 (일반 / 경매 모두).`);
 		return;
 	}
 
-	const isAuction = !!auctionRec;
-	const rec = normalRec ?? auctionRec!;
+	// 어느 쪽을 사용할지 결정
+	let isAuction: boolean;
+	if (typeOpt) {
+		isAuction = typeOpt === "auction";
+		if (isAuction && !auctionRec) {
+			await interaction.editReply(`❌ 경매 모집 #${recruitmentId} 없음.`);
+			return;
+		}
+		if (!isAuction && !normalRec) {
+			await interaction.editReply(`❌ 일반 모집 #${recruitmentId} 없음.`);
+			return;
+		}
+	} else if (normalRec && auctionRec) {
+		// 둘 다 있을 때 — OPEN 인 쪽 우선
+		const normalOpen = normalRec.status === "OPEN";
+		const auctionOpen = auctionRec.status === "OPEN";
+		if (normalOpen && auctionOpen) {
+			await interaction.editReply(
+				`⚠️ 모집 ID ${recruitmentId} 가 일반 (OPEN) / 경매 (OPEN) 양쪽에 존재합니다. \`종류:\` 옵션을 명시하세요.`,
+			);
+			return;
+		}
+		if (!normalOpen && !auctionOpen) {
+			await interaction.editReply(
+				`❌ 모집 ID ${recruitmentId} — 일반 (${normalRec.status}) / 경매 (${auctionRec.status}) 둘 다 OPEN 아님. \`종류:\` 옵션 명시 필요 (또는 새 모집 만드세요).`,
+			);
+			return;
+		}
+		isAuction = auctionOpen;
+	} else {
+		isAuction = !!auctionRec;
+	}
+
+	const rec = isAuction ? auctionRec! : normalRec!;
 	if (rec.status !== "OPEN") {
-		await interaction.editReply(`❌ 모집 status=${rec.status} — OPEN 일 때만 추가 가능.`);
+		await interaction.editReply(
+			`❌ ${isAuction ? "경매" : "일반"} 모집 status=${rec.status} — OPEN 일 때만 추가 가능.`,
+		);
 		return;
 	}
 
@@ -126,15 +169,10 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
 		? await refreshAuctionRecruitMessage(
 				interaction,
 				recruitmentId,
-				auctionRec!.channel_id,
-				auctionRec!.message_id,
+				rec.channel_id,
+				rec.message_id,
 			)
-		: await refreshRecruitMessage(
-				interaction,
-				recruitmentId,
-				normalRec!.channel_id,
-				normalRec!.message_id,
-			);
+		: await refreshRecruitMessage(interaction, recruitmentId, rec.channel_id, rec.message_id);
 	void notify(isAuction ? `auction-recruitment:${recruitmentId}` : `recruitment:${recruitmentId}`);
 	void notify(isAuction ? "auction-dashboard" : "dashboard");
 

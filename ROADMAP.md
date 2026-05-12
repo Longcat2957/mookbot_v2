@@ -2,7 +2,7 @@
 
 > 현재 버전 기준 진척 상태. 시간순 기획서는 [`PLAN.md`](./PLAN.md), 코드 리뷰 워킹노트는 [`docs/internal/`](./docs/internal/) 참조.
 
-## 현재 (v0.5.8)
+## 현재 (v0.5.9)
 
 활성 도메인: `bot.mooklol.com` (Cloudflare proxied → 단일 VPS · Docker compose 4컨테이너 stack: bot · api · activity · nginx).
 실서비스 운영 중.
@@ -152,6 +152,15 @@
 - **검증된 동작**: 첫 로드 (server draft 없음/있음), dirty 보호, `setSide`/`setCurrentGame`/`setGameDraft` (게임 게이팅 포함), `fearlessUsedIds` 도메인 계산 (이전 게임 + draft 합산, 현재 제외), `revert`/`undoLast` 성공/실패, debounced save (canEdit on/off), WS callback 시 refresh + toast, 1/2/3 단축키 (input 안 무시), `moveTo` (빈/점유 unassigned/점유 swap/null), `swapTeams`, `allFilled`, `submit` (성공/미충족/실패), Tap-to-Place 흐름 (`handleParticipantTap`/`handleSlotTap`/`handlePoolTap`, canEdit off 시 no-op), Esc 키 selected 해제, `recentlyChanged` diff.
 - **vitest config**: `apps/activity/src/screens/*/use*State.ts` 만 coverage include 로 추가 (전체 activity src 는 UI 영역으로 exclude 유지).
 - **테스트 총합**: 256 → 291 (+35). lint warnings 가 +20 (mock data 의 `!` non-null assertion — 테스트에서는 의도적 패턴, errors 0).
+
+### Phase 26 — `/랜덤인원추가` ID 충돌 fix (v0.5.9)
+- **버그: 일반/경매 모집 ID 충돌** — `recruitments` 와 `auction_recruitments` 가 별도 테이블 + 각각 AUTOINCREMENT 라 같은 ID 양쪽 존재 가능. 사용자가 `/경매내전모집` 으로 만든 #2 의 `/랜덤인원추가 모집:2` 실행 시 일반 #2 (CANCELLED) 가 우선 lookup → "status=CANCELLED — OPEN 일 때만 추가 가능" 오류.
+- **fix**:
+  - `Promise.all` 로 일반 + 경매 둘 다 fetch
+  - 종류 옵션 명시되면 그 쪽만 사용
+  - 둘 다 있고 한쪽만 OPEN 이면 OPEN 인 쪽 자동 선택
+  - 둘 다 OPEN 또는 둘 다 OPEN 아니면 `종류:` 옵션 명시 요청 (모호한 경우 안내)
+- **신규 옵션 `종류:일반|경매`** — Discord choice (optional). ID 충돌 의심 시 명시. 명시 안 하면 OPEN 인 쪽 자동.
 
 ### Phase 25 — `/모집강제삭제` 가드 + 경매 단계 되돌리기 (v0.5.8)
 - **버그: `/모집강제삭제` 가 in-progress series 가 있어도 모집 row 삭제 → 시리즈 잔존** — recruitment.status==='CONVERTED' 만 차단했는데, edge case (setRecruitmentStatus 미적용 등) 로 status 가 CLOSED/OPEN 인데 같은 id 의 series 가 INSERT 된 경우 모집은 삭제되고 series 만 남음. → `getSeries(id).status === 'IN_PROGRESS'` 도 차단 + `/시리즈강제삭제` 안내.
