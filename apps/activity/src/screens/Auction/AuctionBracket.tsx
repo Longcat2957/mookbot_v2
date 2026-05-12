@@ -81,14 +81,8 @@ export function AuctionBracket({
 					<button type="button" className="btn btn-ghost btn-sm" onClick={s.refresh}>
 						↻
 					</button>
-					{perms.canEdit && s.detail.tournament.status !== "COMPLETED" && (
-						<ConfirmButton
-							label="⛔ 토너먼트 강제 취소"
-							onConfirm={s.cancel}
-							variant="error"
-							className="btn-sm"
-						/>
-					)}
+					{/* 토너먼트 강제 취소는 안전을 위해 봇 슬래시 (/경매내전강제삭제) 로 일원화.
+					    Activity 에서는 단계 되돌리기 (revertStage) 만 가능 — AuctionDraft 의 [↩ 단계] dropdown 참조. */}
 				</div>
 			</header>
 
@@ -101,7 +95,13 @@ export function AuctionBracket({
 					<h3 className="font-bold">{s.detail.tournament.format === 20 ? "4강" : "매치"}</h3>
 					<div className="grid grid-cols-1 md:grid-cols-2 gap-3">
 						{(s.detail.tournament.format === 20 ? semis : matches).map((m) => (
-							<MatchCard key={m.seriesId} match={m} detail={s.detail!} canEdit={perms.canEdit} />
+							<MatchCard
+								key={m.seriesId}
+								match={m}
+								detail={s.detail!}
+								canEdit={perms.canEdit}
+								onTournamentRefresh={s.refresh}
+							/>
 						))}
 					</div>
 				</div>
@@ -112,7 +112,12 @@ export function AuctionBracket({
 				<div className="space-y-2">
 					<h3 className="font-bold">결승</h3>
 					{finalOrSingle ? (
-						<MatchCard match={finalOrSingle} detail={s.detail} canEdit={perms.canEdit} />
+						<MatchCard
+							match={finalOrSingle}
+							detail={s.detail}
+							canEdit={perms.canEdit}
+							onTournamentRefresh={s.refresh}
+						/>
 					) : (
 						perms.canEdit && <FinalSetup detail={s.detail} semis={semis} onCreate={s.createMatch} />
 					)}
@@ -425,10 +430,12 @@ function MatchCard({
 	match,
 	detail,
 	canEdit,
+	onTournamentRefresh,
 }: {
 	match: AuctionMatch;
 	detail: AuctionTournamentDetail;
 	canEdit: boolean;
+	onTournamentRefresh: () => void;
 }) {
 	const t1 = detail.teams.find((t) => t.id === match.team1Id);
 	const t2 = detail.teams.find((t) => t.id === match.team2Id);
@@ -493,7 +500,10 @@ function MatchCard({
 							<MatchFormatToggle
 								seriesId={match.seriesId}
 								format={match.format}
-								onChanged={() => swr.refresh()}
+								onChanged={() => {
+									swr.refresh();
+									onTournamentRefresh();
+								}}
 							/>
 						)}
 						{games.length > 0 && (
@@ -504,6 +514,7 @@ function MatchCard({
 										method: "DELETE",
 									});
 									swr.refresh();
+									onTournamentRefresh();
 								}}
 								variant="error"
 								className="btn-sm"

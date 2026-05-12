@@ -2,7 +2,7 @@
 
 > 현재 버전 기준 진척 상태. 시간순 기획서는 [`PLAN.md`](./PLAN.md), 코드 리뷰 워킹노트는 [`docs/internal/`](./docs/internal/) 참조.
 
-## 현재 (v0.5.10)
+## 현재 (v0.5.11)
 
 활성 도메인: `bot.mooklol.com` (Cloudflare proxied → 단일 VPS · Docker compose 4컨테이너 stack: bot · api · activity · nginx).
 실서비스 운영 중.
@@ -152,6 +152,11 @@
 - **검증된 동작**: 첫 로드 (server draft 없음/있음), dirty 보호, `setSide`/`setCurrentGame`/`setGameDraft` (게임 게이팅 포함), `fearlessUsedIds` 도메인 계산 (이전 게임 + draft 합산, 현재 제외), `revert`/`undoLast` 성공/실패, debounced save (canEdit on/off), WS callback 시 refresh + toast, 1/2/3 단축키 (input 안 무시), `moveTo` (빈/점유 unassigned/점유 swap/null), `swapTeams`, `allFilled`, `submit` (성공/미충족/실패), Tap-to-Place 흐름 (`handleParticipantTap`/`handleSlotTap`/`handlePoolTap`, canEdit off 시 no-op), Esc 키 selected 해제, `recentlyChanged` diff.
 - **vitest config**: `apps/activity/src/screens/*/use*State.ts` 만 coverage include 로 추가 (전체 activity src 는 UI 영역으로 exclude 유지).
 - **테스트 총합**: 256 → 291 (+35). lint warnings 가 +20 (mock data 의 `!` non-null assertion — 테스트에서는 의도적 패턴, errors 0).
+
+### Phase 28 — BO 토글 UI 갱신 fix + Activity cancel 버튼 제거 (v0.5.11)
+- **버그: BO1/BO3 toggle 후 UI 갱신 안 됨** — DB 의 `auction_matches.format` 은 변경되지만 Activity 의 MatchCard 가 받는 `match.format` 은 tournament detail (matches[]) 에서 옴. `onChanged` 가 series detail SWR 만 refresh → tournament detail 미갱신. WS invalidate broadcast 는 본인 origin 제외라 본인 클라이언트는 자동 수신 X.
+- **fix**: `MatchCard` 에 `onTournamentRefresh` prop 추가 → 부모 (`AuctionBracket`) 의 `s.refresh` 전달. BO toggle / `↺ 직전 게임` 둘 다 series + tournament 양쪽 refresh.
+- **변경: Activity 의 `⛔ 토너먼트 강제 취소` 버튼 제거** — 안전성 우선. 강제 취소는 봇 슬래시 `/경매내전강제삭제` 로 일원화 (confirm 모달 + audit). Activity 안에서는 단계 되돌리기 (`↩ 단계` dropdown, CAPTAIN_PICK / POINT_ALLOC / BIDDING) 만 가능.
 
 ### Phase 27 — 결승 자동 진입 fix (v0.5.10)
 - **버그**: 4강 두 매치 결과 입력 완료해도 결승 카드가 "_(4강 결과 대기 중)_" 으로 영원히 멈춤. 결승 매치 생성 불가.
