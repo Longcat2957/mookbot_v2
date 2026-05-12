@@ -248,19 +248,24 @@
 
 ## 5. 정보 위계 (typography)
 
-| 레벨 | 사용 | daisyUI / Tailwind |
-|---|---|---|
-| H1 | 페이지 타이틀 (`🎟️ 경매내전 #12`) | `text-xl font-bold` |
-| H2 | 섹션 타이틀 (`📦 현재 매물`, `4강`) | `text-base font-bold` |
-| H3 | 카드 타이틀 (`팀 1`) | `text-sm font-bold` |
-| 큰 숫자 | 포인트, 스코어 | `stat-value` (`text-2xl/3xl font-bold tabular-nums`) |
-| 본문 | 일반 텍스트 | `text-sm` |
-| Caption | 보조 (`잔 850p`, 추가 정보) | `text-xs text-base-content/60` |
+**핵심 원칙 — 전체적으로 글자 크기 키움.** 보이스 채널에서 다수가 동시에 보는 화면, 멀리서도 읽기 쉬워야. 기존 시리즈 화면의 한 단계 위로.
+
+| 레벨 | 사용 | 기존 (시리즈) | 경매 (이번 wave) |
+|---|---|---|---|
+| H1 | 페이지 타이틀 (`🎟️ 경매내전 #12`) | `text-xl` | **`text-2xl`** |
+| H2 | 섹션 타이틀 (`📦 현재 매물`, `4강`) | `text-base` | **`text-lg`** |
+| H3 | 카드 타이틀 (`팀 1`) | `text-sm` | **`text-base`** |
+| 큰 숫자 (강조) | 포인트, 스코어 | `text-2xl/3xl` (stat-value) | **`text-3xl/4xl`** |
+| 본문 | 일반 텍스트 | `text-sm` | **`text-base`** |
+| Caption | 보조 (`잔 850p`, 부가) | `text-xs` | **`text-sm`** |
+| 매물 displayName (BIDDING hero) | n/a | n/a | **`text-3xl font-bold`** — 보이스에서 멀리 봐도 명확 |
+| 매치 스코어 (Bracket) | `text-2xl` | n/a | **`text-4xl/5xl`** — 토너먼트 시각 임팩트 |
 
 규칙:
 - 큰 숫자는 항상 `tabular-nums` — 숫자 흔들림 방지
 - 색은 의미 기반 (info=정보, success=완료, warning=주의, error=위험)
 - 팀 색 (info/error) 은 1팀/2팀 또는 BLUE/RED 사이드에만 사용 (다른 의미 X)
+- 화면 전체 padding 도 한 단계 늘림 — `p-3` → `p-4`, `p-4` → `p-5`. 공간 여유로 가독성 ↑
 
 ---
 
