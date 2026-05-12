@@ -35,7 +35,7 @@
 - **새 기능 추가 X** — 현재 lifecycle 그대로
 - **API 변경 X** — 응답 schema 그대로 (기존 fields 활용)
 - **봇 채널 메시지 변경 X** — 이번 작업 외
-- **모바일 첫 (스마트폰) 디자인 X** — Activity 는 Discord desktop / web 중심, 모바일 따로 wave
+- **모바일 대응 X** — 이번 작업 범위 완전 제외. Activity 는 Discord Desktop / Web 만 가정. 작은 화면 (< md) 의 반응형 layout / 모바일 토글 등 어떤 모바일 fallback 도 신경 안 씀. 모바일 fallback 은 별도 wave 에서 결정.
 
 ### 1.4 디자인 일관성
 
@@ -168,7 +168,7 @@
 │ [입찰: ___] [✓]  │ [입찰: ___] [✓]  │
 │ [➕수동]          │ [➕수동]          │
 └──────────────────┴──────────────────┘
-(4팀 grid 2x2 — 20인 / 1x2 — 10인)
+(4팀 grid 2x2 — 20인 / 2팀 1x2 — 10인. 데스크탑 가정, 모바일 미고려)
 
 ┌─────────────────────────────────────────────────────────────┐
 │ 유찰 (3): badge col [j] [k] [l]                            │
@@ -288,7 +288,6 @@ phase 별 commit / release 가능 — 한 번에 묶음 release 도 OK (예: U1+
 | Bracket 시각화 | (a) timeline-horizontal / (b) grid 2-cols + CSS 연결선 / (c) SVG | **(b)** — 가장 단순, daisyUI 만 |
 | 팀장 강조 | (a) avatar ring-warning + 👑 badge / (b) 별도 큰 카드 / (c) `data-content` 위 superscript | **(a)** — 일관성 + 정보 밀도 |
 | 잔여 포인트 시각화 | (a) radial-progress 도넛 / (b) progress bar 가로 / (c) stat 큰 숫자 | **(a) + (c)** — 도넛 (시각) + 큰 숫자 (정확값) 같이 |
-| 모바일 (작은 화면) 대응 | (a) 4팀 2x2 grid → 1x4 stacking / (b) 작은 화면 hidden 옵션 | **(a)** — 모바일도 reader 시각 유지 |
 | 분할 release | (a) U1~U6 한 번에 / (b) U1+U2 → U3~U5 → U6 분할 | **(b)** — 회귀 격리, 점진적 검증 |
 
 ---
@@ -298,7 +297,7 @@ phase 별 commit / release 가능 — 한 번에 묶음 release 도 OK (예: U1+
 - **새 기능** — 입찰 자동화 / 단계 자동 진행 / 챔프 추천 등
 - **API 변경** — 응답 schema / endpoint 새로 X
 - **봇 채널 메시지** — 모집 / 종료 카드 UI 변경 X (이전 phase 에 일관 유지)
-- **모바일-first 디자인** — Activity 는 Desktop 중심 — 모바일 대응은 break-once-fix 정도
+- **모바일 대응 (전면 제외)** — 작은 화면 반응형 / `< md` breakpoint / 모바일 토글 / 터치 friendly 어떤 것도 신경 안 씀. Tailwind 의 `md:` `lg:` 같은 responsive prefix 도 의도적으로 안 씀 (desktop 만 가정). 모바일 fallback 은 별도 wave 에서 결정 — 현재 wave 의 디자인 결정에 모바일 제약 고려 0.
 - **실시간 협업 시각화** — 픽밴 cursor presence 등은 별도 백로그 wave
 - **새 db 컬럼** — schema 변경 0
 - **권한 / 가드 변경** — 운영자만 입력, reader 는 단순 view — 동일
