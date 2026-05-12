@@ -2,7 +2,7 @@
 
 > 현재 버전 기준 진척 상태. 시간순 기획서는 [`PLAN.md`](./PLAN.md), 코드 리뷰 워킹노트는 [`docs/internal/`](./docs/internal/) 참조.
 
-## 현재 (v0.5.9)
+## 현재 (v0.5.10)
 
 활성 도메인: `bot.mooklol.com` (Cloudflare proxied → 단일 VPS · Docker compose 4컨테이너 stack: bot · api · activity · nginx).
 실서비스 운영 중.
@@ -152,6 +152,11 @@
 - **검증된 동작**: 첫 로드 (server draft 없음/있음), dirty 보호, `setSide`/`setCurrentGame`/`setGameDraft` (게임 게이팅 포함), `fearlessUsedIds` 도메인 계산 (이전 게임 + draft 합산, 현재 제외), `revert`/`undoLast` 성공/실패, debounced save (canEdit on/off), WS callback 시 refresh + toast, 1/2/3 단축키 (input 안 무시), `moveTo` (빈/점유 unassigned/점유 swap/null), `swapTeams`, `allFilled`, `submit` (성공/미충족/실패), Tap-to-Place 흐름 (`handleParticipantTap`/`handleSlotTap`/`handlePoolTap`, canEdit off 시 no-op), Esc 키 selected 해제, `recentlyChanged` diff.
 - **vitest config**: `apps/activity/src/screens/*/use*State.ts` 만 coverage include 로 추가 (전체 activity src 는 UI 영역으로 exclude 유지).
 - **테스트 총합**: 256 → 291 (+35). lint warnings 가 +20 (mock data 의 `!` non-null assertion — 테스트에서는 의도적 패턴, errors 0).
+
+### Phase 27 — 결승 자동 진입 fix (v0.5.10)
+- **버그**: 4강 두 매치 결과 입력 완료해도 결승 카드가 "_(4강 결과 대기 중)_" 으로 영원히 멈춤. 결승 매치 생성 불가.
+- **원인**: `useFinalParticipants` hook 의 `useEffect` deps 가 `[JSON.stringify(semis), detail.tournament.status]`. 4강 매치의 series 결과 (status, winningTeam) 가 변경돼도 semis 배열 자체 (id, team1Id, team2Id 등) 는 동일하고 tournament.status 도 IN_GAME 유지 → deps 동일 → fetch 재실행 X.
+- **fix**: 각 4강 매치를 `useStaleWhileRevalidate` + `wsClient.subscribe('auction-match:N')` 로 reactive 추적. 매치 결과 INSERT 시 invalidate broadcast → SWR refresh → winners 재계산 → 결승 [▶ 결승 시작] 버튼 자동 노출.
 
 ### Phase 26 — `/랜덤인원추가` ID 충돌 fix (v0.5.9)
 - **버그: 일반/경매 모집 ID 충돌** — `recruitments` 와 `auction_recruitments` 가 별도 테이블 + 각각 AUTOINCREMENT 라 같은 ID 양쪽 존재 가능. 사용자가 `/경매내전모집` 으로 만든 #2 의 `/랜덤인원추가 모집:2` 실행 시 일반 #2 (CANCELLED) 가 우선 lookup → "status=CANCELLED — OPEN 일 때만 추가 가능" 오류.

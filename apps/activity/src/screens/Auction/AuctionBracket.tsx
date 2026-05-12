@@ -1,8 +1,9 @@
 // 경매내전 토너먼트 매치 진행 — BRACKET_SETUP / IN_GAME / COMPLETED.
 // 매치 생성 + BO1/BO3 선택 + 라인 자유 픽 + 게임 결과 입력 + 자동 결승.
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { api } from "../../api/rest.js";
+import { wsClient } from "../../api/ws.js";
 import { ConfirmButton } from "../../components/ConfirmButton.js";
 import { usePerms } from "../../state/perms.js";
 import { useStaleWhileRevalidate } from "../../state/useStaleWhileRevalidate.js";
@@ -282,34 +283,59 @@ function FinalSetup({
 }
 
 function useFinalParticipants(
-	detail: AuctionTournamentDetail,
+	_detail: AuctionTournamentDetail,
 	semis: AuctionMatch[],
 ): [number, number] | null {
-	const [winners, setWinners] = useState<[number, number] | null>(null);
+	// 각 4강 매치 series 를 SWR + WS subscribe 로 reactive 하게 추적 — 매치 결과
+	// 변경 시 즉시 재계산. 기존 useEffect 는 semis 배열 자체가 같으면 (id 동일) 재실행
+	// 안 돼 4강 끝나도 결승 진입 불가던 버그 fix.
+	const m1Id = semis[0]?.seriesId ?? null;
+	const m2Id = semis[1]?.seriesId ?? null;
+
+	const m1Fetcher = useCallback(
+		() =>
+			m1Id !== null
+				? api<SeriesDetail>(`/series/${m1Id}`)
+				: Promise.reject(new Error("no semi 1")),
+		[m1Id],
+	);
+	const m2Fetcher = useCallback(
+		() =>
+			m2Id !== null
+				? api<SeriesDetail>(`/series/${m2Id}`)
+				: Promise.reject(new Error("no semi 2")),
+		[m2Id],
+	);
+	const m1Swr = useStaleWhileRevalidate<SeriesDetail>(m1Id, m1Fetcher, {
+		enabled: m1Id !== null,
+	});
+	const m2Swr = useStaleWhileRevalidate<SeriesDetail>(m2Id, m2Fetcher, {
+		enabled: m2Id !== null,
+	});
+
 	useEffect(() => {
-		if (semis.length !== 2) {
-			setWinners(null);
-			return;
-		}
-		(async () => {
-			try {
-				const semiDetails = await Promise.all(
-					semis.map((s) => api<SeriesDetail>(`/series/${s.seriesId}`)),
-				);
-				if (semiDetails.every((d) => d.series.status === "COMPLETED" && d.series.winningTeam)) {
-					const w = semiDetails.map((d, i) => {
-						const m = semis[i]!;
-						return d.series.winningTeam === "TEAM_1" ? m.team1Id : m.team2Id;
-					}) as [number, number];
-					setWinners(w);
-				}
-			} catch {
-				setWinners(null);
-			}
-		})();
-		// 의도적으로 detail 의존 — 매치 결과 바뀔 때 재 fetch
-	}, [JSON.stringify(semis), detail.tournament.status]);
-	return winners;
+		if (m1Id === null) return;
+		return wsClient.subscribe(`auction-match:${m1Id}`, () => m1Swr.refresh());
+	}, [m1Id, m1Swr]);
+	useEffect(() => {
+		if (m2Id === null) return;
+		return wsClient.subscribe(`auction-match:${m2Id}`, () => m2Swr.refresh());
+	}, [m2Id, m2Swr]);
+
+	if (
+		semis.length !== 2 ||
+		!m1Swr.data ||
+		!m2Swr.data ||
+		m1Swr.data.series.status !== "COMPLETED" ||
+		m2Swr.data.series.status !== "COMPLETED" ||
+		!m1Swr.data.series.winningTeam ||
+		!m2Swr.data.series.winningTeam
+	) {
+		return null;
+	}
+	const w1 = m1Swr.data.series.winningTeam === "TEAM_1" ? semis[0]!.team1Id : semis[0]!.team2Id;
+	const w2 = m2Swr.data.series.winningTeam === "TEAM_1" ? semis[1]!.team1Id : semis[1]!.team2Id;
+	return [w1, w2];
 }
 
 function FormatSelect({
