@@ -17,14 +17,20 @@ export async function registerSeriesRoutes(app: FastifyInstance): Promise<void> 
 		Body: {
 			recruitmentId: number;
 			assignments: { userId: string; team: "TEAM_1" | "TEAM_2"; role: string }[];
+			// 엔트리 제출 시 코인토스 결과. 입력되면 Game 1 의 1팀 사이드를 미리 결정 —
+			// 1팀=BLUE 가 되도록 클라이언트에서 swap 후 전송하므로 서버 단에선 단순 저장.
+			team1Side?: "BLUE" | "RED";
 		};
 	}>("/api/series", async (req, reply) => {
 		const sid = await requireEditor(req, reply);
 		if (!sid) return;
 
-		const { recruitmentId, assignments } = req.body ?? {};
+		const { recruitmentId, assignments, team1Side } = req.body ?? {};
 		if (!recruitmentId || !Array.isArray(assignments)) {
 			return reply.code(400).send({ error: "recruitmentId / assignments required" });
+		}
+		if (team1Side !== undefined && team1Side !== "BLUE" && team1Side !== "RED") {
+			return reply.code(400).send({ error: "team1Side must be BLUE or RED" });
 		}
 
 		const rec = await getRecruitment(recruitmentId);
@@ -53,6 +59,21 @@ export async function registerSeriesRoutes(app: FastifyInstance): Promise<void> 
 			req.log.error({ err, recruitmentId }, "createSeries failed");
 			throw new HttpError(400, err instanceof Error ? err.message : String(err));
 		}
+		// 코인토스 결과 받으면 Game 1 team1Side 미리 저장 — PickBan 진입 시 사이드 결정 카드 skip.
+		if (team1Side) {
+			const teamSize = Math.floor(assignments.length / 2);
+			const emptyArr = () => Array<number | null>(teamSize).fill(null);
+			const initialDraft = {
+				games: [1, 2, 3].map((n) => ({
+					gameNumber: n,
+					team1Side: n === 1 ? team1Side : null,
+					bans: { TEAM_1: emptyArr(), TEAM_2: emptyArr() },
+					picks: { TEAM_1: emptyArr(), TEAM_2: emptyArr() },
+				})),
+				currentGame: 1,
+			};
+			await db.setKv(`pickban:${series.id}`, JSON.stringify(initialDraft), sid);
+		}
 		await db.setRecruitmentStatus(recruitmentId, "CONVERTED", series.id);
 		await db.recordAudit({
 			operatorId: sid,
@@ -63,6 +84,7 @@ export async function registerSeriesRoutes(app: FastifyInstance): Promise<void> 
 				recruitmentId,
 				seasonId: rec.season_id,
 				participantCount: assignments.length,
+				team1Side: team1Side ?? null,
 			},
 		});
 		invalidate("dashboard");

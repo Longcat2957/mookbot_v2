@@ -54,6 +54,11 @@ export interface UseEntryEditingStateResult {
 	redo: () => void;
 	canUndo: boolean;
 	canRedo: boolean;
+	// 코인토스 — BLUE 사이드 결정. 결정 시 1팀이 BLUE 가 되도록 swap 자동 (TEAM_2 선택 시).
+	// submit 시 team1Side="BLUE" 가 POST /series 에 전송 → PickBan 사이드 결정 카드 skip.
+	coinTossDecided: boolean;
+	setCoinTossWinner: (winnerTeam: "TEAM_1" | "TEAM_2") => void;
+	clearCoinToss: () => void;
 }
 
 export function useEntryEditingState({
@@ -262,6 +267,9 @@ export function useEntryEditingState({
 		setSelectedUid(null);
 	}, [perms.canEdit, selectedUid, moveTo]);
 
+	// 코인토스 — BLUE 사이드 결정 여부. 결정 시 항상 "1팀 = BLUE" 가 되도록 swap 자동.
+	const [coinTossDecided, setCoinTossDecided] = useState(false);
+
 	const submit = useCallback(async (): Promise<{ seriesId: number } | null> => {
 		if (!allFilled || recruitmentId === null) return null;
 		setSubmitting(true);
@@ -276,7 +284,11 @@ export function useEntryEditingState({
 			});
 			const res = await api<{ seriesId: number }>("/series", {
 				method: "POST",
-				body: JSON.stringify({ recruitmentId, assignments }),
+				body: JSON.stringify({
+					recruitmentId,
+					assignments,
+					...(coinTossDecided ? { team1Side: "BLUE" as const } : {}),
+				}),
 			});
 			return res;
 		} catch (err) {
@@ -285,7 +297,7 @@ export function useEntryEditingState({
 		} finally {
 			setSubmitting(false);
 		}
-	}, [allFilled, assignment, recruitmentId]);
+	}, [allFilled, assignment, recruitmentId, coinTossDecided]);
 
 	const retrySave = useCallback(() => setRetryNonce((n) => n + 1), []);
 	const clearSelected = useCallback(() => setSelectedUid(null), []);
@@ -377,6 +389,31 @@ export function useEntryEditingState({
 	const canUndo = historyIdx > 0;
 	const canRedo = historyIdx < history.length - 1;
 
+	// 코인토스 — BLUE 사이드 결정. TEAM_2 선택 시 swap 수행 (결과적으로 1팀 = 원래 2팀 = BLUE).
+	const setCoinTossWinner = useCallback(
+		(winnerTeam: "TEAM_1" | "TEAM_2") => {
+			if (!perms.canEdit) return;
+			if (winnerTeam === "TEAM_2") {
+				pushHistory(assignment);
+				setAssignment((prev) => {
+					const next = new Map<string, Slot>();
+					for (const [uid, slot] of prev) {
+						const lastUnderscore = slot.lastIndexOf("_");
+						const team = slot.slice(0, lastUnderscore) as Team;
+						const role = slot.slice(lastUnderscore + 1) as Lane;
+						const flipped: Team = team === "TEAM_1" ? "TEAM_2" : "TEAM_1";
+						next.set(uid, `${flipped}_${role}`);
+					}
+					return next;
+				});
+			}
+			setCoinTossDecided(true);
+			setSelectedUid(null);
+		},
+		[perms.canEdit, assignment, pushHistory],
+	);
+	const clearCoinToss = useCallback(() => setCoinTossDecided(false), []);
+
 	// Ctrl+Z / Ctrl+Shift+Z / Ctrl+Y 단축키 — IME compositionend 후만 발동.
 	useEffect(() => {
 		if (!perms.canEdit) return;
@@ -426,5 +463,8 @@ export function useEntryEditingState({
 		redo,
 		canUndo,
 		canRedo,
+		coinTossDecided,
+		setCoinTossWinner,
+		clearCoinToss,
 	};
 }

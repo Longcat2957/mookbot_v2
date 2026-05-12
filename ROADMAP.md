@@ -2,7 +2,7 @@
 
 > 현재 버전 기준 진척 상태. 시간순 기획서는 [`PLAN.md`](./PLAN.md), 코드 리뷰 워킹노트는 [`docs/internal/`](./docs/internal/) 참조.
 
-## 현재 (v0.7.2)
+## 현재 (v0.8.0)
 
 활성 도메인: `bot.mooklol.com` (Cloudflare proxied → 단일 VPS · Docker compose 4컨테이너 stack: bot · api · activity · nginx).
 실서비스 운영 중.
@@ -152,6 +152,12 @@
 - **검증된 동작**: 첫 로드 (server draft 없음/있음), dirty 보호, `setSide`/`setCurrentGame`/`setGameDraft` (게임 게이팅 포함), `fearlessUsedIds` 도메인 계산 (이전 게임 + draft 합산, 현재 제외), `revert`/`undoLast` 성공/실패, debounced save (canEdit on/off), WS callback 시 refresh + toast, 1/2/3 단축키 (input 안 무시), `moveTo` (빈/점유 unassigned/점유 swap/null), `swapTeams`, `allFilled`, `submit` (성공/미충족/실패), Tap-to-Place 흐름 (`handleParticipantTap`/`handleSlotTap`/`handlePoolTap`, canEdit off 시 no-op), Esc 키 selected 해제, `recentlyChanged` diff.
 - **vitest config**: `apps/activity/src/screens/*/use*State.ts` 만 coverage include 로 추가 (전체 activity src 는 UI 영역으로 exclude 유지).
 - **테스트 총합**: 256 → 291 (+35). lint warnings 가 +20 (mock data 의 `!` non-null assertion — 테스트에서는 의도적 패턴, errors 0).
+
+### Phase 33 — 코인토스 사이드 결정 + 1팀=BLUE 정렬 (v0.8.0)
+- **비즈니스 로직 반영** — 1경기 시작 전 엔트리 작성자들이 코인토스로 BLUE/RED 결정하는 흐름이 PickBan 으로 넘어가서 꼬이는 문제. 사이드 결정을 EntryEditing 단계로 이동.
+- **EntryEditing 코인토스 카드** — 운영자가 "1팀이 BLUE" / "2팀이 BLUE" 선택. 2팀 선택 시 swap 자동 수행 → 결과적으로 항상 1팀 = BLUE 보장. 미선택 시 기존 흐름 (PickBan 에서 결정).
+- **POST /api/series** — optional `team1Side?: "BLUE" | "RED"` body 추가. 받으면 시리즈 생성 시 pickban draft 의 Game 1 team1Side 미리 저장 (3 게임 모두 빈 draft 초기화 + Game 1 만 사이드 채움).
+- **PickBan 사이드 결정 카드 자동 skip** — team1Side 이미 결정되어 있으면 PickBan 진입 시 결정 카드 안 보이고 inline 사이드 표시 줄로 직행. 코드 분기 변경 X (`team1Side && team2Side ? <표시 줄> : <결정 카드>` 흐름 그대로).
 
 ### Phase 32 — lint 강화 + UX 정리 (v0.7.2)
 - **biome `useHookAtTopLevel` 활성** (`correctness/useHookAtTopLevel: "error"`) — early return 뒤 hook 호출 자동 검출. Phase 31 같은 회귀 재발 방지.

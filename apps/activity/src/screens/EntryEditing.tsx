@@ -154,6 +154,50 @@ export function EntryEditing({
 				</div>
 			)}
 
+			{/* 코인토스 — BLUE 사이드 결정. 1팀 = BLUE 가 되도록 자동 정렬. */}
+			{perms.canEdit && !s.coinTossDecided && (
+				<div className="card bg-base-200 shadow-sm border-l-4 border-warning">
+					<div className="card-body p-3 gap-2">
+						<div className="flex items-baseline justify-between flex-wrap gap-2">
+							<h3 className="font-bold text-sm">🪙 코인토스 — BLUE 사이드는 어느 팀?</h3>
+							<span className="text-xs text-base-content/60">
+								선택한 팀이 1팀으로 자동 정렬 · 미선택 시 픽/밴 화면에서 결정
+							</span>
+						</div>
+						<div className="grid grid-cols-2 gap-2">
+							<button
+								type="button"
+								onClick={() => s.setCoinTossWinner("TEAM_1")}
+								className="btn h-auto py-2.5 bg-info/10 border-info text-info hover:bg-info hover:text-info-content"
+								disabled={s.submitting}
+							>
+								1팀이 BLUE
+								<span className="text-xs opacity-70 ml-1">(그대로)</span>
+							</button>
+							<button
+								type="button"
+								onClick={() => s.setCoinTossWinner("TEAM_2")}
+								className="btn h-auto py-2.5 bg-info/10 border-info text-info hover:bg-info hover:text-info-content"
+								disabled={s.submitting}
+							>
+								2팀이 BLUE
+								<span className="text-xs opacity-70 ml-1">(좌/우 swap)</span>
+							</button>
+						</div>
+					</div>
+				</div>
+			)}
+			{perms.canEdit && s.coinTossDecided && (
+				<div className="alert alert-info alert-soft py-2 flex-row items-center gap-2">
+					<span className="text-sm flex-1">
+						🪙 <strong>1팀 = BLUE 사이드</strong> 결정됨 · 픽/밴 사이드 결정 단계 skip
+					</span>
+					<button type="button" className="btn btn-xs btn-ghost" onClick={s.clearCoinToss}>
+						변경
+					</button>
+				</div>
+			)}
+
 			{s.selectedUid &&
 				(() => {
 					const sel = participants.find((p) => p.userId === s.selectedUid);
