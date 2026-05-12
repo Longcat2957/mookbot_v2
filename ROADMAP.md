@@ -2,7 +2,7 @@
 
 > 현재 버전 기준 진척 상태. 시간순 기획서는 [`PLAN.md`](./PLAN.md), 코드 리뷰 워킹노트는 [`docs/internal/`](./docs/internal/) 참조.
 
-## 현재 (v0.5.6)
+## 현재 (v0.5.7)
 
 활성 도메인: `bot.mooklol.com` (Cloudflare proxied → 단일 VPS · Docker compose 4컨테이너 stack: bot · api · activity · nginx).
 실서비스 운영 중.
@@ -152,6 +152,10 @@
 - **검증된 동작**: 첫 로드 (server draft 없음/있음), dirty 보호, `setSide`/`setCurrentGame`/`setGameDraft` (게임 게이팅 포함), `fearlessUsedIds` 도메인 계산 (이전 게임 + draft 합산, 현재 제외), `revert`/`undoLast` 성공/실패, debounced save (canEdit on/off), WS callback 시 refresh + toast, 1/2/3 단축키 (input 안 무시), `moveTo` (빈/점유 unassigned/점유 swap/null), `swapTeams`, `allFilled`, `submit` (성공/미충족/실패), Tap-to-Place 흐름 (`handleParticipantTap`/`handleSlotTap`/`handlePoolTap`, canEdit off 시 no-op), Esc 키 selected 해제, `recentlyChanged` diff.
 - **vitest config**: `apps/activity/src/screens/*/use*State.ts` 만 coverage include 로 추가 (전체 activity src 는 UI 영역으로 exclude 유지).
 - **테스트 총합**: 256 → 291 (+35). lint warnings 가 +20 (mock data 의 `!` non-null assertion — 테스트에서는 의도적 패턴, errors 0).
+
+### Phase 24 — 경매 UX 후속 (v0.5.7)
+- **버그: 🎲 추출 시 "모두 배치 완료" 가 409 에러로 표시** — 정상 종료 케이스를 error 응답으로 처리해 사용자에게 빨간 alert. → API 가 200 + `{ done: true, remainingCount: 0, userId: null, displayName: null }` 반환, Activity 측은 done 플래그 보고 정상 안내 ("✅ 모두 배치 완료 — [▶ 토너먼트 진행] 클릭"). 🎲 버튼은 `allPlaced` 시 disabled.
+- **버그: 4강 매치업 동시 진행 불가** — `MatchSetup` 컴포넌트가 `status === BRACKET_SETUP` 일 때만 노출. 첫 SEMI 매치 생성 시 자동으로 IN_GAME 으로 전환 → MatchSetup 사라짐 → 두 번째 SEMI 만들 수 없음. 실제 라이브 4강은 두 매치 병행 진행 가능해야 함. → 조건 확장: 20인 토너먼트에서 `semis.length < 2` 면 IN_GAME 상태에서도 MatchSetup 노출. 두 매치 다 만든 후에야 사라짐.
 
 ### Phase 23 — 경매 토너먼트 변환 핫픽스 (v0.5.6)
 - **버그: `POST /api/auction-tournaments` 가 `status === 'OPEN'` 만 허용** — 봇 [▶ 경매 시작] 으로 CLOSED 된 모집은 변환 차단 → "409: status=CLOSED — 변환 불가". 정상 사용자 흐름이 막힘.

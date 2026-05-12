@@ -262,7 +262,8 @@ export async function registerAuctionTournamentRoutes(app: FastifyInstance): Pro
 		const placed = new Set(allMembers.map((m) => m.user_id));
 		const remaining = recruitParts.filter((p) => !placed.has(p.user_id));
 		if (remaining.length === 0) {
-			return reply.code(409).send({ error: "남은 인원 없음 — 모두 배치 완료" });
+			// 정상 종료 — 모두 배치 완료. error 가 아닌 200 으로 done=true 반환.
+			return { userId: null, displayName: null, remainingCount: 0, done: true };
 		}
 		const pick = remaining[Math.floor(Math.random() * remaining.length)]!;
 		const users = await db.listUsers([pick.user_id]);
@@ -270,6 +271,7 @@ export async function registerAuctionTournamentRoutes(app: FastifyInstance): Pro
 			userId: pick.user_id,
 			displayName: users[0]?.display_name ?? pick.user_id,
 			remainingCount: remaining.length,
+			done: false,
 		};
 	});
 

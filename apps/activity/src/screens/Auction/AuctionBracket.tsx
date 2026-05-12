@@ -55,10 +55,17 @@ export function AuctionBracket({
 	if (s.error) return <div className="alert alert-error">{s.error}</div>;
 	if (!s.detail) return <div className="alert alert-info">로딩 중…</div>;
 
-	const isSetup = s.detail.tournament.status === "BRACKET_SETUP";
 	const matches = s.detail.matches;
 	const semis = matches.filter((m) => m.round === "SEMI");
 	const finalOrSingle = matches.find((m) => m.round === "FINAL" || m.round === "SINGLE");
+	// 4강 매치업 동시 진행 가능 — 첫 SEMI 만들고 IN_GAME 으로 전환된 후에도
+	// 두 번째 SEMI 만들기 위해 setup 노출 유지. 20인 = SEMI 2개 다 만들어질 때까지,
+	// 10인 = SINGLE 1개 만들어질 때까지.
+	const isSetup =
+		s.detail.tournament.status === "BRACKET_SETUP" ||
+		(s.detail.tournament.status === "IN_GAME" &&
+			((s.detail.tournament.format === 20 && semis.length < 2) ||
+				(s.detail.tournament.format === 10 && matches.length === 0)));
 
 	return (
 		<section className="space-y-3">

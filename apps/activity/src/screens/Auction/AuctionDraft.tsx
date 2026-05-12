@@ -366,7 +366,12 @@ function BiddingPanel({
 }: {
 	detail: AuctionTournamentDetail;
 	canEdit: boolean;
-	onDraw: () => Promise<{ userId: string; displayName: string; remainingCount: number }>;
+	onDraw: () => Promise<{
+		userId: string | null;
+		displayName: string | null;
+		remainingCount: number;
+		done: boolean;
+	}>;
 	onFinalizeBid: (input: { targetUserId: string; teamId: number; points: number }) => Promise<void>;
 	onManualAssign: (input: { targetUserId: string; teamId: number }) => Promise<void>;
 	onRevertBid: (targetUserId: string) => Promise<void>;
@@ -381,6 +386,11 @@ function BiddingPanel({
 		setError(null);
 		try {
 			const p = await onDraw();
+			if (p.done || !p.userId || !p.displayName) {
+				// 정상 종료 — 모두 배치 완료
+				setCurrent(null);
+				return;
+			}
 			setCurrent({ userId: p.userId, displayName: p.displayName });
 			setBidPoints({});
 		} catch (err) {
@@ -433,12 +443,22 @@ function BiddingPanel({
 				<div className="card-body p-4 gap-2">
 					<div className="flex items-center justify-between">
 						<h3 className="font-bold">📦 현재 매물</h3>
-						<button type="button" className="btn btn-sm btn-primary" onClick={draw} disabled={!canEdit}>
+						<button
+							type="button"
+							className="btn btn-sm btn-primary"
+							onClick={draw}
+							disabled={!canEdit || allPlaced}
+							title={allPlaced ? "모든 인원 배치 완료" : "랜덤 1명 추출"}
+						>
 							🎲 다음 인원
 						</button>
 					</div>
 					{current ? (
 						<div className="text-lg font-bold">{current.displayName}</div>
+					) : allPlaced ? (
+						<div className="text-sm text-success">
+							✅ 모두 배치 완료 — 아래 [▶ 토너먼트 진행] 클릭하세요.
+						</div>
 					) : (
 						<div className="text-sm text-base-content/60">🎲 버튼으로 다음 인원 추출</div>
 					)}

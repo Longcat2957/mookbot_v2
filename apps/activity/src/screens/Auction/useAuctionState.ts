@@ -16,7 +16,12 @@ export interface UseAuctionStateResult {
 	setCaptains: (userIds: string[]) => Promise<void>;
 	setPoints: (points: Array<{ teamId: number; initialPoints: number }>) => Promise<void>;
 	startBidding: () => Promise<void>;
-	draw: () => Promise<{ userId: string; displayName: string; remainingCount: number }>;
+	draw: () => Promise<{
+		userId: string | null;
+		displayName: string | null;
+		remainingCount: number;
+		done: boolean;
+	}>;
 	finalizeBid: (input: { targetUserId: string; teamId: number; points: number }) => Promise<void>;
 	manualAssign: (input: { targetUserId: string; teamId: number }) => Promise<void>;
 	revertBid: (targetUserId: string) => Promise<void>;
@@ -77,10 +82,12 @@ export function useAuctionState(tournamentId: number | null): UseAuctionStateRes
 	}, [tournamentId, swr]);
 
 	const draw = useCallback(async () => {
-		return api<{ userId: string; displayName: string; remainingCount: number }>(
-			`/auction-tournaments/${tournamentId}/draw`,
-			{ method: "POST" },
-		);
+		return api<{
+			userId: string | null;
+			displayName: string | null;
+			remainingCount: number;
+			done: boolean;
+		}>(`/auction-tournaments/${tournamentId}/draw`, { method: "POST" });
 	}, [tournamentId]);
 
 	const finalizeBid = useCallback(
