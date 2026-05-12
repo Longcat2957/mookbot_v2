@@ -98,6 +98,44 @@ export function PickBan({
 		return map;
 	}, [s.detail, s.draft]);
 
+	// W1 키보드 단축키 — Ctrl+1/2/3 (Game 탭) + B/R (사이드 결정 시).
+	// early return 전에 위치해야 hooks 호출 순서 일관성 유지 (React #310 회피).
+	// team1Side 는 closure 안에서 s.draft 의 currentGame 으로 derive.
+	useEffect(() => {
+		if (!perms.canEdit) return;
+		const onKey = (e: KeyboardEvent) => {
+			if (e.isComposing) return;
+			const tag = (document.activeElement as HTMLElement | null)?.tagName;
+			const isInInput = tag === "INPUT" || tag === "TEXTAREA";
+
+			// Ctrl+1/2/3 — Game 탭 전환 (input focus 여도 동작)
+			if (e.ctrlKey && (e.key === "1" || e.key === "2" || e.key === "3")) {
+				const n = Number(e.key);
+				if (s.isGameTabEnabled(n)) {
+					e.preventDefault();
+					s.setCurrentGame(n);
+				}
+				return;
+			}
+
+			// B/R — 사이드 미결정 시. input focus 시 skip (native 타이핑).
+			if (!s.draft) return;
+			const currentDraft = s.draft.games.find((g) => g.gameNumber === s.draft?.currentGame);
+			const currentTeam1Side = currentDraft?.team1Side ?? null;
+			if (currentTeam1Side) return;
+			if (isInInput) return;
+			if (e.key === "b" || e.key === "B") {
+				e.preventDefault();
+				s.setSide("BLUE");
+			} else if (e.key === "r" || e.key === "R") {
+				e.preventDefault();
+				s.setSide("RED");
+			}
+		};
+		window.addEventListener("keydown", onKey);
+		return () => window.removeEventListener("keydown", onKey);
+	}, [perms.canEdit, s.draft, s.isGameTabEnabled, s.setCurrentGame, s.setSide]);
+
 	if (seriesId === null) {
 		return (
 			<div className="alert alert-warning">
@@ -128,40 +166,6 @@ export function PickBan({
 	const handleRevert = async () => {
 		if (await s.revert()) onBack();
 	};
-
-	// W1 키보드 단축키 — Ctrl+1/2/3 (Game 탭) + B/R (사이드 결정 시).
-	// IME 한글 자모 조합 중에는 isComposing 으로 skip.
-	useEffect(() => {
-		if (!perms.canEdit) return;
-		const onKey = (e: KeyboardEvent) => {
-			if (e.isComposing) return;
-			const tag = (document.activeElement as HTMLElement | null)?.tagName;
-			const isInInput = tag === "INPUT" || tag === "TEXTAREA";
-
-			// Ctrl+1/2/3 — Game 탭 전환 (input focus 여도 동작)
-			if (e.ctrlKey && (e.key === "1" || e.key === "2" || e.key === "3")) {
-				const n = Number(e.key);
-				if (s.isGameTabEnabled(n)) {
-					e.preventDefault();
-					s.setCurrentGame(n);
-				}
-				return;
-			}
-
-			// B/R — 사이드 미결정 시. input focus 시 skip (native 타이핑).
-			if (!team1Side && !isInInput && (e.key === "b" || e.key === "B")) {
-				e.preventDefault();
-				s.setSide("BLUE");
-				return;
-			}
-			if (!team1Side && !isInInput && (e.key === "r" || e.key === "R")) {
-				e.preventDefault();
-				s.setSide("RED");
-			}
-		};
-		window.addEventListener("keydown", onKey);
-		return () => window.removeEventListener("keydown", onKey);
-	}, [perms.canEdit, team1Side, s.isGameTabEnabled, s.setCurrentGame, s.setSide]);
 
 	return (
 		<section className="space-y-3">

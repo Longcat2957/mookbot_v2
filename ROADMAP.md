@@ -2,7 +2,7 @@
 
 > 현재 버전 기준 진척 상태. 시간순 기획서는 [`PLAN.md`](./PLAN.md), 코드 리뷰 워킹노트는 [`docs/internal/`](./docs/internal/) 참조.
 
-## 현재 (v0.7.0)
+## 현재 (v0.7.1)
 
 활성 도메인: `bot.mooklol.com` (Cloudflare proxied → 단일 VPS · Docker compose 4컨테이너 stack: bot · api · activity · nginx).
 실서비스 운영 중.
@@ -152,6 +152,9 @@
 - **검증된 동작**: 첫 로드 (server draft 없음/있음), dirty 보호, `setSide`/`setCurrentGame`/`setGameDraft` (게임 게이팅 포함), `fearlessUsedIds` 도메인 계산 (이전 게임 + draft 합산, 현재 제외), `revert`/`undoLast` 성공/실패, debounced save (canEdit on/off), WS callback 시 refresh + toast, 1/2/3 단축키 (input 안 무시), `moveTo` (빈/점유 unassigned/점유 swap/null), `swapTeams`, `allFilled`, `submit` (성공/미충족/실패), Tap-to-Place 흐름 (`handleParticipantTap`/`handleSlotTap`/`handlePoolTap`, canEdit off 시 no-op), Esc 키 selected 해제, `recentlyChanged` diff.
 - **vitest config**: `apps/activity/src/screens/*/use*State.ts` 만 coverage include 로 추가 (전체 activity src 는 UI 영역으로 exclude 유지).
 - **테스트 총합**: 256 → 291 (+35). lint warnings 가 +20 (mock data 의 `!` non-null assertion — 테스트에서는 의도적 패턴, errors 0).
+
+### Phase 31 — PickBan hooks 순서 fix (v0.7.1)
+- **React #310 hotfix** — PickBan.tsx 의 W1 키보드 단축키 `useEffect` 가 early return (line 101-120) 뒤에 위치해 hooks 호출 횟수 불일치. Activity 진입 시 "Rendered more hooks than expected" 에러로 화면 크래시. early return 위로 이동 + closure 안에서 `team1Side` 를 `s.draft` 에서 derive.
 
 ### Phase 30 — 시리즈 내전 writer 친화 UI/UX 개선 (v0.7.0)
 - **PickBan 키보드 가속 (W1+W2)** — Tab/Shift+Tab 슬롯 navigation, Enter 검색 첫 챔프 + 자동 advance, Backspace 슬롯 비우기, B/R 사이드, 1/2 승자, Ctrl+Enter 결과 기록, Ctrl+1/2/3 Game 탭. IME 한글 자모 조합 중 isComposing skip. 자동 advance default ON + 자유/LoL 표준 순서 토글 (localStorage 영속).
