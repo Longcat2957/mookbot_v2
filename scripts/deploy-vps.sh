@@ -1,18 +1,37 @@
 #!/usr/bin/env bash
 # 로컬에서 commit/push 끝난 상태로 VPS 까지 한 번에 배포.
-# 사용: pnpm deploy:vps  또는  scripts/deploy-vps.sh
+# 사용: pnpm deploy:vps  또는  scripts/deploy-vps.sh [--skip-commands]
 #
 # 시퀀스:
 #   1. preflight  — working tree clean + main 과 origin/main sync 확인
 #   2. docker:release  — 3개 이미지 build + push (X.Y.Z + latest)
 #   3. VPS pull + up -d  — ssh root@141.164.46.191 로 적용
 #   4. health verify  — 컨테이너 상태 출력
+#   5. slash command 등록  — Discord 에 명령어 PUT (새 컨테이너 healthy 이후)
+#
+# 옵션:
+#   --skip-commands  — step 5 (Discord 명령 등록) 건너뜀. 명령 변경 0 일 때만 사용.
 #
 # 가정:
 #   - 변경분 commit + git push origin main 이 이미 완료됨
 #   - VPS 호스트: root@141.164.46.191, 배포 dir: /root/deploy
+#   - 로컬에 DISCORD_TOKEN / CLIENT_ID 가 .env 에 있음 (deploy-commands 가 사용)
 
 set -euo pipefail
+
+# --- arg parse -------------------------------------------------------------
+SKIP_COMMANDS=0
+for arg in "$@"; do
+	case "$arg" in
+		--skip-commands)
+			SKIP_COMMANDS=1
+			;;
+		*)
+			echo "[deploy-vps] ERROR: unknown arg '$arg' (지원: --skip-commands)" >&2
+			exit 1
+			;;
+	esac
+done
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT_DIR"
@@ -53,17 +72,28 @@ fi
 echo "[deploy-vps] preflight OK ($LOCAL_HEAD)"
 
 # --- 2. docker:release -----------------------------------------------------
-echo "[deploy-vps] step 2/4 — docker build + push"
+echo "[deploy-vps] step 2/5 — docker build + push"
 "$ROOT_DIR/scripts/docker-build.sh"
 "$ROOT_DIR/scripts/docker-push.sh"
 
 # --- 3. VPS pull + up ------------------------------------------------------
-echo "[deploy-vps] step 3/4 — VPS pull + up -d ($VPS_HOST:$VPS_DIR)"
+echo "[deploy-vps] step 3/5 — VPS pull + up -d ($VPS_HOST:$VPS_DIR)"
 ssh -o ConnectTimeout=10 "$VPS_HOST" "cd $VPS_DIR && docker compose pull && docker compose up -d"
 
 # --- 4. verify -------------------------------------------------------------
-echo "[deploy-vps] step 4/4 — health 확인 (5s 대기 후)"
+echo "[deploy-vps] step 4/5 — health 확인 (5s 대기 후)"
 sleep 5
 ssh -o ConnectTimeout=10 "$VPS_HOST" "cd $VPS_DIR && docker compose ps"
+
+# --- 5. slash command 등록 -------------------------------------------------
+# 새 컨테이너가 healthy 이후 등록 — Discord 가 새 이름 노출 시점에 봇이 이미
+# 새 코드로 응답 가능하도록 (옛 컨테이너에 새 이름 띄우면 unknown command 응답).
+# 명령어 변경 없는 release 라면 --skip-commands 로 1 API call 절약 (옵션).
+if [ "$SKIP_COMMANDS" = "1" ]; then
+	echo "[deploy-vps] step 5/5 — slash command 등록 skip (--skip-commands)"
+else
+	echo "[deploy-vps] step 5/5 — slash command 등록 (Discord)"
+	pnpm --filter @mookbot/bot exec tsx src/deploy-commands.ts
+fi
 
 echo "[deploy-vps] ✓ done — v$VERSION 배포 완료"

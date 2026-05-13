@@ -40,7 +40,7 @@ pnpm --filter @mookbot/core build      # core 먼저 빌드
 pnpm --filter @mookbot/api dev         # api dev (port 3000)
 pnpm --filter @mookbot/activity dev    # activity dev (Vite, port 5173)
 pnpm --filter @mookbot/bot dev         # bot dev
-pnpm --filter @mookbot/bot exec tsx src/deploy-commands.ts  # 슬래시 등록
+pnpm --filter @mookbot/bot exec tsx src/deploy-commands.ts  # 슬래시 수동 등록 (deploy:vps 가 자동 처리)
 pnpm --filter @mookbot/core db:migrate                       # D1 스키마 마이그레이션
 ```
 

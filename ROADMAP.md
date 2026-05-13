@@ -355,7 +355,7 @@
 - **D1 schema 변경 시**: `pnpm --filter @mookbot/core db:migrate` (idempotent, ALTER ADD COLUMN 도 멱등 흡수). prod 배포 전에 먼저 마이그레이션 권장.
 - **nginx 새 api 라우트**: `/api/*` prefix 로 등록해야 외부 노출.
 - **컨테이너 healthcheck**: `wget localhost` 는 IPv6 `::1` 해석 → `127.0.0.1` 명시.
-- **새 슬래시 도입 시**: `pnpm --filter @mookbot/bot exec tsx src/deploy-commands.ts` 로 재등록.
+- **새 슬래시 도입 시**: `pnpm deploy:vps` 가 step 5/5 에서 자동 등록 (v0.12.x). 명령 변경 없을 때 `--skip-commands` 로 절약 가능. 수동 등록만 필요하면 `pnpm --filter @mookbot/bot exec tsx src/deploy-commands.ts`.
 - **새 환경변수 추가 시**: `apps/{api,bot}/src/env.ts` zod schema + `.env.example` + VPS `/root/deploy/{api,bot}/.env` 3곳 동기화.
 - **`LOGS_JWT_SECRET`**: 봇/api 동일 값 (HS256 서명/검증). 회전 시 두 컨테이너 동시 재시작.
 - **신규 사용자 라이엇 ID 등록**: Summoner-V4 자동 호출 — `RIOT_API_KEY` 만료 시 등록은 진행되지만 `profile_icon_id` NULL 상태 (백필로 채움).
