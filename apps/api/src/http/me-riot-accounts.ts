@@ -121,73 +121,67 @@ export async function registerMeRiotAccountsRoutes(app: FastifyInstance): Promis
 	});
 
 	// Riot 계정 연결 해제 — 메인이든 sub 든 무조건 삭제. auto-promote 없음.
-	app.delete<{ Params: { puuid: string } }>(
-		"/api/me/riot-accounts/:puuid",
-		async (req, reply) => {
-			const sid = requireSession(req, reply);
-			if (!sid) return;
+	app.delete<{ Params: { puuid: string } }>("/api/me/riot-accounts/:puuid", async (req, reply) => {
+		const sid = requireSession(req, reply);
+		if (!sid) return;
 
-			const puuid = req.params.puuid;
-			if (!puuid) return reply.code(400).send({ error: "puuid required" });
+		const puuid = req.params.puuid;
+		if (!puuid) return reply.code(400).send({ error: "puuid required" });
 
-			// 삭제 전 행 확보 (audit payload 용)
-			const target = await db.getRiotAccountByPuuid(puuid);
-			if (!target || target.user_id !== sid) {
-				return reply.code(404).send({ error: "본인의 라이엇 계정 중에서 찾을 수 없습니다." });
-			}
+		// 삭제 전 행 확보 (audit payload 용)
+		const target = await db.getRiotAccountByPuuid(puuid);
+		if (!target || target.user_id !== sid) {
+			return reply.code(404).send({ error: "본인의 라이엇 계정 중에서 찾을 수 없습니다." });
+		}
 
-			const changed = await db.unlinkRiotAccount(sid, puuid);
-			if (changed === 0) {
-				return reply.code(404).send({ error: "이미 삭제된 계정입니다." });
-			}
+		const changed = await db.unlinkRiotAccount(sid, puuid);
+		if (changed === 0) {
+			return reply.code(404).send({ error: "이미 삭제된 계정입니다." });
+		}
 
-			await db.recordAudit({
-				operatorId: sid,
-				action: "riot_account.unlinked",
-				targetType: "riot_account",
-				targetId: puuid,
-				payload: {
-					gameName: target.game_name,
-					tagLine: target.tag_line,
-					wasMain: target.is_main === 1,
-				},
-			});
-			invalidate(`user:${sid}`, sid);
-			return { ok: true };
-		},
-	);
+		await db.recordAudit({
+			operatorId: sid,
+			action: "riot_account.unlinked",
+			targetType: "riot_account",
+			targetId: puuid,
+			payload: {
+				gameName: target.game_name,
+				tagLine: target.tag_line,
+				wasMain: target.is_main === 1,
+			},
+		});
+		invalidate(`user:${sid}`, sid);
+		return { ok: true };
+	});
 
 	// 메인 전환 — 기존 메인 demote + 지정 puuid promote.
-	app.put<{ Params: { puuid: string } }>(
-		"/api/me/riot-accounts/:puuid/main",
-		async (req, reply) => {
-			const sid = requireSession(req, reply);
-			if (!sid) return;
+	app.put<{ Params: { puuid: string } }>("/api/me/riot-accounts/:puuid/main", async (req, reply) => {
+		const sid = requireSession(req, reply);
+		if (!sid) return;
 
-			const puuid = req.params.puuid;
-			const target = await db.getRiotAccountByPuuid(puuid);
-			if (!target || target.user_id !== sid) {
-				return reply.code(404).send({ error: "본인의 라이엇 계정 중에서 찾을 수 없습니다." });
-			}
-			if (target.is_main === 1) {
-				return { ok: true, alreadyMain: true };
-			}
+		const puuid = req.params.puuid;
+		const target = await db.getRiotAccountByPuuid(puuid);
+		if (!target || target.user_id !== sid) {
+			return reply.code(404).send({ error: "본인의 라이엇 계정 중에서 찾을 수 없습니다." });
+		}
+		if (target.is_main === 1) {
+			return { ok: true, alreadyMain: true };
+		}
 
-			await db.setMainRiotAccount(sid, puuid);
-			await db.recordAudit({
-				operatorId: sid,
-				action: "riot_account.main_changed",
-				targetType: "riot_account",
-				targetId: puuid,
-				payload: {
-					gameName: target.game_name,
-					tagLine: target.tag_line,
-				},
-			});
-			invalidate(`user:${sid}`, sid);
-			return { ok: true };
-		},
-	);
+		await db.setMainRiotAccount(sid, puuid);
+		await db.recordAudit({
+			operatorId: sid,
+			action: "riot_account.main_changed",
+			targetType: "riot_account",
+			targetId: puuid,
+			payload: {
+				gameName: target.game_name,
+				tagLine: target.tag_line,
+			},
+		});
+		invalidate(`user:${sid}`, sid);
+		return { ok: true };
+	});
 
 	// Riot API 로 game_name / tag_line / profile_icon_id 재동기화 — Riot ID 변경 추적용.
 	app.post<{ Params: { puuid: string } }>(

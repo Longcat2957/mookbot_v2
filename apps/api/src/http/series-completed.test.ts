@@ -18,10 +18,12 @@ function seedCompletedSeries(db: TestDb, count: number): { seasonId: number } {
 
 	for (let i = 0; i < count; i++) {
 		// ended_at 을 1씩 증가 — 정렬 검증용.
-		db.prepare(
-			`INSERT INTO series (season_id, status, winning_team, started_at, ended_at, created_by)
+		db
+			.prepare(
+				`INSERT INTO series (season_id, status, winning_team, started_at, ended_at, created_by)
 			 VALUES (?, 'COMPLETED', 'TEAM_1', ?, ?, ?)`,
-		).run(seasonId, 1000 + i, 2000 + i, OP);
+			)
+			.run(seasonId, 1000 + i, 2000 + i, OP);
 	}
 	return { seasonId };
 }

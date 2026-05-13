@@ -169,10 +169,10 @@ export async function setRiotAccountProfileIcon(
  * @returns 실제 삭제된 행 수 (0 = 그 사용자에게 그 puuid 없음)
  */
 export async function unlinkRiotAccount(userId: string, puuid: string): Promise<number> {
-	const result = await execute(
-		`DELETE FROM riot_accounts WHERE user_id = ? AND puuid = ?`,
-		[userId, puuid],
-	);
+	const result = await execute(`DELETE FROM riot_accounts WHERE user_id = ? AND puuid = ?`, [
+		userId,
+		puuid,
+	]);
 	return result.changes ?? 0;
 }
 

@@ -162,12 +162,7 @@ export function PermsModal({ open, onClose }: Props) {
 				)}
 
 				<div className="modal-action mt-4 gap-2">
-					<button
-						type="button"
-						className="btn btn-sm btn-ghost"
-						onClick={reload}
-						disabled={loading}
-					>
+					<button type="button" className="btn btn-sm btn-ghost" onClick={reload} disabled={loading}>
 						{loading ? "확인 중…" : "↻ 재확인"}
 					</button>
 					<form method="dialog">

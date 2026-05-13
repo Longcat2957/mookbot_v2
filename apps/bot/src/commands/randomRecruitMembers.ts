@@ -166,12 +166,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
 
 	// 모집 메시지 갱신 — 정원 도달 시 [▶ 다음 단계] 버튼 자동 노출
 	const refreshError = isAuction
-		? await refreshAuctionRecruitMessage(
-				interaction,
-				recruitmentId,
-				rec.channel_id,
-				rec.message_id,
-			)
+		? await refreshAuctionRecruitMessage(interaction, recruitmentId, rec.channel_id, rec.message_id)
 		: await refreshRecruitMessage(interaction, recruitmentId, rec.channel_id, rec.message_id);
 	void notify(isAuction ? `auction-recruitment:${recruitmentId}` : `recruitment:${recruitmentId}`);
 	void notify(isAuction ? "auction-dashboard" : "dashboard");

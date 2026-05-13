@@ -940,6 +940,7 @@ function GameInputForm({
 									onClear();
 								}}
 								role="button"
+								tabIndex={0}
 							>
 								✕
 							</span>

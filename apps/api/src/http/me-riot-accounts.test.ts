@@ -175,7 +175,9 @@ describe("POST /api/me/riot-accounts (link)", () => {
 		expect(body.account.isMain).toBe(false);
 
 		// existing main 유지 확인
-		const existingMain = (db as unknown as { prepare: (s: string) => { get: (...a: unknown[]) => unknown } })
+		const existingMain = (
+			db as unknown as { prepare: (s: string) => { get: (...a: unknown[]) => unknown } }
+		)
 			.prepare("SELECT is_main FROM riot_accounts WHERE puuid = ?")
 			.get("p-existing") as { is_main: number };
 		expect(existingMain.is_main).toBe(1);
@@ -223,7 +225,9 @@ describe("DELETE /api/me/riot-accounts/:puuid", () => {
 		});
 		expect(res.statusCode).toBe(404);
 
-		const stillThere = (db as unknown as { prepare: (s: string) => { get: (...a: unknown[]) => unknown } })
+		const stillThere = (
+			db as unknown as { prepare: (s: string) => { get: (...a: unknown[]) => unknown } }
+		)
 			.prepare("SELECT 1 FROM riot_accounts WHERE puuid = ?")
 			.get("p-other");
 		expect(stillThere).toBeTruthy();
@@ -367,9 +371,7 @@ describe("POST /api/me/riot-accounts/:puuid/refresh", () => {
 		});
 		expect(res.statusCode).toBe(200);
 
-		const row = (
-			db as unknown as { prepare: (s: string) => { get: (...a: unknown[]) => unknown } }
-		)
+		const row = (db as unknown as { prepare: (s: string) => { get: (...a: unknown[]) => unknown } })
 			.prepare("SELECT game_name, tag_line, is_main FROM riot_accounts WHERE puuid = ?")
 			.get("p-renamed") as { game_name: string; tag_line: string; is_main: number };
 		expect(row.game_name).toBe("NewName");

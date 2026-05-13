@@ -209,9 +209,7 @@ function PlayerRow({
 					{LANE_LABEL[lane] ?? lane} 라인 내전 챔프 Top 5
 				</div>
 				{top5.length === 0 ? (
-					<div className="text-xs italic text-base-content/40 py-2">
-						이 라인 내전 기록 없음
-					</div>
+					<div className="text-xs italic text-base-content/40 py-2">이 라인 내전 기록 없음</div>
 				) : (
 					<ul className="space-y-1">
 						{top5.map((c) => {
@@ -219,12 +217,7 @@ function PlayerRow({
 							return (
 								<li key={c.championId} className="flex items-center gap-1.5 text-xs">
 									{c.iconUrl && (
-										<img
-											src={c.iconUrl}
-											alt=""
-											className="size-5 rounded shrink-0"
-											loading="lazy"
-										/>
+										<img src={c.iconUrl} alt="" className="size-5 rounded shrink-0" loading="lazy" />
 									)}
 									<span className="flex-1 truncate">{c.championName}</span>
 									<span className="tabular-nums text-base-content/60 shrink-0">

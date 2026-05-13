@@ -44,9 +44,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
 			if (summoner.profileIconId !== acc.profile_icon_id) {
 				await db.setRiotAccountProfileIcon(acc.puuid, summoner.profileIconId);
 				updated += 1;
-				details.push(
-					`✓ ${label} — 아이콘 ${acc.profile_icon_id ?? "?"} → ${summoner.profileIconId}`,
-				);
+				details.push(`✓ ${label} — 아이콘 ${acc.profile_icon_id ?? "?"} → ${summoner.profileIconId}`);
 				continue;
 			}
 

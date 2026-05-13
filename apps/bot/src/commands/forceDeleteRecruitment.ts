@@ -14,7 +14,8 @@ import {
 import { notify } from "../utils/notify.js";
 import { requireOperator } from "../utils/operator.js";
 
-const { getRecruitment, listRecruitmentParticipants, deleteRecruitment, recordAudit, getSeries } = db;
+const { getRecruitment, listRecruitmentParticipants, deleteRecruitment, recordAudit, getSeries } =
+	db;
 
 export const data = new SlashCommandBuilder()
 	.setName("모집강제삭제")

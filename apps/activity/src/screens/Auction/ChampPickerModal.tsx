@@ -1,7 +1,7 @@
 // 챔프 선택 모달 — 검색 + 그리드. AuctionBracket 의 픽/밴 입력에 사용.
 // PickBan 의 ChampCell 재사용.
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ChampCell } from "../PickBan/ChampCell.js";
 import type { Champion } from "../PickBan/types.js";
 
@@ -20,9 +20,11 @@ export function ChampPickerModal({
 	onClose: () => void;
 }) {
 	const [q, setQ] = useState("");
+	const inputRef = useRef<HTMLInputElement | null>(null);
 
 	useEffect(() => {
 		if (!open) setQ("");
+		else inputRef.current?.focus();
 	}, [open]);
 
 	useEffect(() => {
@@ -54,11 +56,11 @@ export function ChampPickerModal({
 				<div className="card-body p-3 gap-2 flex-1 overflow-hidden flex flex-col">
 					<div className="flex items-center gap-2">
 						<input
+							ref={inputRef}
 							type="text"
 							value={q}
 							onChange={(e) => setQ(e.target.value)}
 							placeholder="챔프 검색 (한글/영문)"
-							autoFocus
 							className="input input-bordered input-sm flex-1"
 						/>
 						<button type="button" className="btn btn-sm btn-ghost" onClick={onClose}>

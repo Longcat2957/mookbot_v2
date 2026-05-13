@@ -143,10 +143,7 @@ export async function registerSeriesRoutes(app: FastifyInstance): Promise<void> 
 			const iconById = new Map(
 				mains
 					.filter((m) => m.profile_icon_id != null)
-					.map((m) => [
-						m.user_id,
-						rewriteDD(datadragon.getProfileIconUrl(m.profile_icon_id as number)),
-					]),
+					.map((m) => [m.user_id, rewriteDD(datadragon.getProfileIconUrl(m.profile_icon_id as number))]),
 			);
 
 			const winsAll = await Promise.all(rows.map((s) => db.countSeriesWins(s.id)));
