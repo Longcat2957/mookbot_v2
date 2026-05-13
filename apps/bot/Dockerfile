@@ -8,7 +8,9 @@ COPY packages/core/package.json packages/core/
 COPY apps/api/package.json apps/api/
 COPY apps/bot/package.json apps/bot/
 COPY apps/activity/package.json apps/activity/
-RUN pnpm install --frozen-lockfile
+RUN --mount=type=cache,id=pnpm-store,target=/pnpm-store \
+    pnpm config set store-dir /pnpm-store \
+ && pnpm install --frozen-lockfile
 
 FROM deps AS build
 COPY packages/core packages/core
@@ -25,9 +27,10 @@ COPY packages/core/package.json packages/core/
 COPY apps/api/package.json apps/api/
 COPY apps/bot/package.json apps/bot/
 COPY apps/activity/package.json apps/activity/
-RUN pnpm install --frozen-lockfile --prod \
-        --filter @mookbot/bot... \
- && pnpm store prune
+RUN --mount=type=cache,id=pnpm-store,target=/pnpm-store \
+    pnpm config set store-dir /pnpm-store \
+ && pnpm install --frozen-lockfile --prod \
+        --filter @mookbot/bot...
 COPY --from=build /app/packages/core/dist packages/core/dist
 COPY --from=build /app/apps/bot/dist apps/bot/dist
 EXPOSE 3001

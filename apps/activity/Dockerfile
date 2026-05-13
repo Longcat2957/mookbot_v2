@@ -8,7 +8,9 @@ COPY packages/core/package.json packages/core/
 COPY apps/api/package.json apps/api/
 COPY apps/bot/package.json apps/bot/
 COPY apps/activity/package.json apps/activity/
-RUN pnpm install --frozen-lockfile --filter @mookbot/activity...
+RUN --mount=type=cache,id=pnpm-store,target=/pnpm-store \
+    pnpm config set store-dir /pnpm-store \
+ && pnpm install --frozen-lockfile --filter @mookbot/activity...
 
 ARG VITE_DISCORD_CLIENT_ID
 ENV VITE_DISCORD_CLIENT_ID=$VITE_DISCORD_CLIENT_ID
