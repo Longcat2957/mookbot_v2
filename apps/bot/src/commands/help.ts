@@ -76,7 +76,7 @@ const AUCTION_ADMIN_COMMANDS: CommandEntry[] = [
 const OPERATOR_GLOBAL_COMMANDS: CommandEntry[] = [
 	{ name: "/일괄등록", desc: "[관리자] 서버 멤버 일괄 등록 + 별명 라이엇 ID 자동 연결" },
 	{
-		name: "/MMR수정 user:@user role:<라인> delta:<±n> [note]",
+		name: "/mmr수정 user:@user role:<라인> delta:<±n> [note]",
 		desc: "[운영자] 특정 사용자 라인 MMR 수동 보정",
 	},
 	{ name: "/시즌결과리셋 시즌:<id>", desc: "[운영자] 시즌의 모든 RANKED/AUCTION 데이터 정리" },
