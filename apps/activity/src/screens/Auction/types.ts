@@ -35,12 +35,14 @@ export interface AuctionTeam {
 }
 
 export interface AuctionMatch {
-	seriesId: number;
+	matchId: number;
 	round: MatchRound;
 	bracketIndex: number | null;
 	team1Id: number;
 	team2Id: number;
 	format: MatchFormat;
+	status: "IN_PROGRESS" | "COMPLETED" | "CANCELLED";
+	winningTeam: "TEAM_1" | "TEAM_2" | null;
 }
 
 export interface AuctionBid {

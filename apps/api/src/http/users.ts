@@ -167,7 +167,8 @@ export async function registerUsersRoutes(app: FastifyInstance): Promise<void> {
 				})),
 				recentGames: recentGames.map((g) => ({
 					gameId: g.game_id,
-					seriesId: g.series_id,
+					seriesId: g.ranked_series_id,
+					auctionMatchId: g.auction_match_id,
 					gameNumber: g.game_number,
 					playedAt: g.played_at,
 					team: g.team,

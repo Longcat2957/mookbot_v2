@@ -91,7 +91,7 @@ describe("getMmrChangesForUser / getMmrChangesForGame", () => {
 		const g1 = (
 			db
 				.prepare(
-					"INSERT INTO games (series_id, game_number, winning_team, team1_side) VALUES (?, 1, 'TEAM_1', 'BLUE') RETURNING id",
+					"INSERT INTO games (ranked_series_id, game_number, winning_team, team1_side) VALUES (?, 1, 'TEAM_1', 'BLUE') RETURNING id",
 				)
 				.get(seriesId) as { id: number }
 		).id;
@@ -116,7 +116,7 @@ describe("getMmrChangesForUser / getMmrChangesForGame", () => {
 	it("getMmrChangesForGame 가 game 의 모든 row", async () => {
 		const seriesId = db.prepare("SELECT id FROM series LIMIT 1").get() as { id: number };
 		const gameId = (
-			db.prepare("SELECT id FROM games WHERE series_id = ?").get(seriesId.id) as { id: number }
+			db.prepare("SELECT id FROM games WHERE ranked_series_id = ?").get(seriesId.id) as { id: number }
 		).id;
 		const changes = await getMmrChangesForGame(gameId);
 		expect(changes).toHaveLength(2);

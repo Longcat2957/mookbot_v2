@@ -15,6 +15,7 @@ import {
 	listSeries,
 	listStaleOpenSeries,
 	setSeriesMessage,
+	softDeleteSeries,
 } from "./series.js";
 import { upsertUser } from "./users.js";
 
@@ -239,6 +240,38 @@ describe("listing", () => {
 		const correctSeason = await listSeries({ seasonId });
 		expect(correctSeason).toHaveLength(3);
 	});
+
+	it("listSeries 가 soft-deleted 시리즈 제외 (status 필터 유/무 모두)", async () => {
+		const make = (uid1: string, uid2: string) =>
+			createSeries({
+				seasonId,
+				createdBy: OP,
+				participants: [
+					{ userId: uid1, team: "TEAM_1", role: "TOP" },
+					{ userId: uid2, team: "TEAM_2", role: "TOP" },
+				],
+			});
+		const live = await make("u1", "u2");
+		const completedLive = await make("u3", "u4");
+		await completeSeries(completedLive.id, "TEAM_1");
+		const gone = await make("u1", "u3");
+		const completedGone = await make("u2", "u4");
+		await completeSeries(completedGone.id, "TEAM_2");
+		await softDeleteSeries(gone.id);
+		await softDeleteSeries(completedGone.id);
+
+		const all = await listSeries({});
+		expect(all.map((s) => s.id).sort()).toEqual([live.id, completedLive.id].sort());
+
+		const inProgress = await listSeries({ status: "IN_PROGRESS" });
+		expect(inProgress.map((s) => s.id)).toEqual([live.id]);
+
+		const completed = await listSeries({ status: "COMPLETED" });
+		expect(completed.map((s) => s.id)).toEqual([completedLive.id]);
+
+		const seasoned = await listSeries({ seasonId });
+		expect(seasoned.map((s) => s.id).sort()).toEqual([live.id, completedLive.id].sort());
+	});
 });
 
 describe("deleteSeriesPhysical (legacy alias → soft-delete)", () => {
@@ -278,6 +311,51 @@ describe("deleteSeriesPhysical (legacy alias → soft-delete)", () => {
 		expect(parts).toHaveLength(2);
 		expect(new Set(parts.map((p) => p.user_id))).toEqual(new Set(["u3", "u4"]));
 	});
+
+	it("force-delete 된 historical 시리즈 (games > 0) 는 같은 id 로 revive 거부", async () => {
+		// invariant: 게임이 1개라도 기록된 시리즈는 soft-delete 이후에도 revive 불가.
+		// 깨지면 orphan games/mmr_changes 가 새 시리즈에 attach 되어 corruption.
+		const s = await createSeries({
+			id: 21,
+			seasonId,
+			createdBy: OP,
+			participants: [
+				{ userId: "u1", team: "TEAM_1", role: "TOP" },
+				{ userId: "u2", team: "TEAM_2", role: "TOP" },
+			],
+		});
+		// 게임 1개 기록 후 force-delete (soft-delete)
+		db
+			.prepare(
+				`INSERT INTO games (ranked_series_id, game_number, winning_team, team1_side, duration_sec)
+			 VALUES (?, 1, 'TEAM_1', 'BLUE', 1800)`,
+			)
+			.run(s.id);
+		await deleteSeriesPhysical(s.id);
+		expect(await getSeries(s.id)).toBeUndefined();
+
+		await expect(
+			createSeries({
+				id: 21,
+				seasonId,
+				createdBy: OP,
+				participants: [
+					{ userId: "u3", team: "TEAM_1", role: "MID" },
+					{ userId: "u4", team: "TEAM_2", role: "MID" },
+				],
+			}),
+		).rejects.toThrow(/이미 존재/);
+
+		// 원본 row 와 게임은 그대로 남아 있어야 함 (history 보존).
+		const row = db
+			.prepare("SELECT id, status, deleted_at FROM series WHERE id = ?")
+			.get(s.id) as { id: number; status: string; deleted_at: number | null };
+		expect(row.deleted_at).not.toBeNull();
+		const gameCount = db
+			.prepare("SELECT COUNT(*) AS n FROM games WHERE ranked_series_id = ?")
+			.get(s.id) as { n: number };
+		expect(gameCount.n).toBe(1);
+	});
 });
 
 describe("createSeries — 명시 id", () => {
@@ -316,6 +394,94 @@ describe("createSeries — 명시 id", () => {
 			}),
 		).rejects.toThrow(/이미 존재/);
 	});
+
+	it("game 0 + CANCELLED 행은 revive (참가자 교체) — revert 후 재확정 흐름", async () => {
+		const s = await createSeries({
+			id: 9,
+			seasonId,
+			createdBy: OP,
+			participants: [
+				{ userId: "u1", team: "TEAM_1", role: "TOP" },
+				{ userId: "u2", team: "TEAM_2", role: "TOP" },
+			],
+		});
+		await cancelSeries(s.id);
+
+		const revived = await createSeries({
+			id: 9,
+			seasonId,
+			createdBy: OP,
+			participants: [
+				{ userId: "u3", team: "TEAM_1", role: "MID" },
+				{ userId: "u4", team: "TEAM_2", role: "MID" },
+			],
+		});
+		expect(revived.id).toBe(9);
+		const after = await getSeries(9);
+		expect(after?.status).toBe("IN_PROGRESS");
+		expect(after?.deleted_at).toBeNull();
+		const parts = await getSeriesParticipants(9);
+		expect(new Set(parts.map((p) => p.user_id))).toEqual(new Set(["u3", "u4"]));
+	});
+
+	it("게임이 1개라도 있는 CANCELLED 행은 revive 거부 (history 보존)", async () => {
+		const s = await createSeries({
+			id: 11,
+			seasonId,
+			createdBy: OP,
+			participants: [
+				{ userId: "u1", team: "TEAM_1", role: "TOP" },
+				{ userId: "u2", team: "TEAM_2", role: "TOP" },
+			],
+		});
+		// 게임 1개 기록 후 CANCEL (early-complete 시나리오)
+		db
+			.prepare(
+				`INSERT INTO games (ranked_series_id, game_number, winning_team, team1_side, duration_sec)
+			 VALUES (?, 1, 'TEAM_1', 'BLUE', 1800)`,
+			)
+			.run(s.id);
+		await cancelSeries(s.id);
+
+		await expect(
+			createSeries({
+				id: 11,
+				seasonId,
+				createdBy: OP,
+				participants: [
+					{ userId: "u3", team: "TEAM_1", role: "MID" },
+					{ userId: "u4", team: "TEAM_2", role: "MID" },
+				],
+			}),
+		).rejects.toThrow(/이미 존재/);
+	});
+
+	it("COMPLETED 행은 revive 거부", async () => {
+		const s = await createSeries({
+			id: 13,
+			seasonId,
+			createdBy: OP,
+			participants: [
+				{ userId: "u1", team: "TEAM_1", role: "TOP" },
+				{ userId: "u2", team: "TEAM_2", role: "TOP" },
+			],
+		});
+		await completeSeries(s.id, "TEAM_1");
+		await expect(
+			createSeries({
+				id: 13,
+				seasonId,
+				createdBy: OP,
+				participants: [
+					{ userId: "u3", team: "TEAM_1", role: "MID" },
+					{ userId: "u4", team: "TEAM_2", role: "MID" },
+				],
+			}),
+		).rejects.toThrow(/이미 존재/);
+	});
+
+	// v0.11.0: cross-type hijack 테스트 제거 — series 가 RANKED 전용이 되면서
+	// 구조적으로 AUCTION 행이 series 테이블에 존재할 수 없음.
 });
 
 describe("setSeriesMessage / listOpenSeriesByUser / listRecentSeriesForUser", () => {

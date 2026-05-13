@@ -35,17 +35,30 @@ export async function createAuctionTournament(input: {
 	format: 10 | 20;
 	createdBy: string;
 }): Promise<AuctionTournamentRow> {
-	// soft-delete 된 행 있으면 revive (모집 ID 동일하게 다시 만드는 경로)
+	// 같은 id 의 행이 revive 가능하면 revive (모집 ID 동일하게 다시 만드는 경로):
+	//   - soft-deleted (deleted_at != NULL) 또는 CANCELLED 인 행이며
+	//   - auction_teams 가 0개 인 경우에만 (= captain pick 진행 전이거나, hard-clean 된 상태).
+	// auction_teams 가 1개라도 있으면 revive 거부 — 종속 auction_team_members / auction_bids
+	// 가 새 토너먼트에 ghost 로 attach 되는 corruption 방지. (series.ts 의 game-count
+	// invariant 와 동일 패턴.)
 	const existing = await queryOne<AuctionTournamentRow>(
 		`SELECT * FROM auction_tournaments WHERE id = ?`,
 		[input.id],
 	);
-	if (existing && existing.deleted_at == null) {
+	let canRevive = false;
+	if (existing && (existing.deleted_at != null || existing.status === "CANCELLED")) {
+		const teamCount = await queryOne<{ n: number }>(
+			`SELECT COUNT(*) AS n FROM auction_teams WHERE tournament_id = ?`,
+			[input.id],
+		);
+		if ((teamCount?.n ?? 0) === 0) canRevive = true;
+	}
+	if (existing && !canRevive) {
 		throw new Error(
 			`createAuctionTournament: 토너먼트 #${input.id} 이미 존재 (status=${existing.status})`,
 		);
 	}
-	if (existing && existing.deleted_at != null) {
+	if (existing && canRevive) {
 		await execute(
 			`UPDATE auction_tournaments
 			 SET season_id = ?, format = ?, status = 'CAPTAIN_PICK', champion_team_id = NULL,
@@ -106,11 +119,12 @@ export async function cancelAuctionTournament(id: number): Promise<void> {
 }
 
 export async function softDeleteAuctionTournament(id: number): Promise<void> {
-	// 종속 시리즈 (status 무관) 도 함께 soft-delete — cancel 단계는 historical 보존,
-	// softDelete 는 "완전히 사라짐" 의미. 누락 시 series.id 회수 흐름 (RANKED 모집 ID
-	// 동일 부여) 에서 createSeries 가 deleted_at IS NULL 행과 충돌해 실패한다.
+	// v0.11.0: 종속 auction_matches 도 같이 soft-delete. 옛 구조에선 series 가 함께
+	// soft-delete 됐으나 분리 후 auction_matches 가 lifecycle 보유.
+	// 종속 auction_teams / auction_team_members / auction_bids 는 토너먼트의 hard-delete
+	// 시에만 CASCADE 되지만, softDelete 는 historical 보존 목적이라 그대로 둠.
 	await execute(
-		`UPDATE series SET deleted_at = unixepoch() WHERE auction_tournament_id = ? AND deleted_at IS NULL`,
+		`UPDATE auction_matches SET deleted_at = unixepoch() WHERE tournament_id = ? AND deleted_at IS NULL`,
 		[id],
 	);
 	await execute(

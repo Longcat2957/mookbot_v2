@@ -19,6 +19,15 @@ interface MatchSeriesDetail {
 	}[];
 }
 
+interface AuctionMatchDetailResponse {
+	match: {
+		id: number;
+		status: string;
+		winningTeam: "TEAM_1" | "TEAM_2" | null;
+	};
+	games: MatchSeriesDetail["games"];
+}
+
 const ROLE_ORDER = ["TOP", "JUNGLE", "MID", "BOTTOM", "SUPPORT"] as const;
 
 export function AuctionResult({
@@ -40,21 +49,18 @@ export function AuctionResult({
 				setDetail(d);
 				const matches = await Promise.all(
 					d.matches.map((m) =>
-						api<{
-							series: { id: number; winningTeam: "TEAM_1" | "TEAM_2" | null };
-							games: MatchSeriesDetail["games"];
-						}>(`/series/${m.seriesId}`).then((r) => ({
-							seriesId: m.seriesId,
+						api<AuctionMatchDetailResponse>(`/auction-matches/${m.matchId}`).then((r) => ({
+							matchId: m.matchId,
 							series: {
-								id: r.series.id,
-								winningTeam: r.series.winningTeam,
+								id: r.match.id,
+								winningTeam: r.match.winningTeam,
 								games: r.games,
 							} as MatchSeriesDetail,
 						})),
 					),
 				);
 				const map: Record<number, MatchSeriesDetail> = {};
-				for (const m of matches) map[m.seriesId] = m.series;
+				for (const m of matches) map[m.matchId] = m.series;
 				setMatchDetails(map);
 			} catch (err) {
 				setError(err instanceof Error ? err.message : String(err));
@@ -67,7 +73,7 @@ export function AuctionResult({
 
 	const championTeam = detail.teams.find((t) => t.id === detail.tournament.championTeamId);
 	const finalMatch = detail.matches.find((m) => m.round === "FINAL" || m.round === "SINGLE");
-	const finalMd = finalMatch ? matchDetails[finalMatch.seriesId] : undefined;
+	const finalMd = finalMatch ? matchDetails[finalMatch.matchId] : undefined;
 	const finalT1Wins = finalMd ? finalMd.games.filter((g) => g.winningTeam === "TEAM_1").length : 0;
 	const finalT2Wins = finalMd ? finalMd.games.filter((g) => g.winningTeam === "TEAM_2").length : 0;
 	const finalScoreText =
@@ -141,7 +147,7 @@ export function AuctionResult({
 							<span className="badge badge-info badge-lg">4강</span>
 						</h3>
 						{semis.map((m) => (
-							<ResultMatchCard key={m.seriesId} match={m} detail={detail} md={matchDetails[m.seriesId]} />
+							<ResultMatchCard key={m.matchId} match={m} detail={detail} md={matchDetails[m.matchId]} />
 						))}
 					</div>
 					<div className="hidden lg:flex items-center text-4xl text-base-content/30 px-2 select-none">
@@ -151,7 +157,7 @@ export function AuctionResult({
 						<h3 className="text-lg font-bold flex items-center gap-2 mb-3">
 							<span className="badge badge-warning badge-lg">결승</span>
 						</h3>
-						<ResultMatchCard match={finalMatch} detail={detail} md={matchDetails[finalMatch.seriesId]} />
+						<ResultMatchCard match={finalMatch} detail={detail} md={matchDetails[finalMatch.matchId]} />
 					</div>
 				</div>
 			)}
@@ -162,7 +168,7 @@ export function AuctionResult({
 					<h3 className="text-lg font-bold flex items-center gap-2">
 						<span className="badge badge-warning badge-lg">매치</span>
 					</h3>
-					<ResultMatchCard match={finalMatch} detail={detail} md={matchDetails[finalMatch.seriesId]} />
+					<ResultMatchCard match={finalMatch} detail={detail} md={matchDetails[finalMatch.matchId]} />
 				</div>
 			)}
 
@@ -214,14 +220,14 @@ export function AuctionResult({
 				{detail.matches.map((m) => {
 					const t1 = detail.teams.find((t) => t.id === m.team1Id);
 					const t2 = detail.teams.find((t) => t.id === m.team2Id);
-					const md = matchDetails[m.seriesId];
+					const md = matchDetails[m.matchId];
 					if (!md) return null;
 					const t1Wins = md.games.filter((g) => g.winningTeam === "TEAM_1").length;
 					const t2Wins = md.games.filter((g) => g.winningTeam === "TEAM_2").length;
 					const roundLabel =
 						m.round === "FINAL" ? "결승" : m.round === "SEMI" ? `4강 #${m.bracketIndex ?? ""}` : "매치";
 					return (
-						<div key={m.seriesId} className="card bg-base-200 shadow-sm">
+						<div key={m.matchId} className="card bg-base-200 shadow-sm">
 							<div className="card-body p-4 gap-2">
 								<div className="flex items-center justify-between flex-wrap gap-2">
 									<span className="text-base font-bold">

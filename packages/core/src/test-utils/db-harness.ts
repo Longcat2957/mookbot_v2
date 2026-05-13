@@ -24,11 +24,27 @@ function loadSchema(): string {
 	const raw = readFileSync(SCHEMA_PATH, "utf8");
 	// schema.sql 끝에 "Idempotent ALTER TABLE migrations" 블록이 있음 — 기존 DB
 	// 보강용. fresh in-memory 에선 CREATE TABLE 에 이미 컬럼이 포함되어 있어
-	// ALTER 가 "duplicate column" 으로 실패. 테스트에선 ALTER 라인만 제거.
-	cachedSchema = raw
-		.split("\n")
-		.filter((l) => !/^\s*ALTER\s+TABLE/i.test(l))
-		.join("\n");
+	// ALTER 가 "duplicate column" 으로 실패. 테스트에선 ALTER 라인 제거.
+	//
+	// 또한 `-- @migration-only-begin` ~ `-- @migration-only-end` 로 감싼 블록은
+	// 기존 DB 마이그레이션 전용 (DELETE / UPDATE / DROP / 재생성) — fresh DB 에선
+	// 이미 새 schema 로 CREATE 됐으므로 의미 없거나 깨짐. 통째로 제거.
+	const stripped: string[] = [];
+	let inMigrationBlock = false;
+	for (const line of raw.split("\n")) {
+		if (/--\s*@migration-only-begin/i.test(line)) {
+			inMigrationBlock = true;
+			continue;
+		}
+		if (/--\s*@migration-only-end/i.test(line)) {
+			inMigrationBlock = false;
+			continue;
+		}
+		if (inMigrationBlock) continue;
+		if (/^\s*ALTER\s+TABLE/i.test(line)) continue;
+		stripped.push(line);
+	}
+	cachedSchema = stripped.join("\n");
 	return cachedSchema;
 }
 

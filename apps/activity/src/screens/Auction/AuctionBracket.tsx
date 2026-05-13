@@ -41,11 +41,12 @@ interface Champion {
 	iconUrl: string;
 }
 
-interface SeriesDetail {
-	series: {
+interface MatchDetail {
+	match: {
 		id: number;
 		status: string;
 		winningTeam: "TEAM_1" | "TEAM_2" | null;
+		format: "BO1" | "BO3";
 	};
 	games: {
 		id: number;
@@ -128,7 +129,7 @@ export function AuctionBracket({
 						) : (
 							semis.map((m) => (
 								<MatchCard
-									key={m.seriesId}
+									key={m.matchId}
 									match={m}
 									detail={s.detail!}
 									canEdit={perms.canEdit}
@@ -173,7 +174,7 @@ export function AuctionBracket({
 					</h3>
 					{matches.map((m) => (
 						<MatchCard
-							key={m.seriesId}
+							key={m.matchId}
 							match={m}
 							detail={s.detail!}
 							canEdit={perms.canEdit}
@@ -200,7 +201,7 @@ function MatchSetup({
 		team1Id: number;
 		team2Id: number;
 		format: MatchFormat;
-	}) => Promise<{ seriesId: number }>;
+	}) => Promise<{ matchId: number }>;
 }) {
 	const [format, setFormat] = useState<MatchFormat>("BO3");
 	const [submitting, setSubmitting] = useState(false);
@@ -304,7 +305,7 @@ function FinalSetup({
 		team1Id: number;
 		team2Id: number;
 		format: MatchFormat;
-	}) => Promise<{ seriesId: number }>;
+	}) => Promise<{ matchId: number }>;
 }) {
 	const [format, setFormat] = useState<MatchFormat>("BO3");
 	const [creating, setCreating] = useState(false);
@@ -373,23 +374,27 @@ function useFinalParticipants(
 	// 각 4강 매치 series 를 SWR + WS subscribe 로 reactive 하게 추적 — 매치 결과
 	// 변경 시 즉시 재계산. 기존 useEffect 는 semis 배열 자체가 같으면 (id 동일) 재실행
 	// 안 돼 4강 끝나도 결승 진입 불가던 버그 fix.
-	const m1Id = semis[0]?.seriesId ?? null;
-	const m2Id = semis[1]?.seriesId ?? null;
+	const m1Id = semis[0]?.matchId ?? null;
+	const m2Id = semis[1]?.matchId ?? null;
 
 	const m1Fetcher = useCallback(
 		() =>
-			m1Id !== null ? api<SeriesDetail>(`/series/${m1Id}`) : Promise.reject(new Error("no semi 1")),
+			m1Id !== null
+				? api<MatchDetail>(`/auction-matches/${m1Id}`)
+				: Promise.reject(new Error("no semi 1")),
 		[m1Id],
 	);
 	const m2Fetcher = useCallback(
 		() =>
-			m2Id !== null ? api<SeriesDetail>(`/series/${m2Id}`) : Promise.reject(new Error("no semi 2")),
+			m2Id !== null
+				? api<MatchDetail>(`/auction-matches/${m2Id}`)
+				: Promise.reject(new Error("no semi 2")),
 		[m2Id],
 	);
-	const m1Swr = useStaleWhileRevalidate<SeriesDetail>(m1Id, m1Fetcher, {
+	const m1Swr = useStaleWhileRevalidate<MatchDetail>(m1Id, m1Fetcher, {
 		enabled: m1Id !== null,
 	});
-	const m2Swr = useStaleWhileRevalidate<SeriesDetail>(m2Id, m2Fetcher, {
+	const m2Swr = useStaleWhileRevalidate<MatchDetail>(m2Id, m2Fetcher, {
 		enabled: m2Id !== null,
 	});
 
@@ -406,15 +411,15 @@ function useFinalParticipants(
 		semis.length !== 2 ||
 		!m1Swr.data ||
 		!m2Swr.data ||
-		m1Swr.data.series.status !== "COMPLETED" ||
-		m2Swr.data.series.status !== "COMPLETED" ||
-		!m1Swr.data.series.winningTeam ||
-		!m2Swr.data.series.winningTeam
+		m1Swr.data.match.status !== "COMPLETED" ||
+		m2Swr.data.match.status !== "COMPLETED" ||
+		!m1Swr.data.match.winningTeam ||
+		!m2Swr.data.match.winningTeam
 	) {
 		return null;
 	}
-	const w1 = m1Swr.data.series.winningTeam === "TEAM_1" ? semis[0]!.team1Id : semis[0]!.team2Id;
-	const w2 = m2Swr.data.series.winningTeam === "TEAM_1" ? semis[1]!.team1Id : semis[1]!.team2Id;
+	const w1 = m1Swr.data.match.winningTeam === "TEAM_1" ? semis[0]!.team1Id : semis[0]!.team2Id;
+	const w2 = m2Swr.data.match.winningTeam === "TEAM_1" ? semis[1]!.team1Id : semis[1]!.team2Id;
 	return [w1, w2];
 }
 
@@ -536,19 +541,19 @@ function MatchCard({
 	const t2 = detail.teams.find((t) => t.id === match.team2Id);
 	const [expanded, setExpanded] = useState(false);
 
-	const seriesFetcher = useMemo(
-		() => () => api<SeriesDetail>(`/series/${match.seriesId}`),
-		[match.seriesId],
+	const matchFetcher = useMemo(
+		() => () => api<MatchDetail>(`/auction-matches/${match.matchId}`),
+		[match.matchId],
 	);
-	const swr = useStaleWhileRevalidate<SeriesDetail>(
-		`auction-match:${match.seriesId}`,
-		seriesFetcher,
+	const swr = useStaleWhileRevalidate<MatchDetail>(
+		`auction-match:${match.matchId}`,
+		matchFetcher,
 	);
 
-	const seriesData = swr.data;
-	const games = seriesData?.games ?? [];
-	const completed = seriesData?.series.status === "COMPLETED";
-	const winningTeam = seriesData?.series.winningTeam ?? null;
+	const matchData = swr.data;
+	const games = matchData?.games ?? [];
+	const completed = matchData?.match.status === "COMPLETED";
+	const winningTeam = matchData?.match.winningTeam ?? null;
 
 	const t1Wins = games.filter((g) => g.winningTeam === "TEAM_1").length;
 	const t2Wins = games.filter((g) => g.winningTeam === "TEAM_2").length;
@@ -677,7 +682,7 @@ function MatchCard({
 						</button>
 						{games.length === 0 && (
 							<MatchFormatToggle
-								seriesId={match.seriesId}
+								matchId={match.matchId}
 								format={match.format}
 								onChanged={() => {
 									swr.refresh();
@@ -689,7 +694,7 @@ function MatchCard({
 							<ConfirmButton
 								label="↺ 직전 게임"
 								onConfirm={async () => {
-									await api(`/auction-matches/${match.seriesId}/games/last`, {
+									await api(`/auction-matches/${match.matchId}/games/last`, {
 										method: "DELETE",
 									});
 									swr.refresh();
@@ -735,11 +740,11 @@ function MatchCard({
 // MatchFormatToggle — 게임 0개일 때만 BO1/BO3 변경 가능
 // ============================================================
 function MatchFormatToggle({
-	seriesId,
+	matchId,
 	format,
 	onChanged,
 }: {
-	seriesId: number;
+	matchId: number;
 	format: MatchFormat;
 	onChanged: () => void;
 }) {
@@ -747,7 +752,7 @@ function MatchFormatToggle({
 	const toggle = async () => {
 		setSubmitting(true);
 		try {
-			await api(`/auction-matches/${seriesId}/format`, {
+			await api(`/auction-matches/${matchId}/format`, {
 				method: "PUT",
 				body: JSON.stringify({ format: format === "BO1" ? "BO3" : "BO1" }),
 			});
@@ -784,7 +789,7 @@ function GameInputForm({
 	match: AuctionMatch;
 	team1: AuctionTournamentDetail["teams"][number];
 	team2: AuctionTournamentDetail["teams"][number];
-	games: SeriesDetail["games"];
+	games: MatchDetail["games"];
 	onRecorded: () => void;
 }) {
 	const nextGameNumber = (games.length + 1) as 1 | 2 | 3;
@@ -883,7 +888,7 @@ function GameInputForm({
 		setSubmitting(true);
 		setError(null);
 		try {
-			await api(`/auction-matches/${match.seriesId}/games`, {
+			await api(`/auction-matches/${match.matchId}/games`, {
 				method: "POST",
 				body: JSON.stringify({
 					gameNumber: nextGameNumber,

@@ -38,14 +38,14 @@ beforeEach(async () => {
 	g1 = (
 		db
 			.prepare(
-				"INSERT INTO games (series_id, game_number, winning_team, team1_side) VALUES (?, 1, 'TEAM_1', 'BLUE') RETURNING id",
+				"INSERT INTO games (ranked_series_id, game_number, winning_team, team1_side) VALUES (?, 1, 'TEAM_1', 'BLUE') RETURNING id",
 			)
 			.get(seriesId) as { id: number }
 	).id;
 	g2 = (
 		db
 			.prepare(
-				"INSERT INTO games (series_id, game_number, winning_team, team1_side) VALUES (?, 2, 'TEAM_2', 'RED') RETURNING id",
+				"INSERT INTO games (ranked_series_id, game_number, winning_team, team1_side) VALUES (?, 2, 'TEAM_2', 'RED') RETURNING id",
 			)
 			.get(seriesId) as { id: number }
 	).id;

@@ -1,7 +1,7 @@
 // 게임 결과 입력 (POST) + 직전 게임 되돌리기 (DELETE).
 // Bo3 종료 자동 검사 + MMR 변동 + picks/bans INSERT.
 
-import { cloudflare, datadragon, db } from "@mookbot/core";
+import { datadragon, db } from "@mookbot/core";
 import type { FastifyInstance } from "fastify";
 import { notifyBotSeriesCompleted } from "../bot/notify.js";
 import { HttpError } from "./_errors.js";
@@ -171,7 +171,10 @@ export async function registerGameRoutes(app: FastifyInstance): Promise<void> {
 		};
 	});
 
-	// 직전 게임 되돌리기 — 마지막으로 기록된 game DELETE (cascade)
+	// 직전 게임 되돌리기 — 공유 db.undoLastGame 사용.
+	// 옛 핸들러는 user_lane_mmr.mmr 만 손으로 차감해서 games_played / wins 가
+	// 영구히 부풀어 올랐다 (예: recordGame 마다 +1 되는 카운터가 reset 안 됨).
+	// 이제 record.ts 의 공유 로직이 mmr / games_played / wins 를 한꺼번에 정리.
 	app.delete<{ Params: { id: string } }>("/api/series/:id/games/last", async (req, reply) => {
 		const sid = await requireEditor(req, reply);
 		if (!sid) return;
@@ -180,58 +183,40 @@ export async function registerGameRoutes(app: FastifyInstance): Promise<void> {
 		if (!Number.isFinite(id)) return reply.code(400).send({ error: "invalid id" });
 		const s = await db.getSeries(id);
 		if (!s) return reply.code(404).send({ error: "not found" });
+		if (s.status === "CANCELLED") {
+			return reply.code(409).send({ error: "취소된 시리즈는 되돌릴 수 없습니다." });
+		}
 
 		const games = await db.listGamesInSeries(id);
 		if (games.length === 0) {
 			return reply.code(409).send({ error: "되돌릴 게임이 없습니다." });
 		}
-		const last = games[games.length - 1]!;
 
-		// game DELETE 시 cascade 로 stats/picks/bans/mmr_changes 정리.
-		// user_lane_mmr 차감은 recordGame 에서만 처리하므로 직접 보정 필요.
-		const mmrChanges = await cloudflare.query<{
-			user_id: string;
-			role: string;
-			delta: number;
-			season_id: number;
-		}>(`SELECT user_id, role, delta, season_id FROM mmr_changes WHERE game_id = ?`, [last.id]);
-		await cloudflare.execute(`DELETE FROM games WHERE id = ?`, [last.id]);
-		for (const c of mmrChanges) {
-			await cloudflare.execute(
-				`UPDATE user_lane_mmr SET mmr = mmr - ? WHERE user_id = ? AND role = ? AND season_id = ?`,
-				[c.delta, c.user_id, c.role, c.season_id],
-			);
-		}
+		// 참가자 — 캐시 무효화 범위 산정용 (라인 leaderboard + user profile).
+		// 영향 받은 유저는 mmr_changes 에 기록된 라인만 정확히 알 수 있지만,
+		// 시리즈 참가자가 그 상위 집합이므로 보수적으로 전원 invalidate.
+		const parts = await db.getSeriesParticipants(id);
 
-		// 시리즈가 COMPLETED 였으면 IN_PROGRESS 로 복원
-		const restoredFromCompleted = s.status === "COMPLETED";
-		if (restoredFromCompleted) {
-			await cloudflare.execute(
-				`UPDATE series SET status = 'IN_PROGRESS', winning_team = NULL, ended_at = NULL WHERE id = ?`,
-				[id],
-			);
-		}
+		const result = await db.undoLastGame(id);
 
 		await db.recordAudit({
 			operatorId: sid,
 			action: "game.undone",
 			targetType: "game",
-			targetId: String(last.id),
+			targetId: String(result.undoneGameId),
 			payload: {
 				seriesId: id,
-				gameNumber: last.game_number,
-				restoredFromCompleted,
+				gameNumber: result.undoneGameNumber,
+				restoredFromCompleted: result.restoredToInProgress,
 			},
 		});
 
 		invalidate(`series:${id}`);
 		invalidate("dashboard");
-		// 리더보드 + 영향 받은 유저 invalidate
-		const affectedRoles = new Set(mmrChanges.map((c) => c.role));
+		const affectedRoles = new Set(parts.map((p) => p.role));
 		for (const r of affectedRoles) invalidate(`leaderboard:${r}`);
 		invalidate("leaderboard:COMPOSITE");
-		const affectedUsers = new Set(mmrChanges.map((c) => c.user_id));
-		for (const u of affectedUsers) invalidate(`user:${u}`);
-		return { ok: true, deletedGame: last.game_number };
+		for (const p of parts) invalidate(`user:${p.user_id}`);
+		return { ok: true, deletedGame: result.undoneGameNumber };
 	});
 }

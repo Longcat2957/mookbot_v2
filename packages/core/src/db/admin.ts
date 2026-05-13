@@ -105,6 +105,18 @@ export async function listAuditActions(): Promise<string[]> {
 	return rows.map((r) => r.action);
 }
 
+/**
+ * audit log retention — beforeUnixSec 이전 행 삭제. 삭제 수 반환.
+ *
+ * 호출자 책임으로 cutoff(= now - retention_days * 86400) 를 계산해서 넘긴다.
+ * D1 단일 statement 삭제. 매우 큰 백로그(수만+ row) 가 쌓인 첫 prune 에서 timeout
+ * 가능성이 있으나 일일 cron(C2) 기준으론 하루치만 처리하므로 사실상 무관.
+ */
+export async function pruneAuditLog(beforeUnixSec: number): Promise<{ deleted: number }> {
+	const meta = await execute(`DELETE FROM admin_audit_log WHERE created_at < ?`, [beforeUnixSec]);
+	return { deleted: meta.changes ?? 0 };
+}
+
 // ============================================================
 // MMR 수동 보정
 // ============================================================
@@ -153,7 +165,7 @@ export async function inspectSeasonForReset(seasonId: number): Promise<SeasonRes
 		[seasonId],
 	);
 	const [{ n: gamesCount } = { n: 0 }] = await query<{ n: number }>(
-		`SELECT COUNT(*) AS n FROM games g JOIN series s ON s.id = g.series_id
+		`SELECT COUNT(*) AS n FROM games g JOIN series s ON s.id = g.ranked_series_id
 		 WHERE s.season_id = ? AND s.deleted_at IS NULL`,
 		[seasonId],
 	);
@@ -209,6 +221,13 @@ export interface SeriesImpactSummary {
 		gamesPlayed: number;
 		wins: number;
 	}>;
+	/**
+	 * 이 시리즈의 영향을 받은 (user, season, role) 조합이 이후 시리즈에서 추가 게임을
+	 * 가진 누적 카운트. > 0 이면 rollback 후 user_lane_mmr 가 "S1 이 없었다면" 의
+	 * 값과 미세하게 drift 한다 (subsequent 게임의 ELO 가 옛 baseline 으로 계산됨).
+	 * audit / 운영자 경고용.
+	 */
+	subsequentGames: number;
 }
 
 /**
@@ -216,8 +235,8 @@ export interface SeriesImpactSummary {
  */
 export async function inspectSeriesForDelete(seriesId: number): Promise<SeriesImpactSummary> {
 	const [{ n: gamesCount } = { n: 0 }] = await query<{ n: number }>(
-		`SELECT COUNT(*) AS n FROM games g JOIN series s ON s.id = g.series_id
-		 WHERE g.series_id = ? AND s.deleted_at IS NULL`,
+		`SELECT COUNT(*) AS n FROM games g JOIN series s ON s.id = g.ranked_series_id
+		 WHERE g.ranked_series_id = ? AND s.deleted_at IS NULL`,
 		[seriesId],
 	);
 	const [{ n: participants } = { n: 0 }] = await query<{ n: number }>(
@@ -226,8 +245,8 @@ export async function inspectSeriesForDelete(seriesId: number): Promise<SeriesIm
 	);
 	const [{ n: mmrChanges } = { n: 0 }] = await query<{ n: number }>(
 		`SELECT COUNT(*) AS n FROM mmr_changes mc JOIN games g ON g.id = mc.game_id
-		 JOIN series s ON s.id = g.series_id
-		 WHERE g.series_id = ? AND s.deleted_at IS NULL`,
+		 JOIN series s ON s.id = g.ranked_series_id
+		 WHERE g.ranked_series_id = ? AND s.deleted_at IS NULL`,
 		[seriesId],
 	);
 
@@ -248,17 +267,40 @@ export async function inspectSeriesForDelete(seriesId: number): Promise<SeriesIm
 		    SUM(CASE WHEN mc.delta > 0 THEN 1 ELSE 0 END) AS wins
 		 FROM mmr_changes mc
 		 JOIN games g ON g.id = mc.game_id
-		 JOIN series s ON s.id = g.series_id
-		 WHERE g.series_id = ? AND s.deleted_at IS NULL
+		 JOIN series s ON s.id = g.ranked_series_id
+		 WHERE g.ranked_series_id = ? AND s.deleted_at IS NULL
 		 GROUP BY mc.user_id, mc.season_id, mc.role`,
 		[seriesId],
 	);
+
+	// 후속 게임 카운트 — 이 시리즈에 영향 받은 (user, season, role) 들이 더 최근
+	// 시리즈에서 가진 추가 mmr_changes 행. > 0 이면 rollback 후 미세 drift.
+	// 같은 시리즈의 게임은 제외 (game_id != IN this series's games).
+	let subsequentGames = 0;
+	if (aggregated.length > 0) {
+		const placeholders = aggregated.map(() => "(?, ?, ?)").join(", ");
+		const args: unknown[] = [];
+		for (const a of aggregated) args.push(a.user_id, a.season_id, a.role);
+		args.push(seriesId);
+		const [row] = await query<{ n: number }>(
+			`SELECT COUNT(*) AS n
+			 FROM mmr_changes mc
+			 JOIN games g ON g.id = mc.game_id
+			 JOIN series s ON s.id = g.ranked_series_id
+			 WHERE (mc.user_id, mc.season_id, mc.role) IN (${placeholders})
+			   AND g.ranked_series_id != ?
+			   AND s.deleted_at IS NULL`,
+			args,
+		);
+		subsequentGames = row?.n ?? 0;
+	}
 
 	return {
 		seriesId,
 		gamesCount,
 		participants,
 		mmrChanges,
+		subsequentGames,
 		rollbackPlan: aggregated.map((a) => ({
 			userId: a.user_id,
 			seasonId: a.season_id,
@@ -275,6 +317,8 @@ export async function inspectSeriesForDelete(seriesId: number): Promise<SeriesIm
  *
  * 주의: 후속 게임이 있을 경우 이 시리즈 게임의 영향만 차감 — 후속 ELO 는 그대로 둠.
  *       엄밀히 정확하려면 후속 게임도 재계산 필요하나, 운영 응급용이라 단순 차감 채택.
+ *       후속 게임 카운트는 `subsequentGames` 로 반환 — operator 가 drift 위험을
+ *       audit 로 인지할 수 있도록.
  *
  * v3: hard-delete → soft-delete 로 변경. 종속 game_stats / picks / bans / mmr_changes
  * 행은 그대로 유지되지만 read 쿼리들이 series.deleted_at IS NULL 필터로 가려준다.
@@ -283,7 +327,13 @@ export async function inspectSeriesForDelete(seriesId: number): Promise<SeriesIm
 export async function forceDeleteSeriesWithRollback(
 	seriesId: number,
 	rollbackMmr: boolean,
-): Promise<{ rollbackRows: number }> {
+): Promise<{
+	rollbackRows: number;
+	subsequentGames: number;
+	gamesCount: number;
+	participants: number;
+	mmrChanges: number;
+}> {
 	const summary = await inspectSeriesForDelete(seriesId);
 
 	let rollbackRows = 0;
@@ -306,10 +356,16 @@ export async function forceDeleteSeriesWithRollback(
 		seriesId,
 	]);
 
-	// soft-delete — read 쿼리에서 가려짐. 같은 id 로 createSeries 시 자동 revive.
+	// soft-delete — read 쿼리에서 가려짐. 같은 id 로 createSeries 시 (gamesCount===0 일 때만) revive.
 	await execute(`UPDATE series SET deleted_at = unixepoch() WHERE id = ? AND deleted_at IS NULL`, [
 		seriesId,
 	]);
 
-	return { rollbackRows };
+	return {
+		rollbackRows,
+		subsequentGames: summary.subsequentGames,
+		gamesCount: summary.gamesCount,
+		participants: summary.participants,
+		mmrChanges: summary.mmrChanges,
+	};
 }

@@ -122,4 +122,23 @@ describe("GET /api/series/completed", () => {
 		const body = res.json() as { series: { id: number; endedAt: number }[]; total: number };
 		expect(body.series.map((s) => s.endedAt)).toEqual([2004, 2003, 2002, 2001, 2000]);
 	});
+
+	it("soft-deleted (deleted_at != NULL) 시리즈 제외 — 목록 + total 모두", async () => {
+		const { app, db } = await buildTestApp();
+		seedCompletedSeries(db, 5);
+		// 그중 2개를 soft-delete — force-delete / season-reset 흔적 시뮬레이션.
+		// ORDER BY ended_at DESC 라 ended_at = 2003, 2001 을 soft-delete 하면
+		// 살아있는 ended_at 은 [2004, 2002, 2000] (총 3건).
+		db.prepare("UPDATE series SET deleted_at = unixepoch() WHERE ended_at IN (2003, 2001)").run();
+
+		const res = await app.inject({
+			method: "GET",
+			url: "/api/series/completed?limit=8",
+			cookies: { sid: signSid(app, OP) },
+		});
+		expect(res.statusCode).toBe(200);
+		const body = res.json() as { series: { id: number; endedAt: number }[]; total: number };
+		expect(body.total).toBe(3);
+		expect(body.series.map((s) => s.endedAt)).toEqual([2004, 2002, 2000]);
+	});
 });

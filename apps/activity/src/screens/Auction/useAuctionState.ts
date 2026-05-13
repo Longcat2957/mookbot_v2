@@ -33,7 +33,7 @@ export interface UseAuctionStateResult {
 		team1Id: number;
 		team2Id: number;
 		format: MatchFormat;
-	}) => Promise<{ seriesId: number }>;
+	}) => Promise<{ matchId: number }>;
 	cancel: () => Promise<void>;
 }
 
@@ -148,7 +148,7 @@ export function useAuctionState(tournamentId: number | null): UseAuctionStateRes
 			team2Id: number;
 			format: MatchFormat;
 		}) => {
-			const res = await api<{ seriesId: number }>(`/auction-tournaments/${tournamentId}/matches`, {
+			const res = await api<{ matchId: number }>(`/auction-tournaments/${tournamentId}/matches`, {
 				method: "POST",
 				body: JSON.stringify(input),
 			});

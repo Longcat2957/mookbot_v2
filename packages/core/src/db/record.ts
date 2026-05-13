@@ -70,30 +70,36 @@ export interface RecordGameResult {
  * 챔프 누적 / `/내전기록` 라인 W/L 등에 자연 합산됨.
  *
  * 참가자 정보는 input.participants 로 직접 전달 (라인이 매 게임 다를 수
- * 있는 AUCTION 의 특성 — series_participants 의 role 은 placeholder).
- * 라인 매치업 / ELO 계산은 하지 않음.
+ * 있는 AUCTION 의 특성). 라인 매치업 / ELO 계산은 하지 않음.
+ *
+ * v0.11.0: games.auction_match_id FK 로 INSERT — series 와 disjoint pool.
  */
-export interface RecordGameOnlyInput extends RecordGameInput {
+export interface RecordGameOnlyInput {
+	auctionMatchId: number;
+	gameNumber: 1 | 2 | 3;
+	winningTeam: Team;
+	team1Side: Side;
+	durationSec?: number;
+	riotMatchId?: string;
+	stats?: ReadonlyArray<PlayerStats>;
 	/**
-	 * 이 게임의 라인업 — (user_id, team, role).
-	 * AUCTION 은 매 게임 라인이 달라질 수 있어 series_participants 가 아니라
-	 * 호출자가 직접 전달.
+	 * 이 게임의 라인업 — (userId, team, role). AUCTION 은 매 게임 라인이 달라질 수 있음.
 	 */
 	participants: ReadonlyArray<{ userId: string; team: Team; role: Role }>;
 }
 
 export async function recordGameOnly(input: RecordGameOnlyInput): Promise<{ game: GameRow }> {
 	if (input.participants.length === 0) {
-		throw new Error(`recordGameOnly: series ${input.seriesId} 참가자 없음`);
+		throw new Error(`recordGameOnly: match ${input.auctionMatchId} 참가자 없음`);
 	}
 
 	// Phase 1: INSERT game, capture id
 	const [game] = await query<GameRow>(
-		`INSERT INTO games (series_id, game_number, winning_team, team1_side, duration_sec, riot_match_id)
+		`INSERT INTO games (auction_match_id, game_number, winning_team, team1_side, duration_sec, riot_match_id)
 		 VALUES (?, ?, ?, ?, ?, ?)
 		 RETURNING *`,
 		[
-			input.seriesId,
+			input.auctionMatchId,
 			input.gameNumber,
 			input.winningTeam,
 			input.team1Side,
@@ -191,9 +197,9 @@ export async function recordGameAndUpdateMmr(input: RecordGameInput): Promise<Re
 
 	const eloResults = applyGameElo(matchups, input.winningTeam);
 
-	// Phase 1: INSERT game, capture id
+	// Phase 1: INSERT game, capture id (RANKED — ranked_series_id)
 	const [game] = await query<GameRow>(
-		`INSERT INTO games (series_id, game_number, winning_team, team1_side, duration_sec, riot_match_id)
+		`INSERT INTO games (ranked_series_id, game_number, winning_team, team1_side, duration_sec, riot_match_id)
 		 VALUES (?, ?, ?, ?, ?, ?)
 		 RETURNING *`,
 		[
@@ -346,7 +352,7 @@ export async function undoLastGame(seriesId: number): Promise<UndoLastGameResult
 	}
 
 	const [latest] = await query<GameRow>(
-		`SELECT * FROM games WHERE series_id = ? ORDER BY game_number DESC LIMIT 1`,
+		`SELECT * FROM games WHERE ranked_series_id = ? ORDER BY game_number DESC LIMIT 1`,
 		[seriesId],
 	);
 	if (!latest) throw new Error("undoLastGame: 되돌릴 게임이 없음");

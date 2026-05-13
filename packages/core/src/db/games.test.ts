@@ -38,7 +38,7 @@ function insertGame(
 	return (
 		db
 			.prepare(
-				"INSERT INTO games (series_id, game_number, winning_team, team1_side) VALUES (?, ?, ?, ?) RETURNING id",
+				"INSERT INTO games (ranked_series_id, game_number, winning_team, team1_side) VALUES (?, ?, ?, ?) RETURNING id",
 			)
 			.get(seriesId, num, winner, side) as { id: number }
 	).id;

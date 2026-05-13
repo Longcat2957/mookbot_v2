@@ -52,6 +52,7 @@ CREATE TABLE IF NOT EXISTS seasons (
 
 -- series.id 는 createSeries 호출 시 명시적으로 전달 — 모집 ID 와 동일하게 부여한다.
 -- AUTOINCREMENT 는 fallback (seed / 명시 id 미지정 호출) 용. 운영 흐름은 항상 명시 id 사용.
+-- v0.11.0: RANKED 전용. 경매내전 매치는 auction_matches 로 분리.
 CREATE TABLE IF NOT EXISTS series (
     id            INTEGER PRIMARY KEY AUTOINCREMENT,
     season_id     INTEGER NOT NULL REFERENCES seasons(id),
@@ -67,11 +68,8 @@ CREATE TABLE IF NOT EXISTS series (
     end_card_message_id   TEXT,                  -- v2: 종료 카드 (영속 기록)
     end_card_channel_id   TEXT,                  -- v2
     deleted_at            INTEGER,               -- v3: soft-delete (NULL = live). 모든 read 쿼리는 IS NULL 필터.
-    type                  TEXT    NOT NULL DEFAULT 'RANKED',  -- v0.5.0: RANKED | AUCTION (MMR 영향 0)
-    auction_tournament_id INTEGER REFERENCES auction_tournaments(id),  -- v0.5.0: AUCTION 매치 ↔ 토너먼트 FK
     CHECK (status IN ('IN_PROGRESS', 'COMPLETED', 'CANCELLED')),
-    CHECK (winning_team IS NULL OR winning_team IN ('TEAM_1', 'TEAM_2')),
-    CHECK (type IN ('RANKED', 'AUCTION'))
+    CHECK (winning_team IS NULL OR winning_team IN ('TEAM_1', 'TEAM_2'))
 );
 
 CREATE INDEX IF NOT EXISTS idx_series_season ON series(season_id);
@@ -96,22 +94,34 @@ CREATE INDEX IF NOT EXISTS idx_sp_user ON series_participants(user_id);
 -- Games (Bo3 내 개별 게임 1~3) & Stats
 -- ============================================================
 
+-- v0.11.0: polymorphic FK — RANKED 게임은 ranked_series_id, AUCTION 매치 게임은 auction_match_id.
+-- 정확히 한 쪽만 NOT NULL (CHECK 제약). app 코드 (record.ts 의 INSERT 경로) 도 같은 invariant 강제.
+-- 옛 series_id 컬럼은 v0.11.0 이전 schema 의 흔적이며, 마이그레이션이 ranked_series_id 로 옮긴 뒤 DROP.
 CREATE TABLE IF NOT EXISTS games (
-    id            INTEGER PRIMARY KEY AUTOINCREMENT,
-    series_id     INTEGER NOT NULL REFERENCES series(id) ON DELETE CASCADE,
-    game_number   INTEGER NOT NULL,
-    winning_team  TEXT    NOT NULL,
-    team1_side    TEXT    NOT NULL,
-    duration_sec  INTEGER,
-    riot_match_id TEXT    UNIQUE,
-    played_at     INTEGER NOT NULL DEFAULT (unixepoch()),
+    id               INTEGER PRIMARY KEY AUTOINCREMENT,
+    ranked_series_id INTEGER REFERENCES series(id) ON DELETE CASCADE,
+    auction_match_id INTEGER REFERENCES auction_matches(id) ON DELETE CASCADE,
+    game_number      INTEGER NOT NULL,
+    winning_team     TEXT    NOT NULL,
+    team1_side       TEXT    NOT NULL,
+    duration_sec     INTEGER,
+    riot_match_id    TEXT    UNIQUE,
+    played_at        INTEGER NOT NULL DEFAULT (unixepoch()),
     CHECK (game_number BETWEEN 1 AND 3),
     CHECK (winning_team IN ('TEAM_1', 'TEAM_2')),
     CHECK (team1_side IN ('BLUE', 'RED')),
-    UNIQUE (series_id, game_number)
+    CHECK (
+        (ranked_series_id IS NOT NULL AND auction_match_id IS NULL)
+        OR (ranked_series_id IS NULL AND auction_match_id IS NOT NULL)
+    )
 );
 
-CREATE INDEX IF NOT EXISTS idx_games_series ON games(series_id);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_games_ranked
+    ON games(ranked_series_id, game_number) WHERE ranked_series_id IS NOT NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS uq_games_auction
+    ON games(auction_match_id, game_number) WHERE auction_match_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_games_ranked_series ON games(ranked_series_id);
+CREATE INDEX IF NOT EXISTS idx_games_auction_match ON games(auction_match_id);
 
 CREATE TABLE IF NOT EXISTS game_stats (
     game_id      INTEGER NOT NULL REFERENCES games(id) ON DELETE CASCADE,
@@ -392,22 +402,32 @@ CREATE TABLE IF NOT EXISTS auction_bids (
 CREATE INDEX IF NOT EXISTS idx_auction_bids_tournament ON auction_bids(tournament_id);
 CREATE INDEX IF NOT EXISTS idx_auction_bids_target ON auction_bids(target_user_id);
 
--- 토너먼트 매치 메타 — 기존 series 와 1:1.
--- series 가 곧 한 매치 (BO1 or BO3 자체 lifecycle, 기존 games 흐름 재사용).
+-- v0.11.0: 토너먼트 매치 — 독립 id + 독립 lifecycle (status / winning_team / 시작·종료 시각).
+-- 옛 schema 는 series_id 가 PK 였으나 series 와 풀이 겹쳐 cross-type id 충돌 위험 → 분리.
+-- 게임은 games.auction_match_id 가 가리킴 (CASCADE).
 CREATE TABLE IF NOT EXISTS auction_matches (
-    series_id       INTEGER PRIMARY KEY REFERENCES series(id) ON DELETE CASCADE,
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
     tournament_id   INTEGER NOT NULL REFERENCES auction_tournaments(id) ON DELETE CASCADE,
     round           TEXT    NOT NULL,                                 -- SEMI | FINAL | SINGLE (10인)
     bracket_index   INTEGER,                                          -- 4강 매치 1/2 (FINAL/SINGLE 은 NULL)
     team1_id        INTEGER NOT NULL REFERENCES auction_teams(id),
     team2_id        INTEGER NOT NULL REFERENCES auction_teams(id),
     format          TEXT    NOT NULL DEFAULT 'BO3',                   -- BO1 | BO3
+    status          TEXT    NOT NULL DEFAULT 'IN_PROGRESS',           -- IN_PROGRESS | COMPLETED | CANCELLED
+    winning_team    TEXT,                                             -- TEAM_1 | TEAM_2 (post-complete)
+    started_at      INTEGER NOT NULL DEFAULT (unixepoch()),
+    ended_at        INTEGER,
+    created_by      TEXT    REFERENCES users(discord_id),
+    deleted_at      INTEGER,                                          -- soft-delete (auction_tournament cascade)
     UNIQUE (tournament_id, round, bracket_index),
     CHECK (round IN ('SEMI', 'FINAL', 'SINGLE')),
-    CHECK (format IN ('BO1', 'BO3'))
+    CHECK (format IN ('BO1', 'BO3')),
+    CHECK (status IN ('IN_PROGRESS', 'COMPLETED', 'CANCELLED')),
+    CHECK (winning_team IS NULL OR winning_team IN ('TEAM_1', 'TEAM_2'))
 );
 
 CREATE INDEX IF NOT EXISTS idx_auction_matches_tournament ON auction_matches(tournament_id);
+CREATE INDEX IF NOT EXISTS idx_auction_matches_status ON auction_matches(status) WHERE deleted_at IS NULL;
 
 
 -- ============================================================
@@ -436,10 +456,136 @@ CREATE INDEX IF NOT EXISTS idx_series_deleted_at ON series(deleted_at);
 -- 신규 등록은 자동 저장, 기존 등록은 별도 backfill 로 채움.
 ALTER TABLE riot_accounts ADD COLUMN profile_icon_id INTEGER;
 
--- v0.5.0: 경매내전 — series 에 type + auction_tournament_id 추가.
--- type='AUCTION' 이면 mmr_changes / user_lane_mmr 흐름 skip (game_stats / game_picks 는 통합).
--- 기존 series 는 자동으로 type='RANKED' 로 채워짐 (DEFAULT) — MMR 흐름 영향 0.
-ALTER TABLE series ADD COLUMN type TEXT NOT NULL DEFAULT 'RANKED';
-ALTER TABLE series ADD COLUMN auction_tournament_id INTEGER REFERENCES auction_tournaments(id);
-CREATE INDEX IF NOT EXISTS idx_series_type ON series(type) WHERE deleted_at IS NULL;
-CREATE INDEX IF NOT EXISTS idx_series_auction_tournament ON series(auction_tournament_id) WHERE auction_tournament_id IS NOT NULL;
+-- v0.5.0 의 series.type / series.auction_tournament_id 컬럼은 v0.11.0 에서 제거.
+-- 옛 prod DB 는 v0.11.0 마이그레이션 블록이 DROP COLUMN 처리. fresh DB 는 CREATE 부터
+-- 이미 없음. 따라서 v0.5.0 의 ALTER ADD COLUMN 라인은 schema 에 더 이상 두지 않음.
+
+-- ============================================================
+-- v0.11.0: RANKED / AUCTION 스키마 분리
+-- ============================================================
+-- 옛 구조: series 가 RANKED+AUCTION 둘 다 담음, auction_matches.series_id 가 PK,
+--          games.series_id 가 양쪽 가리킴 → id 풀 겹쳐 cross-type 충돌 가능.
+-- 새 구조: series = RANKED only / auction_matches = AUCTION 매치 own id + lifecycle /
+--          games 가 polymorphic (ranked_series_id XOR auction_match_id).
+-- 운영 DB 의 기존 AUCTION 데이터는 UI 테스트용 dummy → 삭제 후 새 구조로 재시작.
+--
+-- 이 블록은 기존 DB 마이그레이션 전용 — fresh DB 에선 위쪽 CREATE 가 새 schema 를
+-- 이미 적용했으므로 skip. test harness (db-harness.ts) 가 marker 사이를 통째로 제거.
+-- @migration-only-begin
+
+-- (1) series 의 AUCTION 행 제거 — auction_tournaments 보다 먼저 (series.auction_tournament_id
+-- 컬럼이 아직 살아있어서 auction_tournaments 행 삭제가 FK 로 막힘)
+DELETE FROM mmr_changes WHERE game_id IN (SELECT id FROM games WHERE series_id IN (SELECT id FROM series WHERE type = 'AUCTION'));
+DELETE FROM games WHERE series_id IN (SELECT id FROM series WHERE type = 'AUCTION');
+DELETE FROM series_participants WHERE series_id IN (SELECT id FROM series WHERE type = 'AUCTION');
+DELETE FROM series WHERE type = 'AUCTION';
+
+-- (1b) 남은 RANKED series 가 auction_tournament_id 를 들고 있을 수 있음 (malformed) — NULL 로 풀어서
+-- auction_tournaments 삭제 FK 해제. 이 컬럼은 곧 DROP 되므로 NULL 값 영향 0.
+UPDATE series SET auction_tournament_id = NULL WHERE auction_tournament_id IS NOT NULL;
+
+-- (1c) auction_recruitments.converted_tournament_id 도 NULL — auction_recruitments 자체는
+-- 이미 (2) 에서 삭제되지만 그 전에 FK 가 살아있어서 auction_tournaments 삭제 막을 수 있음.
+UPDATE auction_recruitments SET converted_tournament_id = NULL WHERE converted_tournament_id IS NOT NULL;
+
+-- (2) dummy auction 데이터 정리 (FK 순서)
+DELETE FROM auction_bids;
+DELETE FROM auction_team_members;
+DELETE FROM auction_matches;
+DELETE FROM auction_teams;
+DELETE FROM auction_recruitment_participants;
+DELETE FROM auction_recruitments;
+DELETE FROM auction_tournaments;
+
+-- (3) games 에 polymorphic 컬럼 추가
+ALTER TABLE games ADD COLUMN ranked_series_id INTEGER REFERENCES series(id) ON DELETE CASCADE;
+ALTER TABLE games ADD COLUMN auction_match_id INTEGER REFERENCES auction_matches(id) ON DELETE CASCADE;
+
+-- (4) 기존 games 행 (RANKED 만 남음) 의 series_id → ranked_series_id 옮김
+UPDATE games SET ranked_series_id = series_id WHERE ranked_series_id IS NULL AND series_id IS NOT NULL;
+
+-- (5) series 에서 AUCTION 컬럼 드랍 (SQLite 3.35+)
+DROP INDEX IF EXISTS idx_series_type;
+DROP INDEX IF EXISTS idx_series_auction_tournament;
+ALTER TABLE series DROP COLUMN type;
+ALTER TABLE series DROP COLUMN auction_tournament_id;
+
+-- (6) games.series_id 컬럼 정리.
+-- 단순 DROP COLUMN 은 옛 `UNIQUE (series_id, game_number)` 제약 (sqlite_autoindex)
+-- 가 series_id 를 참조해서 실패한다. SQLite 는 제약 단독 제거를 지원 안 하므로
+-- 테이블 통째 rebuild 필요. children (game_stats / game_picks / game_bans / mmr_changes)
+-- 의 FK 는 ON DELETE CASCADE 이므로 DROP TABLE games 시 cascade 가 일어남 → 사용 불가.
+-- 대신 rename swap: legacy_alter_table=ON 으로 RENAME 이 children FK reference 를
+-- 자동 업데이트 안 하도록 한 뒤, games → games_old / games_v2 → games 순으로 swap.
+-- children 의 FK 는 항상 "games" 이름 가리키므로 swap 후에도 일관성 유지.
+DROP INDEX IF EXISTS idx_games_series;
+DROP TABLE IF EXISTS games_v2;
+DROP TABLE IF EXISTS games_old_pre_v0_11;
+CREATE TABLE IF NOT EXISTS games_v2 (
+    id               INTEGER PRIMARY KEY AUTOINCREMENT,
+    ranked_series_id INTEGER REFERENCES series(id) ON DELETE CASCADE,
+    auction_match_id INTEGER REFERENCES auction_matches(id) ON DELETE CASCADE,
+    game_number      INTEGER NOT NULL,
+    winning_team     TEXT    NOT NULL,
+    team1_side       TEXT    NOT NULL,
+    duration_sec     INTEGER,
+    riot_match_id    TEXT    UNIQUE,
+    played_at        INTEGER NOT NULL DEFAULT (unixepoch()),
+    CHECK (game_number BETWEEN 1 AND 3),
+    CHECK (winning_team IN ('TEAM_1', 'TEAM_2')),
+    CHECK (team1_side IN ('BLUE', 'RED')),
+    CHECK (
+        (ranked_series_id IS NOT NULL AND auction_match_id IS NULL)
+        OR (ranked_series_id IS NULL AND auction_match_id IS NOT NULL)
+    )
+);
+INSERT INTO games_v2 (id, ranked_series_id, auction_match_id, game_number, winning_team, team1_side, duration_sec, riot_match_id, played_at)
+    SELECT id, ranked_series_id, auction_match_id, game_number, winning_team, team1_side, duration_sec, riot_match_id, played_at
+    FROM games
+    WHERE NOT EXISTS (SELECT 1 FROM games_v2 WHERE games_v2.id = games.id);
+-- 아래 4 statement 는 한 SQL 블록으로 묶어 D1 /query 단일 call 로 보낸다 — PRAGMA legacy_alter_table
+-- 가 connection scope 라서 같은 call 안에서만 효과. migrate.ts 가 "-- @atomic-rebuild-begin/end"
+-- 마커 사이를 한 통째 statement 로 결합해서 실행.
+-- @atomic-rebuild-begin
+PRAGMA legacy_alter_table = ON;
+ALTER TABLE games RENAME TO games_old_pre_v0_11;
+ALTER TABLE games_v2 RENAME TO games;
+PRAGMA legacy_alter_table = OFF;
+-- @atomic-rebuild-end
+DROP TABLE IF EXISTS games_old_pre_v0_11;
+
+-- (7) 옛 auction_matches (series_id PK) 드랍 → 새 schema 의 CREATE TABLE 이 위에 정의됨.
+--    위 (1) 에서 이미 비웠으므로 데이터 손실 없음.
+DROP TABLE IF EXISTS auction_matches;
+CREATE TABLE IF NOT EXISTS auction_matches (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    tournament_id   INTEGER NOT NULL REFERENCES auction_tournaments(id) ON DELETE CASCADE,
+    round           TEXT    NOT NULL,
+    bracket_index   INTEGER,
+    team1_id        INTEGER NOT NULL REFERENCES auction_teams(id),
+    team2_id        INTEGER NOT NULL REFERENCES auction_teams(id),
+    format          TEXT    NOT NULL DEFAULT 'BO3',
+    status          TEXT    NOT NULL DEFAULT 'IN_PROGRESS',
+    winning_team    TEXT,
+    started_at      INTEGER NOT NULL DEFAULT (unixepoch()),
+    ended_at        INTEGER,
+    created_by      TEXT    REFERENCES users(discord_id),
+    deleted_at      INTEGER,
+    UNIQUE (tournament_id, round, bracket_index),
+    CHECK (round IN ('SEMI', 'FINAL', 'SINGLE')),
+    CHECK (format IN ('BO1', 'BO3')),
+    CHECK (status IN ('IN_PROGRESS', 'COMPLETED', 'CANCELLED')),
+    CHECK (winning_team IS NULL OR winning_team IN ('TEAM_1', 'TEAM_2'))
+);
+
+-- (8) 새 games 인덱스 (위 CREATE 에 partial UNIQUE 정의됨, 멱등)
+CREATE UNIQUE INDEX IF NOT EXISTS uq_games_ranked
+    ON games(ranked_series_id, game_number) WHERE ranked_series_id IS NOT NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS uq_games_auction
+    ON games(auction_match_id, game_number) WHERE auction_match_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_games_ranked_series ON games(ranked_series_id);
+CREATE INDEX IF NOT EXISTS idx_games_auction_match ON games(auction_match_id);
+CREATE INDEX IF NOT EXISTS idx_auction_matches_tournament ON auction_matches(tournament_id);
+CREATE INDEX IF NOT EXISTS idx_auction_matches_status ON auction_matches(status) WHERE deleted_at IS NULL;
+
+-- @migration-only-end

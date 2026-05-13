@@ -96,7 +96,7 @@ export async function getSeriesUsedChampions(
 		`SELECT DISTINCT gp.champion_name
 		   FROM game_picks gp
 		   JOIN games g ON g.id = gp.game_id
-		  WHERE g.series_id = ?${extra}`,
+		  WHERE g.ranked_series_id = ?${extra}`,
 		params,
 	);
 	return new Set(rows.map((r) => r.champion_name));
@@ -156,7 +156,7 @@ export async function getSeriesPicksAndBans(seriesId: number): Promise<SeriesPic
 			`SELECT gp.game_id, gp.team, gp.role, gp.champion_name
 			   FROM game_picks gp
 			   JOIN games g ON g.id = gp.game_id
-			  WHERE g.series_id = ?
+			  WHERE g.ranked_series_id = ?
 			  ORDER BY g.game_number, gp.team, gp.role`,
 			[seriesId],
 		),
@@ -164,7 +164,7 @@ export async function getSeriesPicksAndBans(seriesId: number): Promise<SeriesPic
 			`SELECT gb.game_id, gb.team, gb.position, gb.champion_name
 			   FROM game_bans gb
 			   JOIN games g ON g.id = gb.game_id
-			  WHERE g.series_id = ?
+			  WHERE g.ranked_series_id = ?
 			  ORDER BY g.game_number, gb.team, gb.position`,
 			[seriesId],
 		),

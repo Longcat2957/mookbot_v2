@@ -8,6 +8,7 @@ import {
 	inspectSeriesForDelete,
 	listAuditActions,
 	listAuditLog,
+	pruneAuditLog,
 	recordAudit,
 	resetSeasonData,
 } from "./admin.js";
@@ -110,6 +111,48 @@ describe("listAuditLog / listAuditActions", () => {
 	it("listAuditActions 가 distinct 정렬", async () => {
 		const actions = await listAuditActions();
 		expect(actions).toEqual(["series.force_delete", "series.revert"]);
+	});
+});
+
+describe("pruneAuditLog", () => {
+	it("cutoff 이전 row 삭제 + count 반환, 이후 row 보존", async () => {
+		const now = Math.floor(Date.now() / 1000);
+		const NINETY_DAYS = 90 * 86400;
+		const oldTs = now - 100 * 86400; // 100일 전 — 삭제 대상
+		const recentTs = now - 30 * 86400; // 30일 전 — 보존
+
+		const insert = db.prepare(
+			`INSERT INTO admin_audit_log (operator_id, action, created_at) VALUES (?, ?, ?)`,
+		);
+		for (let i = 0; i < 60; i++) insert.run(OP, "old.entry", oldTs);
+		for (let i = 0; i < 40; i++) insert.run(OP, "recent.entry", recentTs);
+
+		const { deleted } = await pruneAuditLog(now - NINETY_DAYS);
+		expect(deleted).toBe(60);
+
+		const remaining = db.prepare("SELECT COUNT(*) AS n FROM admin_audit_log").get() as {
+			n: number;
+		};
+		expect(remaining.n).toBe(40);
+	});
+
+	it("매칭 row 0 일 때 deleted 0", async () => {
+		await recordAudit({ operatorId: OP, action: "fresh" });
+		const { deleted } = await pruneAuditLog(0);
+		expect(deleted).toBe(0);
+		const remaining = db.prepare("SELECT COUNT(*) AS n FROM admin_audit_log").get() as {
+			n: number;
+		};
+		expect(remaining.n).toBe(1);
+	});
+
+	it("정확히 cutoff 와 같은 created_at 은 보존 (< 비교)", async () => {
+		const cutoff = 1_000_000;
+		db
+			.prepare(`INSERT INTO admin_audit_log (operator_id, action, created_at) VALUES (?, ?, ?)`)
+			.run(OP, "edge", cutoff);
+		const { deleted } = await pruneAuditLog(cutoff);
+		expect(deleted).toBe(0);
 	});
 });
 
@@ -220,7 +263,7 @@ describe("inspectSeriesForDelete + forceDeleteSeriesWithRollback", () => {
 			.run(sid, "u2");
 		const gameRow = db
 			.prepare(
-				"INSERT INTO games (series_id, game_number, winning_team, team1_side) VALUES (?, 1, 'TEAM_1', 'BLUE') RETURNING id",
+				"INSERT INTO games (ranked_series_id, game_number, winning_team, team1_side) VALUES (?, 1, 'TEAM_1', 'BLUE') RETURNING id",
 			)
 			.get(sid) as { id: number };
 		const gid = gameRow.id;
@@ -291,5 +334,58 @@ describe("inspectSeriesForDelete + forceDeleteSeriesWithRollback", () => {
 			| undefined;
 		expect(row).toBeDefined();
 		expect(row?.deleted_at).not.toBeNull();
+	});
+
+	it("subsequentGames=0 일 때 0 반환", async () => {
+		const { seriesId } = await setupSeriesWithGame();
+		const inspect = await inspectSeriesForDelete(seriesId);
+		expect(inspect.subsequentGames).toBe(0);
+
+		const result = await forceDeleteSeriesWithRollback(seriesId, true);
+		expect(result.subsequentGames).toBe(0);
+		expect(result.gamesCount).toBe(1);
+		expect(result.participants).toBe(2);
+		expect(result.mmrChanges).toBe(2);
+	});
+
+	it("후속 시리즈가 있으면 subsequentGames 누적 — drift 위험 audit 노출용", async () => {
+		// S1: u1 vs u2 TOP (setupSeriesWithGame 가 만든 것)
+		const { seriesId: s1Id } = await setupSeriesWithGame();
+		// S2: u1 이 같은 라인에서 한 게임 더 — S1 의 영향을 받은 (u1, season, TOP) 후속
+		const s2 = db
+			.prepare("INSERT INTO series (season_id, created_by) VALUES (?, ?) RETURNING id")
+			.get(seasonId, OP) as { id: number };
+		await upsertUser("u3", "U3");
+		db
+			.prepare(
+				"INSERT INTO series_participants (series_id, user_id, team, role) VALUES (?, ?, 'TEAM_1', 'TOP')",
+			)
+			.run(s2.id, "u1");
+		db
+			.prepare(
+				"INSERT INTO series_participants (series_id, user_id, team, role) VALUES (?, ?, 'TEAM_2', 'TOP')",
+			)
+			.run(s2.id, "u3");
+		const g2 = db
+			.prepare(
+				"INSERT INTO games (ranked_series_id, game_number, winning_team, team1_side) VALUES (?, 1, 'TEAM_1', 'BLUE') RETURNING id",
+			)
+			.get(s2.id) as { id: number };
+		db
+			.prepare(
+				`INSERT INTO mmr_changes (game_id, user_id, season_id, role, opponent_id, mmr_before, mmr_after, delta) VALUES (?, ?, ?, 'TOP', ?, 1516, 1530, 14)`,
+			)
+			.run(g2.id, "u1", seasonId, "u3");
+		db
+			.prepare(
+				`INSERT INTO mmr_changes (game_id, user_id, season_id, role, opponent_id, mmr_before, mmr_after, delta) VALUES (?, ?, ?, 'TOP', ?, 1500, 1486, -14)`,
+			)
+			.run(g2.id, "u3", seasonId, "u1");
+
+		// S1 강제 삭제 — u1 의 후속 게임 1건이 subsequentGames 로 노출돼야 함.
+		// u2 는 후속 없음. 그래도 u1 의 1건만 카운트 (u3 는 S1 의 영향 받은 user 가 아니므로).
+		const result = await forceDeleteSeriesWithRollback(s1Id, true);
+		expect(result.subsequentGames).toBe(1);
+		expect(result.rollbackRows).toBe(2);
 	});
 });

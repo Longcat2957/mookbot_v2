@@ -179,12 +179,41 @@ describe("undoLastGame", () => {
 });
 
 describe("recordGameOnly — AUCTION 게임 (MMR 영향 0, 통계 통합)", () => {
+	// AUCTION 매치는 별도 테이블(auction_matches) — 토너먼트 + 매치 fixture 만들고 사용.
+	async function makeAuctionMatchFixture(): Promise<{ matchId: number }> {
+		// 팀장도 user 로 등록 — auction_teams.captain_user_id FK 만족.
+		await upsertUser("cap1", "Cap1");
+		await upsertUser("cap2", "Cap2");
+		db
+			.prepare(
+				`INSERT INTO auction_tournaments (id, season_id, format, status, created_by)
+				 VALUES (1, ?, 10, 'IN_GAME', 'operator')`,
+			)
+			.run(seasonId);
+		const t1 = db
+			.prepare(
+				`INSERT INTO auction_teams (tournament_id, team_index, captain_user_id) VALUES (1, 1, 'cap1') RETURNING id`,
+			)
+			.get() as { id: number };
+		const t2 = db
+			.prepare(
+				`INSERT INTO auction_teams (tournament_id, team_index, captain_user_id) VALUES (1, 2, 'cap2') RETURNING id`,
+			)
+			.get() as { id: number };
+		const m = db
+			.prepare(
+				`INSERT INTO auction_matches (tournament_id, round, bracket_index, team1_id, team2_id, format, created_by)
+				 VALUES (1, 'SINGLE', NULL, ?, ?, 'BO3', 'operator') RETURNING id`,
+			)
+			.get(t1.id, t2.id) as { id: number };
+		return { matchId: m.id };
+	}
+
 	it("게임 + game_stats 만 INSERT, mmr_changes / user_lane_mmr 변동 없음", async () => {
-		// AUCTION 매치를 시뮬: series.type = 'AUCTION' 으로 변경
-		db.prepare("UPDATE series SET type = 'AUCTION' WHERE id = ?").run(seriesId);
+		const { matchId } = await makeAuctionMatchFixture();
 
 		const result = await recordGameOnly({
-			seriesId,
+			auctionMatchId: matchId,
 			gameNumber: 1,
 			winningTeam: "TEAM_1",
 			team1Side: "BLUE",
@@ -203,6 +232,8 @@ describe("recordGameOnly — AUCTION 게임 (MMR 영향 0, 통계 통합)", () =
 
 		expect(result.game.id).toBeGreaterThan(0);
 		expect(result.game.winning_team).toBe("TEAM_1");
+		expect(result.game.auction_match_id).toBe(matchId);
+		expect(result.game.ranked_series_id).toBeNull();
 
 		// 격리: mmr_changes 0 행, user_lane_mmr 변동 없음 (1500 default 그대로)
 		const mmrChanges = await getMmrChangesForGame(result.game.id);
@@ -222,11 +253,11 @@ describe("recordGameOnly — AUCTION 게임 (MMR 영향 0, 통계 통합)", () =
 	});
 
 	it("라인 자유 (매 게임 다른 role) — game_stats 의 role 이 input 따라감", async () => {
-		db.prepare("UPDATE series SET type = 'AUCTION' WHERE id = ?").run(seriesId);
+		const { matchId } = await makeAuctionMatchFixture();
 
 		// 게임 1: T1[0] 가 TOP
 		await recordGameOnly({
-			seriesId,
+			auctionMatchId: matchId,
 			gameNumber: 1,
 			winningTeam: "TEAM_1",
 			team1Side: "BLUE",
@@ -240,7 +271,7 @@ describe("recordGameOnly — AUCTION 게임 (MMR 영향 0, 통계 통합)", () =
 
 		// 게임 2: T1[0] 가 MID (라인 자유)
 		await recordGameOnly({
-			seriesId,
+			auctionMatchId: matchId,
 			gameNumber: 2,
 			winningTeam: "TEAM_2",
 			team1Side: "RED",

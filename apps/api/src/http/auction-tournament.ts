@@ -135,12 +135,14 @@ export async function registerAuctionTournamentRoutes(app: FastifyInstance): Pro
 			})),
 			unsold,
 			matches: matches.map((m) => ({
-				seriesId: m.series_id,
+				matchId: m.id,
 				round: m.round,
 				bracketIndex: m.bracket_index,
 				team1Id: m.team1_id,
 				team2Id: m.team2_id,
 				format: m.format,
+				status: m.status,
+				winningTeam: m.winning_team,
 			})),
 			bids: bids.map((b) => ({
 				id: b.id,

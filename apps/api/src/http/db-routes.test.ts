@@ -357,7 +357,7 @@ describe("POST /api/series/:id/games (record + Bo3)", () => {
 });
 
 describe("DELETE /api/series/:id/games/last", () => {
-	it("최근 게임 삭제 + MMR 차감", async () => {
+	it("최근 게임 삭제 + MMR / games_played / wins 모두 차감 (공유 undoLastGame)", async () => {
 		const { app, db } = await buildTestApp({ canEdit: true });
 		const { seasonId } = seedRecruitment(db);
 		const sid = (
@@ -393,11 +393,19 @@ describe("DELETE /api/series/:id/games/last", () => {
 			},
 		});
 
-		// MMR 변동 확인 — u1 +16
-		const mmrBefore = db.prepare("SELECT mmr FROM user_lane_mmr WHERE user_id = 'u1'").get() as {
-			mmr: number;
-		};
-		expect(mmrBefore.mmr).toBeGreaterThan(1500);
+		// 기록 직후: 양 유저 모두 games_played=1, mmr 변동
+		const u1Before = db
+			.prepare("SELECT mmr, games_played, wins FROM user_lane_mmr WHERE user_id = 'u1'")
+			.get() as { mmr: number; games_played: number; wins: number };
+		const u2Before = db
+			.prepare("SELECT mmr, games_played, wins FROM user_lane_mmr WHERE user_id = 'u2'")
+			.get() as { mmr: number; games_played: number; wins: number };
+		expect(u1Before.mmr).toBeGreaterThan(1500);
+		expect(u1Before.games_played).toBe(1);
+		expect(u1Before.wins).toBe(1);
+		expect(u2Before.mmr).toBeLessThan(1500);
+		expect(u2Before.games_played).toBe(1);
+		expect(u2Before.wins).toBe(0);
 
 		const del = await app.inject({
 			method: "DELETE",
@@ -407,15 +415,125 @@ describe("DELETE /api/series/:id/games/last", () => {
 		expect(del.statusCode).toBe(200);
 		expect(del.json()).toMatchObject({ ok: true, deletedGame: 1 });
 
-		// 게임 삭제됨
-		expect(db.prepare("SELECT COUNT(*) AS n FROM games WHERE series_id = ?").get(sid)).toEqual({
+		// 게임 행 / cascade — game_stats / mmr_changes 모두 삭제
+		expect(
+			db.prepare("SELECT COUNT(*) AS n FROM games WHERE ranked_series_id = ?").get(sid),
+		).toEqual({
 			n: 0,
 		});
-		// MMR 차감됨 (rough — may not be exactly 1500 due to formula, but should be ≤ pre-change)
-		const mmrAfter = db.prepare("SELECT mmr FROM user_lane_mmr WHERE user_id = 'u1'").get() as {
-			mmr: number;
+		expect(db.prepare("SELECT COUNT(*) AS n FROM mmr_changes").get()).toEqual({ n: 0 });
+
+		// user_lane_mmr — mmr 1500 복귀 + 누적 카운터 reset.
+		// 회귀 가드: 옛 핸들러는 games_played / wins 를 차감하지 않아 영구 부풀어 있었음.
+		const u1After = db
+			.prepare("SELECT mmr, games_played, wins FROM user_lane_mmr WHERE user_id = 'u1'")
+			.get() as { mmr: number; games_played: number; wins: number };
+		const u2After = db
+			.prepare("SELECT mmr, games_played, wins FROM user_lane_mmr WHERE user_id = 'u2'")
+			.get() as { mmr: number; games_played: number; wins: number };
+		expect(u1After.mmr).toBeCloseTo(1500, 5);
+		expect(u1After.games_played).toBe(0);
+		expect(u1After.wins).toBe(0);
+		expect(u2After.mmr).toBeCloseTo(1500, 5);
+		expect(u2After.games_played).toBe(0);
+		expect(u2After.wins).toBe(0);
+
+		// audit log — game.undone 1건 (restoredFromCompleted=false)
+		const audit = db
+			.prepare(
+				"SELECT operator_id, action, target_id, payload FROM admin_audit_log WHERE action = 'game.undone'",
+			)
+			.get() as { operator_id: string; action: string; target_id: string; payload: string };
+		expect(audit.operator_id).toBe(OP);
+		const payload = JSON.parse(audit.payload) as { restoredFromCompleted: boolean };
+		expect(payload.restoredFromCompleted).toBe(false);
+	});
+
+	it("COMPLETED 시리즈에서 undo → IN_PROGRESS 복원 + 카운터 차감", async () => {
+		const { app, db } = await buildTestApp({ canEdit: true });
+		const { seasonId } = seedRecruitment(db);
+		const sid = (
+			db
+				.prepare("INSERT INTO series (season_id, created_by) VALUES (?, ?) RETURNING id")
+				.get(seasonId, OP) as { id: number }
+		).id;
+		db
+			.prepare(
+				"INSERT INTO series_participants (series_id, user_id, team, role) VALUES (?, ?, 'TEAM_1', 'TOP')",
+			)
+			.run(sid, "u1");
+		db
+			.prepare(
+				"INSERT INTO series_participants (series_id, user_id, team, role) VALUES (?, ?, 'TEAM_2', 'TOP')",
+			)
+			.run(sid, "u2");
+
+		// 2-0 → 자동 COMPLETED
+		for (const n of [1, 2] as const) {
+			await app.inject({
+				method: "POST",
+				url: `/api/series/${sid}/games`,
+				cookies: { sid: signSid(app, OP) },
+				payload: {
+					gameNumber: n,
+					team1Side: "BLUE",
+					winningTeam: "TEAM_1",
+					picks: {
+						TEAM_1: [{ role: "TOP", championId: 1 }],
+						TEAM_2: [{ role: "TOP", championId: 2 }],
+					},
+					bans: { TEAM_1: [], TEAM_2: [] },
+				},
+			});
+		}
+		expect(
+			(db.prepare("SELECT status FROM series WHERE id = ?").get(sid) as { status: string }).status,
+		).toBe("COMPLETED");
+		expect(
+			(
+				db.prepare("SELECT games_played FROM user_lane_mmr WHERE user_id = 'u1'").get() as {
+					games_played: number;
+				}
+			).games_played,
+		).toBe(2);
+
+		const del = await app.inject({
+			method: "DELETE",
+			url: `/api/series/${sid}/games/last`,
+			cookies: { sid: signSid(app, OP) },
+		});
+		expect(del.statusCode).toBe(200);
+
+		const after = db.prepare("SELECT status, winning_team FROM series WHERE id = ?").get(sid) as {
+			status: string;
+			winning_team: string | null;
 		};
-		expect(mmrAfter.mmr).toBeLessThan(mmrBefore.mmr);
+		expect(after.status).toBe("IN_PROGRESS");
+		expect(after.winning_team).toBeNull();
+
+		// 카운터: 2 → 1
+		const u1Counters = db
+			.prepare("SELECT games_played, wins FROM user_lane_mmr WHERE user_id = 'u1'")
+			.get() as { games_played: number; wins: number };
+		expect(u1Counters).toEqual({ games_played: 1, wins: 1 });
+	});
+
+	it("CANCELLED 시리즈 → 409", async () => {
+		const { app, db } = await buildTestApp({ canEdit: true });
+		const { seasonId } = seedRecruitment(db);
+		const sid = (
+			db
+				.prepare(
+					"INSERT INTO series (season_id, created_by, status) VALUES (?, ?, 'CANCELLED') RETURNING id",
+				)
+				.get(seasonId, OP) as { id: number }
+		).id;
+		const res = await app.inject({
+			method: "DELETE",
+			url: `/api/series/${sid}/games/last`,
+			cookies: { sid: signSid(app, OP) },
+		});
+		expect(res.statusCode).toBe(409);
 	});
 
 	it("게임 0개 → 409", async () => {
@@ -436,7 +554,7 @@ describe("DELETE /api/series/:id/games/last", () => {
 });
 
 describe("POST /api/series/:id/revert", () => {
-	it("게임 0개 + IN_PROGRESS → 모집 CLOSED 복귀 + 시리즈 soft-delete + audit log", async () => {
+	it("게임 0개 + IN_PROGRESS → 모집 CLOSED 복귀 + 시리즈 CANCELLED 보존 + audit log", async () => {
 		const { app, db } = await buildTestApp({ canEdit: true });
 		const { seasonId, recruitmentId } = seedRecruitment(db, "CONVERTED");
 		const sid = (
@@ -456,12 +574,14 @@ describe("POST /api/series/:id/revert", () => {
 		expect(res.statusCode).toBe(200);
 		expect(res.json()).toMatchObject({ ok: true, recruitmentId });
 
-		// soft-delete: 행 보존 + deleted_at set
-		const sRow = db.prepare("SELECT deleted_at FROM series WHERE id = ?").get(sid) as
-			| { deleted_at: number | null }
+		// history-preserving: 행 보존 + status CANCELLED + deleted_at NULL.
+		// 시리즈목록/admin/history 가 deleted_at IS NULL 로 필터해도 흔적이 보임.
+		const sRow = db.prepare("SELECT status, deleted_at FROM series WHERE id = ?").get(sid) as
+			| { status: string; deleted_at: number | null }
 			| undefined;
 		expect(sRow).toBeDefined();
-		expect(sRow?.deleted_at).not.toBeNull();
+		expect(sRow?.status).toBe("CANCELLED");
+		expect(sRow?.deleted_at).toBeNull();
 
 		const rec = db
 			.prepare("SELECT status, converted_series_id FROM recruitments WHERE id = ?")
@@ -478,6 +598,58 @@ describe("POST /api/series/:id/revert", () => {
 		expect(audit).toBeDefined();
 		expect(audit?.operator_id).toBe(OP);
 		expect(audit?.target_id).toBe(String(sid));
+	});
+
+	it("revert 된 시리즈가 같은 모집 재확정 시 같은 id 로 revive (CANCELLED → IN_PROGRESS)", async () => {
+		const { app, db } = await buildTestApp({ canEdit: true });
+		const { recruitmentId } = seedRecruitment(db, "CLOSED");
+
+		// 1) 엔트리 확정 → 시리즈 생성
+		const create1 = await app.inject({
+			method: "POST",
+			url: "/api/series",
+			cookies: { sid: signSid(app, OP) },
+			payload: {
+				recruitmentId,
+				assignments: [
+					{ userId: "u1", team: "TEAM_1", role: "TOP" },
+					{ userId: "u2", team: "TEAM_2", role: "TOP" },
+				],
+			},
+		});
+		expect(create1.statusCode).toBe(200);
+		const { seriesId } = create1.json() as { seriesId: number };
+
+		// 2) revert → CANCELLED + 모집 CLOSED
+		const rev = await app.inject({
+			method: "POST",
+			url: `/api/series/${seriesId}/revert`,
+			cookies: { sid: signSid(app, OP) },
+		});
+		expect(rev.statusCode).toBe(200);
+
+		// 3) 같은 모집 재확정 → 같은 id 로 revive
+		const create2 = await app.inject({
+			method: "POST",
+			url: "/api/series",
+			cookies: { sid: signSid(app, OP) },
+			payload: {
+				recruitmentId,
+				assignments: [
+					{ userId: "u1", team: "TEAM_1", role: "MID" },
+					{ userId: "u2", team: "TEAM_2", role: "MID" },
+				],
+			},
+		});
+		expect(create2.statusCode).toBe(200);
+		expect((create2.json() as { seriesId: number }).seriesId).toBe(seriesId);
+
+		const sRow = db.prepare("SELECT status, deleted_at FROM series WHERE id = ?").get(seriesId) as {
+			status: string;
+			deleted_at: number | null;
+		};
+		expect(sRow.status).toBe("IN_PROGRESS");
+		expect(sRow.deleted_at).toBeNull();
 	});
 });
 

@@ -5,8 +5,6 @@ import { multiInsert } from "./sql.js";
 export type { Role, Team };
 export type SeriesStatus = "IN_PROGRESS" | "COMPLETED" | "CANCELLED";
 
-export type SeriesType = "RANKED" | "AUCTION";
-
 export interface SeriesRow {
 	id: number;
 	season_id: number;
@@ -19,8 +17,6 @@ export interface SeriesRow {
 	message_id: string | null;
 	end_card_channel_id: string | null;
 	end_card_message_id: string | null;
-	type: SeriesType;
-	auction_tournament_id: number | null;
 	deleted_at: number | null;
 }
 
@@ -46,8 +42,12 @@ export interface CreateSeriesInput {
  * Bo3 시리즈 생성. 1v1 ~ 5v5 까지 N v N 지원 (참가자 = 짝수, 2~10).
  * 양 팀 라인 수 일치 + 같은 라인이 양 팀에 존재해야 라인 매치업 ELO 가능.
  *
- * 같은 id 의 soft-deleted 행이 있으면 자동 revive (deleted_at=NULL + 상태 초기화 + 참가자 교체).
- * revert 후 운영자가 같은 모집을 다시 엔트리 확정하는 경로를 자연스럽게 처리.
+ * 같은 id 의 행이 revive 가능하면 자동 revive (상태 초기화 + 참가자 교체):
+ *   - soft-deleted (deleted_at != NULL) 행, 또는 CANCELLED 행
+ *   - 단, 게임이 0개일 때만 — /api/series/:id/revert 또는 빈 IN_PROGRESS 의 force-delete 직후
+ * 게임이 1개라도 기록된 행은 soft-delete 든 CANCELLED 든 revive 거부 (history 보존).
+ * 이 invariant 가 깨지면 force-delete + same-id 재생성 시 orphan games/mmr_changes 가
+ * 새 시리즈에 붙어 데이터 corruption.
  *
  * 비-atomic: series + series_participants 가 분리 트랜잭션. participant insert 실패 시
  * series row 가 IN_PROGRESS 0인 으로 남음 — cleanup 잡이 정리.
@@ -80,14 +80,27 @@ export async function createSeries(input: CreateSeriesInput): Promise<SeriesRow>
 
 	let series: SeriesRow | undefined;
 	if (input.id !== undefined) {
-		// 명시 id 경로 — soft-deleted 행이 있으면 revive, 살아있는 행과 충돌이면 에러.
+		// 명시 id 경로 — soft-deleted 또는 CANCELLED 인 빈 시리즈만 재사용. 살아있는 행 or
+		// 게임이 1개라도 기록된 historical 행과 충돌이면 에러.
+		// (v0.11.0: AUCTION 매치는 auction_matches 로 분리됐으므로 cross-type 가드 불필요.)
 		const existing = await queryOne<SeriesRow>(`SELECT * FROM series WHERE id = ?`, [input.id]);
-		if (existing && existing.deleted_at == null) {
+		let canRevive = false;
+		if (existing && (existing.deleted_at != null || existing.status === "CANCELLED")) {
+			// 게임이 0개일 때만 revive — soft-delete 든 CANCELLED 든 historical row 는 revive 거부.
+			// force-delete 후 same-id 재생성 시 orphan games/mmr_changes 가 새 시리즈에 attach 되는
+			// corruption 방지.
+			const gameCount = await queryOne<{ n: number }>(
+				`SELECT COUNT(*) AS n FROM games WHERE ranked_series_id = ?`,
+				[input.id],
+			);
+			if ((gameCount?.n ?? 0) === 0) canRevive = true;
+		}
+		if (existing && !canRevive) {
 			throw new Error(
 				`createSeries: 시리즈 #${input.id} 가 이미 존재합니다 (status=${existing.status})`,
 			);
 		}
-		if (existing && existing.deleted_at != null) {
+		if (existing && canRevive) {
 			// revive — 상태 초기화 + 기존 참가자 정리 (아래에서 다시 INSERT)
 			await execute(
 				`UPDATE series
@@ -160,11 +173,10 @@ export async function cancelSeries(id: number): Promise<void> {
 	);
 }
 
-// 일반 시리즈 (RANKED) 만 — 경매내전 (AUCTION) 매치 series 는 대시보드에서 제외.
-// 경매내전 매치는 /api/auction-tournaments/:id 흐름에서만 노출.
+// v0.11.0: series 는 RANKED 전용 — type 필터 불필요. 경매내전 매치는 auction_matches.
 export async function listAllOpenSeries(): Promise<SeriesRow[]> {
 	return query<SeriesRow>(
-		`SELECT * FROM series WHERE status = 'IN_PROGRESS' AND type = 'RANKED' AND deleted_at IS NULL ORDER BY started_at DESC`,
+		`SELECT * FROM series WHERE status = 'IN_PROGRESS' AND deleted_at IS NULL ORDER BY started_at DESC`,
 	);
 }
 
@@ -177,10 +189,11 @@ export interface ListSeriesParams {
 /**
  * 시리즈 일반 listing — /시리즈목록 등에서 사용. 최신순 (started_at DESC).
  * status 미지정 시 모든 상태 포함. limit 기본 10, 최대 50.
+ * soft-deleted (deleted_at != NULL) 행은 항상 제외.
  */
 export async function listSeries(params: ListSeriesParams = {}): Promise<SeriesRow[]> {
 	const limit = Math.min(50, Math.max(1, params.limit ?? 10));
-	const filters: string[] = [];
+	const filters: string[] = ["deleted_at IS NULL"];
 	const args: unknown[] = [];
 	if (params.status) {
 		filters.push("status = ?");
@@ -190,7 +203,7 @@ export async function listSeries(params: ListSeriesParams = {}): Promise<SeriesR
 		filters.push("season_id = ?");
 		args.push(params.seasonId);
 	}
-	const where = filters.length > 0 ? `WHERE ${filters.join(" AND ")}` : "";
+	const where = `WHERE ${filters.join(" AND ")}`;
 	args.push(limit);
 	// id DESC tie-break — 같은 unixepoch() 안에 여러 INSERT 가 들어왔을 때
 	// 결정적 순서를 보장 (테스트 + UX 일관성).
@@ -211,11 +224,12 @@ export async function listStaleOpenSeries(cutoffUnixSec: number): Promise<Series
 }
 
 /**
- * Soft-delete 시리즈 — 모든 운영 삭제 경로 (revert / cleanup-stale / force-delete / season-reset)
- * 의 공통 종착지. recruitments.converted_series_id 는 별도 caller 가 NULL 처리.
+ * Soft-delete 시리즈 — 운영 삭제 경로 (cleanup-stale / force-delete / season-reset) 의 공통 종착지.
+ * recruitments.converted_series_id 는 별도 caller 가 NULL 처리.
  *
  * 종속 series_participants / games / game_stats / mmr_changes 행은 그대로 유지 — read 쿼리가
- * `series.deleted_at IS NULL` 필터로 가려준다. 같은 id 로 createSeries 호출 시 revive 됨.
+ * `series.deleted_at IS NULL` 필터로 가려준다. 같은 id 로 createSeries 호출 시,
+ * 게임이 0개인 시리즈에 한해 revive 됨 (history 보존 invariant).
  */
 export async function softDeleteSeries(seriesId: number): Promise<void> {
 	await execute(`UPDATE series SET deleted_at = unixepoch() WHERE id = ? AND deleted_at IS NULL`, [

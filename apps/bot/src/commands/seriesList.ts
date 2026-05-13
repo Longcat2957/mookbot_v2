@@ -90,9 +90,9 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
 				? ` · ${s.winning_team === "TEAM_1" ? "1팀" : "2팀"} 승`
 				: "";
 		const sizeLabel = teamSize > 0 ? `${teamSize}v${teamSize}` : "—";
-		const typeBadge = s.type === "AUCTION" ? " · 🎟️ 경매" : "";
+		// v0.11.0: series 는 RANKED 전용 — 경매 배지 불필요 (경매 매치는 auction_matches).
 		return [
-			`**시리즈 #${s.id}** · ${STATUS_LABEL[s.status]}${typeBadge}`,
+			`**시리즈 #${s.id}** · ${STATUS_LABEL[s.status]}`,
 			`Bo3 (${score})${winSuffix} · ${sizeLabel} · 시즌 #${s.season_id}`,
 			`시작 ${formatKstDate(s.started_at)} · 운영자 ${creator}`,
 		].join("\n");

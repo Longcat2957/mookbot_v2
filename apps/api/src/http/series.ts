@@ -108,10 +108,10 @@ export async function registerSeriesRoutes(app: FastifyInstance): Promise<void> 
 			const limit = Math.min(50, Math.max(1, Number(req.query.limit ?? 20)));
 			const offset = Math.max(0, Number(req.query.offset ?? 0));
 
-			// 경매내전 (type='AUCTION') 매치는 대시보드 종료 시리즈에서 제외 —
-			// 자체 /api/auction-tournaments/:id 흐름에서 결과 표시.
+			// v0.11.0: series 는 RANKED 전용 — type 필터 불필요. 경매내전은 자체 흐름.
+			// soft-deleted (deleted_at != NULL) 행은 제외 — force-delete / season-reset 흔적 비노출.
 			const totalRow = await cloudflare.queryOne<{ count: number }>(
-				`SELECT COUNT(*) AS count FROM series WHERE status = 'COMPLETED' AND type = 'RANKED'`,
+				`SELECT COUNT(*) AS count FROM series WHERE status = 'COMPLETED' AND deleted_at IS NULL`,
 			);
 			const total = totalRow?.count ?? 0;
 
@@ -125,7 +125,7 @@ export async function registerSeriesRoutes(app: FastifyInstance): Promise<void> 
 			}>(
 				`SELECT id, season_id, status, winning_team, started_at, ended_at
 					 FROM series
-					 WHERE status = 'COMPLETED' AND type = 'RANKED'
+					 WHERE status = 'COMPLETED' AND deleted_at IS NULL
 					 ORDER BY ended_at DESC
 					 LIMIT ? OFFSET ?`,
 				[limit, offset],
@@ -336,7 +336,8 @@ export async function registerSeriesRoutes(app: FastifyInstance): Promise<void> 
 	);
 
 	// 시리즈를 엔트리 수정 대기 상태로 되돌리기 — 게임이 하나도 없을 때만 허용.
-	// soft-delete (deleted_at 만 set) — 운영자 실수 시 같은 모집 재확정 시 자동 revive 가능.
+	// 시리즈는 CANCELLED 로 마킹 (soft-delete 아님) — 시리즈목록/admin/history 에서 흔적이 보임.
+	// 같은 모집을 다시 엔트리 확정하면 createSeries 가 zero-game CANCELLED 행을 revive.
 	// audit log 남김 — 추적성 (force-delete 와 동등 수준).
 	app.post<{ Params: { id: string } }>("/api/series/:id/revert", async (req, reply) => {
 		const sid = await requireEditor(req, reply);
@@ -363,12 +364,12 @@ export async function registerSeriesRoutes(app: FastifyInstance): Promise<void> 
 		);
 
 		// 1) 모집 status 복원 + converted_series_id NULL
-		// 2) 시리즈 soft-delete (deleted_at 만 set)
+		// 2) 시리즈 CANCELLED 로 마킹 (history-preserving) — 운영자 실수 흔적 보존
 		// 3) pickban draft KV 정리 (재확정 시 깨끗한 상태로 시작)
 		if (recRow) {
 			await db.setRecruitmentStatus(recRow.id, "CLOSED");
 		}
-		await db.softDeleteSeries(id);
+		await db.cancelSeries(id);
 		await db.deleteKv(`pickban:${id}`);
 
 		await db.recordAudit({
