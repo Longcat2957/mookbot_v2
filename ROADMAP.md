@@ -1,8 +1,8 @@
 # Roadmap
 
-> 현재 버전 기준 진척 상태. 시간순 기획서는 [`PLAN.md`](./PLAN.md), 코드 리뷰 워킹노트는 [`docs/internal/`](./docs/internal/) 참조.
+> 현재 버전 기준 진척 상태.
 
-## 현재 (v0.10.0)
+## 현재 (v0.10.2)
 
 활성 도메인: `bot.mooklol.com` (Cloudflare proxied → 단일 VPS · Docker compose 4컨테이너 stack: bot · api · activity · nginx).
 실서비스 운영 중.
@@ -277,7 +277,7 @@
 - **`/내정보갱신` 슬래시** (🥈 백로그 처리) — 본인 라이엇 계정의 소환사 아이콘을 Summoner-V4 로 재 fetch. 변경 / 변경 없음 / 실패 별로 상태 표시. League 안에서 아이콘 변경 시 즉시 반영 경로.
 
 ### Phase 17 — 경매내전 (이벤트성 드래프트) (v0.5.0)
-- **신규 모드** — `/경매내전모집 정원:10/20` 으로 시작하는 이벤트성 드래프트. 일반 내전과 완전 분리된 lifecycle, MMR 영향 0 (이벤트성), 챔프 픽/밴 / 승패 전적은 일반 통계와 통합. 기획서: [`AUCTION_PLAN.md`](./AUCTION_PLAN.md).
+- **신규 모드** — `/경매내전모집 정원:10/20` 으로 시작하는 이벤트성 드래프트. 일반 내전과 완전 분리된 lifecycle, MMR 영향 0 (이벤트성), 챔프 픽/밴 / 승패 전적은 일반 통계와 통합.
 - **DB schema (A)** — `series` ALTER (`type='RANKED'|'AUCTION'` + `auction_tournament_id` FK) + 7개 신규 테이블 (`auction_recruitments`, `auction_recruitment_participants`, `auction_tournaments`, `auction_teams`, `auction_team_members`, `auction_bids`, `auction_matches`). 기존 series 자동 `type='RANKED'` 채움 — MMR 흐름 영향 0.
 - **MMR 격리** — `recordGameAndUpdateMmr` ↔ `recordGameOnly` 분기. AUCTION 매치는 후자만 호출 (mmr_changes / user_lane_mmr 안 건드림). 통합 테스트 2건 보장.
 - **api 라우트 (B)** — 19개 신규 endpoint: `/api/auction-recruitments/*`, `/api/auction-tournaments/*` (CAPTAIN_PICK → POINT_ALLOC → BIDDING → PLACEMENT → BRACKET_SETUP → IN_GAME → COMPLETED), `/api/auction-matches/*` (게임 결과 — `recordGameOnly` 호출). 운영자 권한 가드 + WS broadcast (`auction-tournament:N`, `auction-recruitment:N`, `auction-dashboard`).

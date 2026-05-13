@@ -26,7 +26,7 @@
 **Activities → Settings**:
 - Desktop: ON
 - Web: ON
-- Mobile (iOS/Android): **OFF** (Phase 5 QA 후 활성화 — PLAN.md §8.2)
+- Mobile (iOS/Android): **OFF** (데스크탑만 가정)
 
 ### 1.4 OAuth2 Client Secret 가져오기
 **OAuth2 → Client Information** 페이지:
