@@ -4,9 +4,9 @@
 // 각 단계 전이 endpoint + 입찰 / 유찰 / 배치 / 매치 생성 / 게임 결과 + 강제 취소.
 // 게임 결과는 recordGameOnly (mmr 영향 0, game_stats 통합) 호출.
 
-import { db } from "@mookbot/core";
+import { datadragon, db } from "@mookbot/core";
 import type { FastifyInstance } from "fastify";
-import { invalidate, requireEditor, requireSession } from "./_helpers.js";
+import { invalidate, requireEditor, requireSession, rewriteDD } from "./_helpers.js";
 
 export async function registerAuctionTournamentRoutes(app: FastifyInstance): Promise<void> {
 	// recruitment → tournament 전이 (운영자 [경매 시작])
@@ -79,8 +79,17 @@ export async function registerAuctionTournamentRoutes(app: FastifyInstance): Pro
 		for (const p of recruitParts) userIds.add(p.user_id);
 		for (const m of allMembers) userIds.add(m.user_id);
 		for (const t of teams) userIds.add(t.captain_user_id);
-		const users = userIds.size > 0 ? await db.listUsers([...userIds]) : [];
+		const userIdList = [...userIds];
+		const [users, mains] = await Promise.all([
+			userIdList.length > 0 ? db.listUsers(userIdList) : Promise.resolve([]),
+			userIdList.length > 0 ? db.listMainRiotAccounts(userIdList) : Promise.resolve([]),
+		]);
 		const nameById = new Map(users.map((u) => [u.discord_id, u.display_name]));
+		const iconByUser = new Map(
+			mains
+				.filter((m) => m.profile_icon_id != null)
+				.map((m) => [m.user_id, rewriteDD(datadragon.getProfileIconUrl(m.profile_icon_id!))]),
+		);
 
 		// team_id → members
 		const membersByTeam = new Map<number, typeof allMembers>();
@@ -95,6 +104,7 @@ export async function registerAuctionTournamentRoutes(app: FastifyInstance): Pro
 			.map((p) => ({
 				userId: p.user_id,
 				displayName: nameById.get(p.user_id) ?? p.user_id,
+				profileIconUrl: iconByUser.get(p.user_id) ?? null,
 			}));
 
 		return {
@@ -111,12 +121,14 @@ export async function registerAuctionTournamentRoutes(app: FastifyInstance): Pro
 				teamIndex: tt.team_index,
 				captainUserId: tt.captain_user_id,
 				captainName: nameById.get(tt.captain_user_id) ?? tt.captain_user_id,
+				captainProfileIconUrl: iconByUser.get(tt.captain_user_id) ?? null,
 				teamName: tt.team_name,
 				initialPoints: tt.initial_points,
 				currentPoints: tt.current_points,
 				members: (membersByTeam.get(tt.id) ?? []).map((m) => ({
 					userId: m.user_id,
 					displayName: nameById.get(m.user_id) ?? m.user_id,
+					profileIconUrl: iconByUser.get(m.user_id) ?? null,
 					acquiredVia: m.acquired_via,
 					acquiredAtPoints: m.acquired_at_points,
 				})),

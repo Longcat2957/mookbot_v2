@@ -1,8 +1,8 @@
 // 경매내전 모집 관련 라우트 — 목록 / 상세 / 인원 관리 / 취소.
 
-import { db } from "@mookbot/core";
+import { datadragon, db } from "@mookbot/core";
 import type { FastifyInstance } from "fastify";
-import { invalidate, requireEditor, requireSession } from "./_helpers.js";
+import { invalidate, requireEditor, requireSession, rewriteDD } from "./_helpers.js";
 
 export async function registerAuctionRecruitRoutes(app: FastifyInstance): Promise<void> {
 	// 활성 경매 모집 목록 (대시보드용)
@@ -32,8 +32,16 @@ export async function registerAuctionRecruitRoutes(app: FastifyInstance): Promis
 
 		const participants = await db.listAuctionRecruitmentParticipants(id);
 		const userIds = participants.map((p) => p.user_id);
-		const users = userIds.length > 0 ? await db.listUsers(userIds) : [];
+		const [users, mains] = await Promise.all([
+			userIds.length > 0 ? db.listUsers(userIds) : Promise.resolve([]),
+			userIds.length > 0 ? db.listMainRiotAccounts(userIds) : Promise.resolve([]),
+		]);
 		const nameById = new Map(users.map((u) => [u.discord_id, u.display_name]));
+		const iconByUser = new Map(
+			mains
+				.filter((m) => m.profile_icon_id != null)
+				.map((m) => [m.user_id, rewriteDD(datadragon.getProfileIconUrl(m.profile_icon_id!))]),
+		);
 
 		return {
 			recruitment: {
@@ -47,6 +55,7 @@ export async function registerAuctionRecruitRoutes(app: FastifyInstance): Promis
 			participants: participants.map((p) => ({
 				userId: p.user_id,
 				displayName: nameById.get(p.user_id) ?? p.user_id,
+				profileIconUrl: iconByUser.get(p.user_id) ?? null,
 				joinedAt: p.joined_at,
 			})),
 		};

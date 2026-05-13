@@ -243,12 +243,11 @@ export async function registerUsersRoutes(app: FastifyInstance): Promise<void> {
 				}> = [];
 				try {
 					const entries = await getLeagueEntries(a.puuid);
-					const ranked = entries.slice().sort(
-						(x, y) =>
-							tierValue(y.tier, y.rank, y.leaguePoints) -
-							tierValue(x.tier, x.rank, x.leaguePoints),
-					);
-					const top = ranked[0];
+					// 솔로랭크 우선 (실력 평가 1순위 — 자유랭크는 듀오/팀 변수가 커 신뢰도 낮음).
+					// 솔로 미배치면 자유랭크 fallback, 둘 다 없으면 unranked.
+					const solo = entries.find((e) => e.queueType === "RANKED_SOLO_5x5");
+					const flex = entries.find((e) => e.queueType === "RANKED_FLEX_SR");
+					const top = solo ?? flex ?? null;
 					if (top) {
 						bestRanked = {
 							queueType: top.queueType,
@@ -279,9 +278,7 @@ export async function registerUsersRoutes(app: FastifyInstance): Promise<void> {
 					tagLine: a.tag_line,
 					isMain: a.is_main === 1,
 					profileIconUrl:
-						a.profile_icon_id != null
-							? rewriteDD(datadragon.getProfileIconUrl(a.profile_icon_id))
-							: null,
+						a.profile_icon_id != null ? rewriteDD(datadragon.getProfileIconUrl(a.profile_icon_id)) : null,
 					bestRanked,
 					masteries,
 				};

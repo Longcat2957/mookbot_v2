@@ -115,7 +115,12 @@ export function AuctionResult({
 											m.userId === championTeam.captainUserId ? "ring-2 ring-warning rounded-full" : ""
 										}
 									>
-										<UserAvatar discordId={m.userId} displayName={m.displayName} size="lg" />
+										<UserAvatar
+											discordId={m.userId}
+											displayName={m.displayName}
+											imageUrl={m.profileIconUrl}
+											size="lg"
+										/>
 									</div>
 									<div className="text-sm font-medium max-w-[6rem] truncate">
 										{m.displayName}
@@ -186,7 +191,12 @@ export function AuctionResult({
 									<div className="flex flex-wrap gap-2">
 										{t.members.map((m) => (
 											<div key={m.userId} className="flex items-center gap-1.5 text-sm">
-												<UserAvatar discordId={m.userId} displayName={m.displayName} size="xs" />
+												<UserAvatar
+													discordId={m.userId}
+													displayName={m.displayName}
+													imageUrl={m.profileIconUrl}
+													size="xs"
+												/>
 												<span className="max-w-[6rem] truncate">{m.displayName}</span>
 											</div>
 										))}
@@ -315,7 +325,12 @@ function ResultMatchCard({
 			<div className={`p-2.5 rounded-md ${winnerBg}`}>
 				<div className="flex items-center gap-2">
 					<div className={`badge ${badgeColor} badge-lg`}>팀{team.teamIndex}</div>
-					<UserAvatar discordId={team.captainUserId} displayName={team.captainName} size="sm" />
+					<UserAvatar
+						discordId={team.captainUserId}
+						displayName={team.captainName}
+						imageUrl={team.captainProfileIconUrl}
+						size="sm"
+					/>
 					<div className="flex-1 min-w-0">
 						<div className="font-bold text-base truncate flex items-center gap-1">
 							<span className="badge badge-warning badge-xs">👑</span>
@@ -327,7 +342,12 @@ function ResultMatchCard({
 				<div className="flex items-center gap-1 mt-2 flex-wrap">
 					{team.members.map((m) => (
 						<div key={m.userId} className="flex items-center gap-1 text-sm">
-							<UserAvatar discordId={m.userId} displayName={m.displayName} size="xs" />
+							<UserAvatar
+								discordId={m.userId}
+								displayName={m.displayName}
+								imageUrl={m.profileIconUrl}
+								size="xs"
+							/>
 							<span className="truncate max-w-[6rem]">{m.displayName}</span>
 						</div>
 					))}

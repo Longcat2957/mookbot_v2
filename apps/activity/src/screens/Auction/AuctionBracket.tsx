@@ -337,10 +337,24 @@ function FinalSetup({
 				<h3 className="text-lg font-bold">결승 생성</h3>
 				<FormatSelect value={format} onChange={setFormat} />
 				<div className="text-base flex items-center gap-2 flex-wrap">
-					{t1 && <UserAvatar discordId={t1.captainUserId} displayName={t1.captainName} size="sm" />}
+					{t1 && (
+						<UserAvatar
+							discordId={t1.captainUserId}
+							displayName={t1.captainName}
+							imageUrl={t1.captainProfileIconUrl}
+							size="sm"
+						/>
+					)}
 					<strong>{t1?.captainName ?? `팀${t1?.teamIndex}`}</strong>
 					<span className="text-base-content/40">vs</span>
-					{t2 && <UserAvatar discordId={t2.captainUserId} displayName={t2.captainName} size="sm" />}
+					{t2 && (
+						<UserAvatar
+							discordId={t2.captainUserId}
+							displayName={t2.captainName}
+							imageUrl={t2.captainProfileIconUrl}
+							size="sm"
+						/>
+					)}
 					<strong>{t2?.captainName ?? `팀${t2?.teamIndex}`}</strong>
 				</div>
 				{error && <div className="alert alert-error">{error}</div>}
@@ -474,7 +488,12 @@ function MatchupBuilder({
 										: "border-base-300 bg-base-100 hover:bg-base-300/40"
 							}`}
 						>
-							<UserAvatar discordId={t.captainUserId} displayName={t.captainName} size="sm" />
+							<UserAvatar
+								discordId={t.captainUserId}
+								displayName={t.captainName}
+								imageUrl={t.captainProfileIconUrl}
+								size="sm"
+							/>
 							<div className="flex-1 min-w-0">
 								<div className="flex items-center gap-1.5">
 									<div className="badge badge-info badge-sm">팀{t.teamIndex}</div>
@@ -563,7 +582,12 @@ function MatchCard({
 			<div className={`p-2.5 rounded-md ${winnerBg} ${!isTop ? "mt-0" : ""}`}>
 				<div className="flex items-center gap-2">
 					<div className={`badge ${badgeColor} badge-lg`}>팀{team.teamIndex}</div>
-					<UserAvatar discordId={team.captainUserId} displayName={team.captainName} size="sm" />
+					<UserAvatar
+						discordId={team.captainUserId}
+						displayName={team.captainName}
+						imageUrl={team.captainProfileIconUrl}
+						size="sm"
+					/>
 					<div className="flex-1 min-w-0">
 						<div className="font-bold text-base truncate flex items-center gap-1">
 							<span className="badge badge-warning badge-xs">👑</span>
@@ -576,7 +600,12 @@ function MatchCard({
 				<div className="flex items-center gap-1 mt-2 flex-wrap">
 					{team.members.map((m) => (
 						<div key={m.userId} className="flex items-center gap-1 text-sm">
-							<UserAvatar discordId={m.userId} displayName={m.displayName} size="xs" />
+							<UserAvatar
+								discordId={m.userId}
+								displayName={m.displayName}
+								imageUrl={m.profileIconUrl}
+								size="xs"
+							/>
 							<span
 								className={`truncate max-w-[6rem] ${m.userId === team.captainUserId ? "font-medium" : ""}`}
 							>

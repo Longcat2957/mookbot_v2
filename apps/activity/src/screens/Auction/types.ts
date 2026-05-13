@@ -17,6 +17,7 @@ export type MatchFormat = "BO1" | "BO3";
 export interface AuctionTeamMember {
 	userId: string;
 	displayName: string;
+	profileIconUrl: string | null;
 	acquiredVia: "BID" | "MANUAL";
 	acquiredAtPoints: number | null;
 }
@@ -26,6 +27,7 @@ export interface AuctionTeam {
 	teamIndex: number;
 	captainUserId: string;
 	captainName: string;
+	captainProfileIconUrl: string | null;
 	teamName: string | null;
 	initialPoints: number;
 	currentPoints: number;
@@ -60,7 +62,7 @@ export interface AuctionTournamentDetail {
 		endedAt: number | null;
 	};
 	teams: AuctionTeam[];
-	unsold: Array<{ userId: string; displayName: string }>;
+	unsold: Array<{ userId: string; displayName: string; profileIconUrl: string | null }>;
 	matches: AuctionMatch[];
 	bids: AuctionBid[];
 }
@@ -85,6 +87,7 @@ export interface AuctionRecruitmentDetail {
 	participants: Array<{
 		userId: string;
 		displayName: string;
+		profileIconUrl: string | null;
 		joinedAt: number;
 	}>;
 }
