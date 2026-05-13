@@ -106,6 +106,13 @@ export async function cancelAuctionTournament(id: number): Promise<void> {
 }
 
 export async function softDeleteAuctionTournament(id: number): Promise<void> {
+	// 종속 시리즈 (status 무관) 도 함께 soft-delete — cancel 단계는 historical 보존,
+	// softDelete 는 "완전히 사라짐" 의미. 누락 시 series.id 회수 흐름 (RANKED 모집 ID
+	// 동일 부여) 에서 createSeries 가 deleted_at IS NULL 행과 충돌해 실패한다.
+	await execute(
+		`UPDATE series SET deleted_at = unixepoch() WHERE auction_tournament_id = ? AND deleted_at IS NULL`,
+		[id],
+	);
 	await execute(
 		`UPDATE auction_tournaments SET deleted_at = unixepoch() WHERE id = ? AND deleted_at IS NULL`,
 		[id],
