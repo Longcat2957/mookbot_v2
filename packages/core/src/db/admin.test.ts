@@ -215,6 +215,8 @@ describe("inspectSeasonForReset", () => {
 			gamesCount: 0,
 			mmrChangesCount: 0,
 			laneMmrCount: 0,
+			auctionTournamentCount: 0,
+			auctionMatchCount: 0,
 		});
 	});
 
@@ -240,6 +242,56 @@ describe("resetSeasonData", () => {
 
 		const after = await inspectSeasonForReset(seasonId);
 		expect(after.laneMmrCount).toBe(0);
+	});
+
+	it("AUCTION 토너먼트 + 매치도 같이 soft-delete", async () => {
+		await upsertUser("c1", "Cap1");
+		await upsertUser("c2", "Cap2");
+		// 토너먼트 + 팀 + 매치 fixture
+		db
+			.prepare(
+				`INSERT INTO auction_tournaments (id, season_id, format, status, created_by)
+				 VALUES (777, ?, 10, 'IN_GAME', ?)`,
+			)
+			.run(seasonId, OP);
+		const t1 = db
+			.prepare(
+				`INSERT INTO auction_teams (tournament_id, team_index, captain_user_id)
+				 VALUES (777, 1, 'c1') RETURNING id`,
+			)
+			.get() as { id: number };
+		const t2 = db
+			.prepare(
+				`INSERT INTO auction_teams (tournament_id, team_index, captain_user_id)
+				 VALUES (777, 2, 'c2') RETURNING id`,
+			)
+			.get() as { id: number };
+		db
+			.prepare(
+				`INSERT INTO auction_matches (tournament_id, round, bracket_index, team1_id, team2_id, format, created_by)
+				 VALUES (777, 'SINGLE', NULL, ?, ?, 'BO3', ?)`,
+			)
+			.run(t1.id, t2.id, OP);
+
+		const beforeSummary = await inspectSeasonForReset(seasonId);
+		expect(beforeSummary.auctionTournamentCount).toBe(1);
+		expect(beforeSummary.auctionMatchCount).toBe(1);
+
+		await resetSeasonData(seasonId);
+
+		const after = await inspectSeasonForReset(seasonId);
+		expect(after.auctionTournamentCount).toBe(0);
+		expect(after.auctionMatchCount).toBe(0);
+
+		// 행 자체는 보존 (soft-delete)
+		const t = db.prepare("SELECT deleted_at FROM auction_tournaments WHERE id = 777").get() as {
+			deleted_at: number | null;
+		};
+		expect(t.deleted_at).not.toBeNull();
+		const m = db
+			.prepare("SELECT deleted_at FROM auction_matches WHERE tournament_id = 777")
+			.get() as { deleted_at: number | null };
+		expect(m.deleted_at).not.toBeNull();
 	});
 });
 

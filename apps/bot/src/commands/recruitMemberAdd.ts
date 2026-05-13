@@ -21,7 +21,7 @@ const {
 } = db;
 
 export const data = new SlashCommandBuilder()
-	.setName("모집인원추가")
+	.setName("내전인원추가")
 	.setDescription("모집 풀에 멤버를 한 명 추가합니다 (모집 운영자 전용).")
 	.setIntegrationTypes(ApplicationIntegrationType.GuildInstall)
 	.setContexts(InteractionContextType.Guild)

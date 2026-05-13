@@ -3,6 +3,7 @@ import type { Interaction } from "discord.js";
 import { handleButton as auctionForceDeleteButton } from "../commands/auctionForceDelete.js";
 import { handleButton as auctionRecruitButton } from "../commands/auctionRecruit.js";
 import { handleButton as cleanupStaleButton } from "../commands/cleanupStale.js";
+import { handleButton as earlyCancelAuctionTournamentButton } from "../commands/earlyCancelAuctionTournament.js";
 import { handleButton as earlyCompleteSeriesButton } from "../commands/earlyCompleteSeries.js";
 import { handleButton as forceDeleteRecruitmentButton } from "../commands/forceDeleteRecruitment.js";
 import { handleButton as forceDeleteSeriesButton } from "../commands/forceDeleteSeries.js";
@@ -47,6 +48,8 @@ export async function interactionCreate(interaction: Interaction) {
 				else if (action === "recruitment_force_delete") await forceDeleteRecruitmentButton(interaction);
 				else if (action === "auction_force_delete") await auctionForceDeleteButton(interaction);
 				else if (action === "series_early_complete") await earlyCompleteSeriesButton(interaction);
+				else if (action === "auction_tournament_early_cancel")
+					await earlyCancelAuctionTournamentButton(interaction);
 				else if (action === "season_reset") await resetSeasonButton(interaction);
 				else if (action === "cleanup_stale") await cleanupStaleButton(interaction);
 			}

@@ -18,7 +18,7 @@ const {
 } = db;
 
 export const data = new SlashCommandBuilder()
-	.setName("경매내전모집인원삭제")
+	.setName("경매인원삭제")
 	.setDescription("경매 모집에서 멤버를 제거합니다 (모집 운영자 전용).")
 	.setIntegrationTypes(ApplicationIntegrationType.GuildInstall)
 	.setContexts(InteractionContextType.Guild)

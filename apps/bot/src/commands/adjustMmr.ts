@@ -14,7 +14,7 @@ const ROLE_LABEL: Record<(typeof ROLE_SLOTS)[number], string> = {
 };
 
 export const data = new SlashCommandBuilder()
-	.setName("mmr수정")
+	.setName("MMR수정")
 	.setDescription("[운영자] 특정 사용자 라인 MMR 수동 보정 (현재 시즌)")
 	.addUserOption((o) => o.setName("user").setDescription("대상 사용자").setRequired(true))
 	.addStringOption((o) =>

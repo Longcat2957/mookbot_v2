@@ -24,7 +24,7 @@ const {
 } = db;
 
 export const data = new SlashCommandBuilder()
-	.setName("경매내전강제삭제")
+	.setName("경매강제삭제")
 	.setDescription("[운영자] 경매 모집/토너먼트를 강제 삭제 (응급)")
 	.addIntegerOption((o) =>
 		o.setName("모집").setDescription("삭제할 경매 모집 ID").setRequired(true).setMinValue(1),

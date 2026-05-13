@@ -17,7 +17,7 @@ import { refreshAuctionRecruitMessage } from "./auctionRecruit/messageBuilder.js
 import { refreshRecruitMessage } from "./recruit/messageBuilder.js";
 
 export const data = new SlashCommandBuilder()
-	.setName("랜덤인원추가")
+	.setName("내전랜덤인원추가")
 	.setDescription("[운영자] 테스트용 — 모집에 랜덤 등록 사용자 N명 추가")
 	.setIntegrationTypes(ApplicationIntegrationType.GuildInstall)
 	.setContexts(InteractionContextType.Guild)

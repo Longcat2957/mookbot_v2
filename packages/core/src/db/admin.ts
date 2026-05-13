@@ -157,6 +157,8 @@ export interface SeasonResetSummary {
 	gamesCount: number;
 	mmrChangesCount: number;
 	laneMmrCount: number;
+	auctionTournamentCount: number;
+	auctionMatchCount: number;
 }
 
 export async function inspectSeasonForReset(seasonId: number): Promise<SeasonResetSummary> {
@@ -177,14 +179,36 @@ export async function inspectSeasonForReset(seasonId: number): Promise<SeasonRes
 		`SELECT COUNT(*) AS n FROM user_lane_mmr WHERE season_id = ?`,
 		[seasonId],
 	);
-	return { seasonId, seriesCount, gamesCount, mmrChangesCount, laneMmrCount };
+	const [{ n: auctionTournamentCount } = { n: 0 }] = await query<{ n: number }>(
+		`SELECT COUNT(*) AS n FROM auction_tournaments WHERE season_id = ? AND deleted_at IS NULL`,
+		[seasonId],
+	);
+	const [{ n: auctionMatchCount } = { n: 0 }] = await query<{ n: number }>(
+		`SELECT COUNT(*) AS n FROM auction_matches am
+		 JOIN auction_tournaments at ON at.id = am.tournament_id
+		 WHERE at.season_id = ? AND am.deleted_at IS NULL AND at.deleted_at IS NULL`,
+		[seasonId],
+	);
+	return {
+		seasonId,
+		seriesCount,
+		gamesCount,
+		mmrChangesCount,
+		laneMmrCount,
+		auctionTournamentCount,
+		auctionMatchCount,
+	};
 }
 
 /**
- * 시즌의 모든 시리즈/게임/MMR 데이터 리셋. 시즌 row 자체는 유지.
+ * 시즌의 모든 시리즈/게임/MMR + 경매내전 데이터 리셋. 시즌 row 자체는 유지.
  *
  * series 는 soft-delete (deleted_at = unixepoch()) — 모든 read 쿼리에서 가려짐.
  * user_lane_mmr / mmr_changes 는 hard-delete — 누적 카운터는 진짜 0 으로 돌려야 의미가 있음.
+ *
+ * v0.11.0: AUCTION 토너먼트 + 매치도 같이 soft-delete. 시즌 단위 historical 흔적은
+ * soft-delete 로 유지 (admin 시야 / DB 백업) — operator 가 "시즌 리셋" 했을 때 사용자
+ * 가시면적이 모두 청산되도록 일관 처리.
  */
 export async function resetSeasonData(seasonId: number): Promise<SeasonResetSummary> {
 	const summary = await inspectSeasonForReset(seasonId);
@@ -198,6 +222,24 @@ export async function resetSeasonData(seasonId: number): Promise<SeasonResetSumm
 		// series 는 soft-delete — 모든 read 쿼리에서 가려짐
 		{
 			sql: `UPDATE series SET deleted_at = unixepoch() WHERE season_id = ? AND deleted_at IS NULL`,
+			params: [seasonId],
+		},
+		// AUCTION 매치 soft-delete (토너먼트 단위 cascade 와 별도 — 명시적으로 한 번 더)
+		{
+			sql: `UPDATE auction_matches SET deleted_at = unixepoch()
+			      WHERE tournament_id IN (SELECT id FROM auction_tournaments WHERE season_id = ?)
+			        AND deleted_at IS NULL`,
+			params: [seasonId],
+		},
+		// AUCTION 토너먼트 soft-delete (대시보드 / 봇 명령어에서 가려짐)
+		{
+			sql: `UPDATE auction_tournaments SET deleted_at = unixepoch() WHERE season_id = ? AND deleted_at IS NULL`,
+			params: [seasonId],
+		},
+		// 이 시즌 모집의 converted_tournament_id 풀어줌 (재사용 가능하게)
+		{
+			sql: `UPDATE auction_recruitments SET converted_tournament_id = NULL
+			      WHERE converted_tournament_id IN (SELECT id FROM auction_tournaments WHERE season_id = ?)`,
 			params: [seasonId],
 		},
 		// user_lane_mmr 는 시즌 직접 참조, hard-delete (누적 0 으로 진짜 리셋)

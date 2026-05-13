@@ -21,7 +21,7 @@ const { getSeries, listGamesInSeries, countSeriesWins, completeSeries, cancelSer
 type EarlyResult = "TEAM_1" | "TEAM_2" | "CANCEL";
 
 export const data = new SlashCommandBuilder()
-	.setName("시리즈조기종료")
+	.setName("내전조기종료")
 	.setDescription("[운영자] 진행중 시리즈를 1경기/1-1 시점에서 강제 종료 (MMR 보존)")
 	.addIntegerOption((o) =>
 		o.setName("시리즈").setDescription("종료할 시리즈 ID").setRequired(true).setMinValue(1),
@@ -67,7 +67,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
 	const games = await listGamesInSeries(seriesId);
 	if (games.length === 0) {
 		await interaction.editReply(
-			`❌ 게임 0개 시리즈는 보존할 데이터가 없습니다. \`/시리즈강제삭제 series_id:${seriesId}\` 사용.`,
+			`❌ 게임 0개 시리즈는 보존할 데이터가 없습니다. \`/내전강제삭제 series_id:${seriesId}\` 사용.`,
 		);
 		return;
 	}
@@ -91,7 +91,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
 			[
 				"이미 기록된 게임의 결과/MMR 변동은 **그대로 보존**됩니다.",
 				"시리즈 status 만 종료(COMPLETED/CANCELLED) 로 전환합니다.",
-				"되돌리려면 `/시리즈강제삭제` 또는 직접 DB 수정 필요.",
+				"되돌리려면 `/내전강제삭제` 또는 직접 DB 수정 필요.",
 			].join("\n"),
 		);
 

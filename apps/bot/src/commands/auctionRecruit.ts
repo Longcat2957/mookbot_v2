@@ -23,7 +23,7 @@ const {
 } = db;
 
 export const data = new SlashCommandBuilder()
-	.setName("경매내전모집")
+	.setName("경매모집")
 	.setDescription("경매내전 (이벤트성) 참가자를 모집합니다. MMR 영향 없음.")
 	.setIntegrationTypes(ApplicationIntegrationType.GuildInstall)
 	.setContexts(InteractionContextType.Guild)

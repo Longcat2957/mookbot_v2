@@ -139,6 +139,55 @@ export async function listOpenAuctionTournaments(): Promise<AuctionTournamentRow
 	);
 }
 
+/**
+ * `cutoffUnixSec` 이전에 시작되어 COMPLETED/CANCELLED 아닌 상태로 방치된 토너먼트.
+ * /오래된내전정리 cleanup 대상.
+ */
+export async function listStaleOpenAuctionTournaments(
+	cutoffUnixSec: number,
+): Promise<AuctionTournamentRow[]> {
+	return query<AuctionTournamentRow>(
+		`SELECT * FROM auction_tournaments
+		 WHERE status NOT IN ('COMPLETED', 'CANCELLED')
+		   AND started_at < ?
+		   AND deleted_at IS NULL
+		 ORDER BY started_at`,
+		[cutoffUnixSec],
+	);
+}
+
+export interface ListAuctionTournamentsParams {
+	status?: AuctionTournamentStatus;
+	seasonId?: number;
+	limit?: number;
+}
+
+/**
+ * 토너먼트 일반 listing — /경매내전목록 등에서 사용. 최신순.
+ * soft-deleted (deleted_at != NULL) 행은 항상 제외.
+ */
+export async function listAuctionTournaments(
+	params: ListAuctionTournamentsParams = {},
+): Promise<AuctionTournamentRow[]> {
+	const limit = Math.min(50, Math.max(1, params.limit ?? 10));
+	const filters: string[] = ["deleted_at IS NULL"];
+	const args: unknown[] = [];
+	if (params.status) {
+		filters.push("status = ?");
+		args.push(params.status);
+	}
+	if (params.seasonId !== undefined) {
+		filters.push("season_id = ?");
+		args.push(params.seasonId);
+	}
+	const where = `WHERE ${filters.join(" AND ")}`;
+	args.push(limit);
+	return query<AuctionTournamentRow>(
+		`SELECT * FROM auction_tournaments ${where} ORDER BY started_at DESC, id DESC LIMIT ?`,
+		args,
+	);
+}
+
 export async function setAuctionEndCardMessage(
 	id: number,
 	channelId: string,

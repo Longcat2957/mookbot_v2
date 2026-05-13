@@ -1,14 +1,17 @@
 import * as adjustMmr from "./adjustMmr.js";
 import * as auctionForceDelete from "./auctionForceDelete.js";
+import * as auctionList from "./auctionList.js";
 import * as auctionRecruit from "./auctionRecruit.js";
 import * as auctionRecruitMemberAdd from "./auctionRecruitMemberAdd.js";
 import * as auctionRecruitMemberRemove from "./auctionRecruitMemberRemove.js";
 import * as bulkRegister from "./bulkRegister.js";
 import * as cleanupStale from "./cleanupStale.js";
 import * as currentGame from "./currentGame.js";
+import * as earlyCancelAuctionTournament from "./earlyCancelAuctionTournament.js";
 import * as earlyCompleteSeries from "./earlyCompleteSeries.js";
 import * as forceDeleteRecruitment from "./forceDeleteRecruitment.js";
 import * as forceDeleteSeries from "./forceDeleteSeries.js";
+import * as help from "./help.js";
 import * as history from "./history.js";
 import * as leaderboard from "./leaderboard.js";
 import * as logs from "./logs.js";
@@ -24,6 +27,7 @@ import * as seriesList from "./seriesList.js";
 import * as whoami from "./whoami.js";
 
 export const ALL_COMMANDS = [
+	help,
 	recruit,
 	recruitMemberAdd,
 	recruitMemberRemove,
@@ -46,6 +50,8 @@ export const ALL_COMMANDS = [
 	auctionRecruitMemberAdd,
 	auctionRecruitMemberRemove,
 	auctionForceDelete,
+	auctionList,
+	earlyCancelAuctionTournament,
 	refreshProfileIcon,
 	randomRecruitMembers,
 ] as const;

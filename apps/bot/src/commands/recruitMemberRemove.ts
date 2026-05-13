@@ -13,7 +13,7 @@ import { refreshRecruitMessage } from "./recruit/messageBuilder.js";
 const { getRecruitment, isRecruitmentParticipant, removeRecruitmentParticipant } = db;
 
 export const data = new SlashCommandBuilder()
-	.setName("모집인원삭제")
+	.setName("내전인원삭제")
 	.setDescription("모집 풀에서 멤버를 한 명 제거합니다 (모집 운영자 전용).")
 	.setIntegrationTypes(ApplicationIntegrationType.GuildInstall)
 	.setContexts(InteractionContextType.Guild)

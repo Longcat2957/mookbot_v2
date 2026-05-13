@@ -157,7 +157,7 @@ async function handleNext(
 	if (participants.length < rec.target_count) {
 		await notify(
 			interaction,
-			`정원 미달 (${participants.length}/${rec.target_count}). \`/경매내전모집인원추가 모집:${id} 멤버:@xxx\` 로 채우세요.`,
+			`정원 미달 (${participants.length}/${rec.target_count}). \`/경매인원추가 모집:${id} 멤버:@xxx\` 로 채우세요.`,
 		);
 		return;
 	}

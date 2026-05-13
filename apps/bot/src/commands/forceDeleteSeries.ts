@@ -13,7 +13,7 @@ import { requireOperator } from "../utils/operator.js";
 const { inspectSeriesForDelete, forceDeleteSeriesWithRollback, recordAudit, getSeries } = db;
 
 export const data = new SlashCommandBuilder()
-	.setName("시리즈강제삭제")
+	.setName("내전강제삭제")
 	.setDescription("[운영자] 시리즈와 종속 데이터를 물리 삭제 (선택적 MMR 롤백)")
 	.addIntegerOption((o) =>
 		o.setName("series_id").setDescription("삭제할 시리즈 ID").setRequired(true).setMinValue(1),

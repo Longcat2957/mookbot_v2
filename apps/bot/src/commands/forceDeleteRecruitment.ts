@@ -1,5 +1,5 @@
 // /모집강제삭제 — 운영자가 임의 모집(OPEN/CLOSED/CANCELLED) 을 ID 로 즉시 물리 삭제.
-// CONVERTED 모집은 차단 → /시리즈강제삭제 사용 안내.
+// CONVERTED 모집은 차단 → /내전강제삭제 사용 안내.
 
 import { db } from "@mookbot/core";
 import {
@@ -18,7 +18,7 @@ const { getRecruitment, listRecruitmentParticipants, deleteRecruitment, recordAu
 	db;
 
 export const data = new SlashCommandBuilder()
-	.setName("모집강제삭제")
+	.setName("내전모집삭제")
 	.setDescription("[운영자] 처리대기/엔트리대기 모집을 ID 로 물리 삭제")
 	.addIntegerOption((o) =>
 		o.setName("모집").setDescription("삭제할 모집 ID").setRequired(true).setMinValue(1),
@@ -37,7 +37,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
 	}
 	if (rec.status === "CONVERTED" && rec.converted_series_id) {
 		await interaction.editReply(
-			`❌ 이미 시리즈 #${rec.converted_series_id} 로 변환된 모집입니다. \`/시리즈강제삭제 series_id:${rec.converted_series_id} rollback_mmr:true\` 사용.`,
+			`❌ 이미 시리즈 #${rec.converted_series_id} 로 변환된 모집입니다. \`/내전강제삭제 series_id:${rec.converted_series_id} rollback_mmr:true\` 사용.`,
 		);
 		return;
 	}
@@ -46,7 +46,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
 	const linkedSeries = await getSeries(recruitmentId);
 	if (linkedSeries && linkedSeries.status === "IN_PROGRESS") {
 		await interaction.editReply(
-			`❌ 시리즈 #${recruitmentId} 가 IN_PROGRESS 상태입니다. \`/시리즈강제삭제 series_id:${recruitmentId} rollback_mmr:true\` 로 먼저 정리하세요.`,
+			`❌ 시리즈 #${recruitmentId} 가 IN_PROGRESS 상태입니다. \`/내전강제삭제 series_id:${recruitmentId} rollback_mmr:true\` 로 먼저 정리하세요.`,
 		);
 		return;
 	}
@@ -109,7 +109,7 @@ export async function handleButton(interaction: ButtonInteraction): Promise<void
 	}
 	if (rec.status === "CONVERTED" && rec.converted_series_id) {
 		await interaction.editReply({
-			content: `❌ 시리즈 #${rec.converted_series_id} 로 변환된 모집입니다. \`/시리즈강제삭제\` 사용.`,
+			content: `❌ 시리즈 #${rec.converted_series_id} 로 변환된 모집입니다. \`/내전강제삭제\` 사용.`,
 			embeds: [],
 			components: [],
 		});
@@ -118,7 +118,7 @@ export async function handleButton(interaction: ButtonInteraction): Promise<void
 	const linkedSeries = await getSeries(recruitmentId);
 	if (linkedSeries && linkedSeries.status === "IN_PROGRESS") {
 		await interaction.editReply({
-			content: `❌ 시리즈 #${recruitmentId} 가 IN_PROGRESS — \`/시리즈강제삭제 series_id:${recruitmentId} rollback_mmr:true\` 로 먼저 정리.`,
+			content: `❌ 시리즈 #${recruitmentId} 가 IN_PROGRESS — \`/내전강제삭제 series_id:${recruitmentId} rollback_mmr:true\` 로 먼저 정리.`,
 			embeds: [],
 			components: [],
 		});

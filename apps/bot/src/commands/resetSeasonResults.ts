@@ -37,7 +37,9 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
 		summary.seriesCount === 0 &&
 		summary.gamesCount === 0 &&
 		summary.mmrChangesCount === 0 &&
-		summary.laneMmrCount === 0;
+		summary.laneMmrCount === 0 &&
+		summary.auctionTournamentCount === 0 &&
+		summary.auctionMatchCount === 0;
 
 	if (empty) {
 		await interaction.editReply(`✅ 시즌 #${seasonId} (${season.name}) — 삭제할 데이터 없음.`);
@@ -47,12 +49,16 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
 	const embed = new EmbedBuilder()
 		.setTitle(`⚠️ 시즌 #${seasonId} 결과 리셋 미리보기`)
 		.setColor(0xe8b339)
-		.setDescription(`**${season.name}** 의 모든 시리즈/게임/MMR 변동/라인 MMR 을 삭제합니다.`)
+		.setDescription(
+			`**${season.name}** 의 모든 시리즈/게임/MMR 변동/라인 MMR + 경매 토너먼트/매치를 정리합니다.`,
+		)
 		.addFields(
 			{ name: "시리즈", value: String(summary.seriesCount), inline: true },
 			{ name: "게임", value: String(summary.gamesCount), inline: true },
 			{ name: "MMR 변동", value: String(summary.mmrChangesCount), inline: true },
 			{ name: "라인 MMR", value: String(summary.laneMmrCount), inline: true },
+			{ name: "경매 토너먼트", value: String(summary.auctionTournamentCount), inline: true },
+			{ name: "경매 매치", value: String(summary.auctionMatchCount), inline: true },
 		);
 
 	const confirmId = `admin:confirm:season_reset:${seasonId}`;
@@ -92,7 +98,8 @@ export async function handleButton(interaction: ButtonInteraction): Promise<void
 	await interaction.editReply({
 		content:
 			`✅ 시즌 #${seasonId} 리셋 완료 — 시리즈 ${summary.seriesCount}, 게임 ${summary.gamesCount}, ` +
-			`MMR변동 ${summary.mmrChangesCount}, 라인MMR ${summary.laneMmrCount} 건 삭제.`,
+			`MMR변동 ${summary.mmrChangesCount}, 라인MMR ${summary.laneMmrCount}, ` +
+			`경매토너 ${summary.auctionTournamentCount}, 경매매치 ${summary.auctionMatchCount} 정리.`,
 		embeds: [],
 		components: [],
 	});

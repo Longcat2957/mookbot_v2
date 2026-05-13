@@ -16,7 +16,7 @@ const STATUS_LABEL: Record<Status, string> = {
 };
 
 export const data = new SlashCommandBuilder()
-	.setName("시리즈목록")
+	.setName("내전목록")
 	.setDescription("[운영자] 최근 시리즈 목록 조회")
 	.addStringOption((o) =>
 		o
