@@ -249,21 +249,9 @@ async function processMember(member: GuildMember, dryRun: boolean): Promise<Outc
 		};
 	}
 
-	const existingByPuuid = await db.getRiotAccountByPuuid(account.puuid);
-	if (existingByPuuid && existingByPuuid.user_id === userId) {
-		await db.upsertRiotAccountIdentity({
-			userId,
-			puuid: account.puuid,
-			gameName: account.gameName,
-			tagLine: account.tagLine,
-			profileIconId,
-		});
-		return { kind: "unchanged", mention, displayName };
-	}
-
-	// 괄호 안 라이엇 ID 가 이전 메인과 다른 puuid — "무조건적으로 대표 아이디" 정책에 따라
-	// 신원 upsert (다른 user 가 가지고 있던 puuid 도 user_id 덮어씀) 후 메인까지 전환.
-	// 기존 메인은 sub 로 demote 되어 계정 풀에는 남는다 (history 보존).
+	// 이 분기에 도달 = existingMain 의 puuid 와 account.puuid 가 다름.
+	// "무조건적으로 () 안 ID 를 대표" 정책 — 본인의 sub 였든, 다른 user 가 갖고 있었든,
+	// 신규든 모두 메인으로 승격. 기존 메인은 sub 로 demote 되어 history 는 보존.
 	await db.upsertRiotAccountIdentity({
 		userId,
 		puuid: account.puuid,
