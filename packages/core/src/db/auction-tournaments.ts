@@ -27,6 +27,8 @@ export interface AuctionTournamentRow {
 	end_card_channel_id: string | null;
 	end_card_message_id: string | null;
 	deleted_at: number | null;
+	/** v0.14: BIDDING 진행 중 "현재 매물" — /draw 가 set, finalize/manual-assign/cancel-draw 가 NULL. */
+	current_bid_target_user_id: string | null;
 }
 
 export async function createAuctionTournament(input: {
@@ -64,7 +66,7 @@ export async function createAuctionTournament(input: {
 			 SET season_id = ?, format = ?, status = 'CAPTAIN_PICK', champion_team_id = NULL,
 			     started_at = unixepoch(), ended_at = NULL, created_by = ?,
 			     end_card_channel_id = NULL, end_card_message_id = NULL,
-			     deleted_at = NULL
+			     deleted_at = NULL, current_bid_target_user_id = NULL
 			 WHERE id = ?`,
 			[input.seasonId, input.format, input.createdBy, input.id],
 		);
@@ -96,10 +98,29 @@ export async function setAuctionTournamentStatus(
 	id: number,
 	status: AuctionTournamentStatus,
 ): Promise<void> {
-	await execute(`UPDATE auction_tournaments SET status = ? WHERE id = ? AND deleted_at IS NULL`, [
-		status,
-		id,
-	]);
+	// status 전환 시 현재 매물 잔재가 남으면 안 됨 — BIDDING 이 아니면 의미 없음.
+	await execute(
+		`UPDATE auction_tournaments
+		 SET status = ?, current_bid_target_user_id = NULL
+		 WHERE id = ? AND deleted_at IS NULL`,
+		[status, id],
+	);
+}
+
+/**
+ * BIDDING 진행 중 "현재 매물 후보" 설정 — userId 가 NULL 이면 clear.
+ * /draw 가 set, /finalize-bid / /manual-assign / /cancel-draw 가 NULL 호출.
+ */
+export async function setAuctionCurrentBidTarget(
+	id: number,
+	userId: string | null,
+): Promise<void> {
+	await execute(
+		`UPDATE auction_tournaments
+		 SET current_bid_target_user_id = ?
+		 WHERE id = ? AND deleted_at IS NULL`,
+		[userId, id],
+	);
 }
 
 export async function completeAuctionTournament(id: number, championTeamId: number): Promise<void> {

@@ -204,6 +204,8 @@ export function AuctionDraft({
 					detail={s.detail}
 					canEdit={perms.canEdit}
 					onDraw={s.draw}
+					onCancelDraw={s.cancelDraw}
+					onSetBidIntent={s.setBidIntent}
 					onFinalizeBid={s.finalizeBid}
 					onManualAssign={s.manualAssign}
 					onRevertBid={s.revertBid}

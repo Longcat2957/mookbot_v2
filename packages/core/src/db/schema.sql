@@ -340,17 +340,20 @@ CREATE INDEX IF NOT EXISTS idx_arp_user ON auction_recruitment_participants(user
 -- 한 경매내전 행사 (20인 = 4강 + 결승, 10인 = 1매치).
 -- id 는 명시 부여 = auction_recruitment.id (v0.3.4 패턴 일관).
 CREATE TABLE IF NOT EXISTS auction_tournaments (
-    id                    INTEGER PRIMARY KEY,
-    season_id             INTEGER NOT NULL REFERENCES seasons(id),
-    format                INTEGER NOT NULL,                           -- 10 or 20
-    status                TEXT    NOT NULL DEFAULT 'CAPTAIN_PICK',
-    champion_team_id      INTEGER,                                    -- 우승 팀 FK (post-completion)
-    started_at            INTEGER NOT NULL DEFAULT (unixepoch()),
-    ended_at              INTEGER,
-    created_by            TEXT    NOT NULL REFERENCES users(discord_id),
-    end_card_channel_id   TEXT,                                       -- 종료 카드 (v0.4.3 패턴 재사용)
-    end_card_message_id   TEXT,
-    deleted_at            INTEGER,                                    -- soft-delete (series 와 동일 패턴)
+    id                          INTEGER PRIMARY KEY,
+    season_id                   INTEGER NOT NULL REFERENCES seasons(id),
+    format                      INTEGER NOT NULL,                           -- 10 or 20
+    status                      TEXT    NOT NULL DEFAULT 'CAPTAIN_PICK',
+    champion_team_id            INTEGER,                                    -- 우승 팀 FK (post-completion)
+    started_at                  INTEGER NOT NULL DEFAULT (unixepoch()),
+    ended_at                    INTEGER,
+    created_by                  TEXT    NOT NULL REFERENCES users(discord_id),
+    end_card_channel_id         TEXT,                                       -- 종료 카드 (v0.4.3 패턴 재사용)
+    end_card_message_id         TEXT,
+    deleted_at                  INTEGER,                                    -- soft-delete (series 와 동일 패턴)
+    -- v0.14: BIDDING 단계의 "현재 매물 후보" — 운영자가 /draw 로 뽑은 후 모든 화면이 sync.
+    -- finalize-bid / manual-assign / cancel-draw / status 전환 시 NULL 로 리셋.
+    current_bid_target_user_id  TEXT REFERENCES users(discord_id),
     CHECK (format IN (10, 20)),
     CHECK (status IN ('CAPTAIN_PICK','POINT_ALLOC','BIDDING','PLACEMENT','BRACKET_SETUP','IN_GAME','COMPLETED','CANCELLED'))
 );
@@ -455,6 +458,9 @@ CREATE INDEX IF NOT EXISTS idx_series_deleted_at ON series(deleted_at);
 -- v0.3.20: League 소환사 아이콘 (Summoner-V4 의 profileIconId).
 -- 신규 등록은 자동 저장, 기존 등록은 별도 backfill 로 채움.
 ALTER TABLE riot_accounts ADD COLUMN profile_icon_id INTEGER;
+
+-- v0.14: 경매 BIDDING 단계의 현재 매물 후보 — 모든 화면에 실시간 sync.
+ALTER TABLE auction_tournaments ADD COLUMN current_bid_target_user_id TEXT REFERENCES users(discord_id);
 
 -- v0.5.0 의 series.type / series.auction_tournament_id 컬럼은 v0.11.0 에서 제거.
 -- 옛 prod DB 는 v0.11.0 마이그레이션 블록이 DROP COLUMN 처리. fresh DB 는 CREATE 부터

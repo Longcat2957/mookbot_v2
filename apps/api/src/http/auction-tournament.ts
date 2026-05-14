@@ -6,6 +6,11 @@
 
 import { datadragon, db } from "@mookbot/core";
 import type { FastifyInstance } from "fastify";
+import {
+	clearBidIntents,
+	getBidIntents,
+	setBidIntent,
+} from "../domain/auctionBidIntents.js";
 import { invalidate, requireEditor, requireSession, rewriteDD } from "./_helpers.js";
 
 export async function registerAuctionTournamentRoutes(app: FastifyInstance): Promise<void> {
@@ -79,6 +84,7 @@ export async function registerAuctionTournamentRoutes(app: FastifyInstance): Pro
 		for (const p of recruitParts) userIds.add(p.user_id);
 		for (const m of allMembers) userIds.add(m.user_id);
 		for (const t of teams) userIds.add(t.captain_user_id);
+		if (t.current_bid_target_user_id) userIds.add(t.current_bid_target_user_id);
 		const userIdList = [...userIds];
 		const [users, mains] = await Promise.all([
 			userIdList.length > 0 ? db.listUsers(userIdList) : Promise.resolve([]),
@@ -107,6 +113,17 @@ export async function registerAuctionTournamentRoutes(app: FastifyInstance): Pro
 				profileIconUrl: iconByUser.get(p.user_id) ?? null,
 			}));
 
+		// v0.14: 현재 매물 + 입찰 의도 (transient) — BIDDING 화면 실시간 공유용.
+		const currentBidTargetUserId = t.current_bid_target_user_id;
+		const currentBidTarget = currentBidTargetUserId
+			? {
+					userId: currentBidTargetUserId,
+					displayName: nameById.get(currentBidTargetUserId) ?? currentBidTargetUserId,
+					profileIconUrl: iconByUser.get(currentBidTargetUserId) ?? null,
+					intents: getBidIntents(id),
+				}
+			: null;
+
 		return {
 			tournament: {
 				id: t.id,
@@ -115,6 +132,7 @@ export async function registerAuctionTournamentRoutes(app: FastifyInstance): Pro
 				championTeamId: t.champion_team_id,
 				startedAt: t.started_at,
 				endedAt: t.ended_at,
+				currentBidTarget,
 			},
 			teams: teams.map((tt) => ({
 				id: tt.id,
@@ -199,6 +217,7 @@ export async function registerAuctionTournamentRoutes(app: FastifyInstance): Pro
 				});
 			}
 			await db.setAuctionTournamentStatus(id, "POINT_ALLOC");
+			clearBidIntents(id); // defensive — revive 경로 잔재 cleanup
 
 			await db.recordAudit({
 				operatorId: sid,
@@ -256,6 +275,7 @@ export async function registerAuctionTournamentRoutes(app: FastifyInstance): Pro
 				return reply.code(409).send({ error: `status=${t.status}` });
 			}
 			await db.setAuctionTournamentStatus(id, "BIDDING");
+			clearBidIntents(id); // BIDDING 진입 — 이전 잔재 cleanup
 			invalidate(`auction-tournament:${id}`, sid);
 			return { ok: true };
 		},
@@ -276,11 +296,20 @@ export async function registerAuctionTournamentRoutes(app: FastifyInstance): Pro
 		const placed = new Set(allMembers.map((m) => m.user_id));
 		const remaining = recruitParts.filter((p) => !placed.has(p.user_id));
 		if (remaining.length === 0) {
-			// 정상 종료 — 모두 배치 완료. error 가 아닌 200 으로 done=true 반환.
+			// 정상 종료 — 모두 배치 완료. 현재 매물 잔재가 있으면 cleanup + broadcast.
+			if (t.current_bid_target_user_id) {
+				await db.setAuctionCurrentBidTarget(id, null);
+				clearBidIntents(id);
+				invalidate(`auction-tournament:${id}`, sid);
+			}
 			return { userId: null, displayName: null, remainingCount: 0, done: true };
 		}
 		const pick = remaining[Math.floor(Math.random() * remaining.length)]!;
 		const users = await db.listUsers([pick.user_id]);
+		// v0.14: DB 에 현재 매물 set + 이전 매물의 입찰 의도 잔재 clear → 모든 화면 sync.
+		await db.setAuctionCurrentBidTarget(id, pick.user_id);
+		clearBidIntents(id);
+		invalidate(`auction-tournament:${id}`, sid);
 		return {
 			userId: pick.user_id,
 			displayName: users[0]?.display_name ?? pick.user_id,
@@ -344,6 +373,9 @@ export async function registerAuctionTournamentRoutes(app: FastifyInstance): Pro
 			targetId: String(id),
 			payload: { targetUserId, teamId, points },
 		});
+		// v0.14: 매물 확정 — 현재 매물 + 입찰 의도 clear.
+		await db.setAuctionCurrentBidTarget(id, null);
+		clearBidIntents(id);
 		invalidate(`auction-tournament:${id}`, sid);
 		return { ok: true };
 	});
@@ -382,6 +414,62 @@ export async function registerAuctionTournamentRoutes(app: FastifyInstance): Pro
 			targetId: String(id),
 			payload: { targetUserId, teamId },
 		});
+		// v0.14: 수동 배치도 현재 매물 + 입찰 의도 clear (manual-assign 은 보통 현재 매물 + 다른
+		// teamId 조합이지만, 안전을 위해 매물 ID 일치 여부 무관하게 clear).
+		await db.setAuctionCurrentBidTarget(id, null);
+		clearBidIntents(id);
+		invalidate(`auction-tournament:${id}`, sid);
+		return { ok: true };
+	});
+
+	// v0.14: 현재 매물 취소 — 운영자가 진행 중인 매물을 그냥 닫음 (배치 / 유찰 결정 안 함).
+	// 다음 /draw 가 가능하도록 슬롯만 비우는 명령. 입찰 의도도 같이 clear.
+	app.post<{ Params: { id: string } }>(
+		"/api/auction-tournaments/:id/cancel-draw",
+		async (req, reply) => {
+			const sid = await requireEditor(req, reply);
+			if (!sid) return;
+			const id = Number(req.params.id);
+			const t = await db.getAuctionTournament(id);
+			if (!t) return reply.code(404).send({ error: "not found" });
+			if (t.status !== "BIDDING") return reply.code(409).send({ error: `status=${t.status}` });
+			if (!t.current_bid_target_user_id) return { ok: true }; // 이미 비어 있음 (멱등)
+			await db.setAuctionCurrentBidTarget(id, null);
+			clearBidIntents(id);
+			invalidate(`auction-tournament:${id}`, sid);
+			return { ok: true };
+		},
+	);
+
+	// v0.14: 입찰 의도 (transient) — 운영자 입력 중 가격을 다른 화면에 실시간 공유.
+	// body { teamId, points: number | null }. points=null = clear (취소).
+	// 영속화 X — 서버 in-memory only. finalize/cancel/status 전환 시 자동 clear.
+	app.post<{
+		Params: { id: string };
+		Body: { teamId: number; points: number | null };
+	}>("/api/auction-tournaments/:id/bid-intent", async (req, reply) => {
+		const sid = await requireEditor(req, reply);
+		if (!sid) return;
+		const id = Number(req.params.id);
+		const t = await db.getAuctionTournament(id);
+		if (!t) return reply.code(404).send({ error: "not found" });
+		if (t.status !== "BIDDING") return reply.code(409).send({ error: `status=${t.status}` });
+		if (!t.current_bid_target_user_id) {
+			return reply.code(409).send({ error: "현재 매물 없음 — 먼저 /draw" });
+		}
+		const teamId = Number(req.body?.teamId);
+		if (!Number.isFinite(teamId) || teamId <= 0) {
+			return reply.code(400).send({ error: "teamId required" });
+		}
+		const team = await db.getAuctionTeam(teamId);
+		if (!team || team.tournament_id !== id) {
+			return reply.code(400).send({ error: "team not in this tournament" });
+		}
+		const points = req.body?.points;
+		if (points !== null && (typeof points !== "number" || !Number.isFinite(points) || points < 0)) {
+			return reply.code(400).send({ error: "points: number >= 0 or null" });
+		}
+		setBidIntent(id, teamId, points);
 		invalidate(`auction-tournament:${id}`, sid);
 		return { ok: true };
 	});
@@ -483,6 +571,8 @@ export async function registerAuctionTournamentRoutes(app: FastifyInstance): Pro
 			await db.setAuctionTournamentStatus(id, "BIDDING");
 		}
 
+		// v0.14: revert-stage 가 어디로 가든 in-memory intents 잔재 cleanup.
+		clearBidIntents(id);
 		await db.recordAudit({
 			operatorId: sid,
 			action: "auction-tournament.stage-reverted",
@@ -513,6 +603,7 @@ export async function registerAuctionTournamentRoutes(app: FastifyInstance): Pro
 					.send({ error: `배치 미완료 (${allMembers.length}/${recruitParts.length})` });
 			}
 			await db.setAuctionTournamentStatus(id, "BRACKET_SETUP");
+			clearBidIntents(id);
 			invalidate(`auction-tournament:${id}`, sid);
 			return { ok: true };
 		},
@@ -529,6 +620,7 @@ export async function registerAuctionTournamentRoutes(app: FastifyInstance): Pro
 			return reply.code(409).send({ error: `status=${t.status}` });
 		}
 		await db.cancelAuctionTournament(id);
+		clearBidIntents(id);
 		await db.recordAudit({
 			operatorId: sid,
 			action: "auction-tournament.cancelled",

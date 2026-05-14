@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "../../../api/rest.js";
 import { ConfirmButton } from "../../../components/ConfirmButton.js";
 import { UserAvatar } from "../../../components/UserAvatar.js";
@@ -12,11 +12,18 @@ import type { AuctionTournamentDetail } from "../types.js";
 
 // ============================================================
 // BIDDING — 🎲 다음 인원 → 입찰 → 낙찰 / 유찰
+// v0.14: "현재 매물" + 입찰 의도가 서버 state — 모든 화면 실시간 sync.
+// 입찰가 input onChange 가 debounced setBidIntent → 다른 운영자/관전자에게 broadcast.
 // ============================================================
+
+const BID_INTENT_DEBOUNCE_MS = 300;
+
 export function BiddingPanel({
 	detail,
 	canEdit,
 	onDraw,
+	onCancelDraw,
+	onSetBidIntent,
 	onFinalizeBid,
 	onManualAssign,
 	onRevertBid,
@@ -30,34 +37,89 @@ export function BiddingPanel({
 		remainingCount: number;
 		done: boolean;
 	}>;
+	onCancelDraw: () => Promise<void>;
+	onSetBidIntent: (input: { teamId: number; points: number | null }) => Promise<void>;
 	onFinalizeBid: (input: { targetUserId: string; teamId: number; points: number }) => Promise<void>;
 	onManualAssign: (input: { targetUserId: string; teamId: number }) => Promise<void>;
 	onRevertBid: (targetUserId: string) => Promise<void>;
 	onStartBracket: () => Promise<void>;
 }) {
-	const [current, setCurrent] = useState<{ userId: string; displayName: string } | null>(null);
+	const currentBidTarget = detail.tournament.currentBidTarget;
+	const candidateUserId = currentBidTarget?.userId ?? null;
+
 	const [bidPoints, setBidPoints] = useState<Record<number, string>>({});
 	const [submitting, setSubmitting] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 
+	// 매물 바뀔 때 input field 동기화 — 서버 intents 로 초기화.
+	// 같은 매물 진행 중에는 본인 typing 을 끊지 않게 sync 생략.
+	const lastSyncedTargetRef = useRef<string | null>(null);
+	useEffect(() => {
+		const uid = currentBidTarget?.userId ?? null;
+		if (uid === lastSyncedTargetRef.current) return;
+		lastSyncedTargetRef.current = uid;
+		if (!currentBidTarget) {
+			setBidPoints({});
+			return;
+		}
+		const initial: Record<number, string> = {};
+		for (const i of currentBidTarget.intents) initial[i.teamId] = String(i.points);
+		setBidPoints(initial);
+	}, [currentBidTarget]);
+
+	// 입찰 의도 debounced — 사용자 typing 마다 API call 안 하도록.
+	const intentTimerRef = useRef<number | null>(null);
+	const queueBidIntent = useCallback(
+		(teamId: number, raw: string) => {
+			if (intentTimerRef.current) window.clearTimeout(intentTimerRef.current);
+			intentTimerRef.current = window.setTimeout(() => {
+				intentTimerRef.current = null;
+				const trimmed = raw.trim();
+				if (trimmed === "") {
+					void onSetBidIntent({ teamId, points: null });
+					return;
+				}
+				const points = Number(trimmed);
+				if (!Number.isFinite(points) || points < 0) return;
+				void onSetBidIntent({ teamId, points });
+			}, BID_INTENT_DEBOUNCE_MS);
+		},
+		[onSetBidIntent],
+	);
+
+	useEffect(() => {
+		return () => {
+			if (intentTimerRef.current) window.clearTimeout(intentTimerRef.current);
+		};
+	}, []);
+
+	const handleBidInput = (teamId: number, value: string) => {
+		setBidPoints((prev) => ({ ...prev, [teamId]: value }));
+		queueBidIntent(teamId, value);
+	};
+
 	const draw = async () => {
 		setError(null);
 		try {
-			const p = await onDraw();
-			if (p.done || !p.userId || !p.displayName) {
-				// 정상 종료 — 모두 배치 완료
-				setCurrent(null);
-				return;
-			}
-			setCurrent({ userId: p.userId, displayName: p.displayName });
-			setBidPoints({});
+			await onDraw();
+			// 서버가 current_bid_target_user_id set 후 broadcast — useAuctionState 가 refresh.
+			// 본인 화면은 origin-suppress 라 별도 효과 없지만 onDraw 자체가 finalizeBid 도 호출 안 함 → swr 강제 갱신은 useAuctionState 에서.
+		} catch (err) {
+			setError(err instanceof Error ? err.message : String(err));
+		}
+	};
+
+	const cancelDraw = async () => {
+		setError(null);
+		try {
+			await onCancelDraw();
 		} catch (err) {
 			setError(err instanceof Error ? err.message : String(err));
 		}
 	};
 
 	const finalize = async (teamId: number) => {
-		if (!current) return;
+		if (!currentBidTarget) return;
 		const points = Number(bidPoints[teamId] ?? 0);
 		if (Number.isNaN(points) || points < 0) {
 			setError("유효한 포인트 입력 필요");
@@ -66,9 +128,9 @@ export function BiddingPanel({
 		setSubmitting(true);
 		setError(null);
 		try {
-			await onFinalizeBid({ targetUserId: current.userId, teamId, points });
-			setCurrent(null);
-			setBidPoints({});
+			await onFinalizeBid({ targetUserId: currentBidTarget.userId, teamId, points });
+			// 서버가 currentBidTarget 을 null 로 set + broadcast — UI 가 자동 갱신.
+			// bidPoints reset 도 currentBidTarget 변화로 useEffect 가 처리.
 		} catch (err) {
 			setError(err instanceof Error ? err.message : String(err));
 		} finally {
@@ -77,12 +139,11 @@ export function BiddingPanel({
 	};
 
 	const manualAssign = async (teamId: number) => {
-		if (!current) return;
+		if (!currentBidTarget) return;
 		setSubmitting(true);
 		setError(null);
 		try {
-			await onManualAssign({ targetUserId: current.userId, teamId });
-			setCurrent(null);
+			await onManualAssign({ targetUserId: currentBidTarget.userId, teamId });
 		} catch (err) {
 			setError(err instanceof Error ? err.message : String(err));
 		} finally {
@@ -98,7 +159,6 @@ export function BiddingPanel({
 	const recruitPoolSize = expectedTotal; // 정원 = 4팀 × 5명 또는 2팀 × 5명
 
 	// 매물 후보 정보 — hero Avatar 의 imageUrl + 라이엇/내전 섹션이 같은 데이터 공유.
-	const candidateUserId = current?.userId ?? null;
 	const candidateFetcher = useCallback(
 		() =>
 			candidateUserId
@@ -112,6 +172,10 @@ export function BiddingPanel({
 		{ enabled: candidateUserId !== null },
 	);
 	const candidateRiotIcon = candidateSwr.data?.riotAccounts?.[0]?.profileIconUrl ?? null;
+
+	// teamId → 다른 사람들이 입력 중인 입찰가 (read-only 표시용 — 본인 input 옆에 작은 글씨로).
+	const intentByTeam = new Map<number, number>();
+	for (const i of currentBidTarget?.intents ?? []) intentByTeam.set(i.teamId, i.points);
 
 	return (
 		<div className="space-y-4">
@@ -134,7 +198,7 @@ export function BiddingPanel({
 					<div className="stat-value text-3xl text-info tabular-nums">
 						{recruitPoolSize - totalPlaced}
 					</div>
-					<div className="stat-desc text-sm">{current ? "1명 진행 중" : "—"}</div>
+					<div className="stat-desc text-sm">{currentBidTarget ? "1명 진행 중" : "—"}</div>
 				</div>
 				<div className="stat py-3">
 					<div className="stat-title text-sm">유찰</div>
@@ -149,7 +213,7 @@ export function BiddingPanel({
 					<div className="flex items-center justify-between flex-wrap gap-2">
 						<h3 className="text-lg font-bold flex items-center gap-2">
 							📦 현재 매물
-							{current && (
+							{currentBidTarget && (
 								<span
 									className="inline-block size-2.5 rounded-full bg-success animate-pulse"
 									aria-label="LIVE"
@@ -157,60 +221,73 @@ export function BiddingPanel({
 							)}
 						</h3>
 						<div className="flex items-center gap-2">
-							{current && (
+							{currentBidTarget && canEdit && (
 								<button
 									type="button"
 									className="btn btn-ghost btn-sm"
-									onClick={() => setCurrent(null)}
-									disabled={!canEdit || submitting}
+									onClick={cancelDraw}
+									disabled={submitting}
+									title="매물 취소 — 배치 없이 닫고 다음으로"
 								>
 									유찰 / 다음으로
 								</button>
 							)}
-							<button
-								type="button"
-								className="btn btn-primary"
-								onClick={draw}
-								disabled={!canEdit || allPlaced}
-								title={allPlaced ? "모든 인원 배치 완료" : "랜덤 1명 추출"}
-							>
-								🎲 다음 인원
-							</button>
+							{canEdit && (
+								<button
+									type="button"
+									className="btn btn-primary"
+									onClick={draw}
+									disabled={allPlaced || currentBidTarget !== null}
+									title={
+										allPlaced
+											? "모든 인원 배치 완료"
+											: currentBidTarget
+												? "현재 매물 처리 후"
+												: "랜덤 1명 추출"
+									}
+								>
+									🎲 다음 인원
+								</button>
+							)}
 						</div>
 					</div>
-					{current ? (
+					{currentBidTarget ? (
 						<>
 							<div className="flex items-center gap-4 py-2">
 								<UserAvatar
-									discordId={current.userId}
-									displayName={current.displayName}
+									discordId={currentBidTarget.userId}
+									displayName={currentBidTarget.displayName}
 									size="lg"
-									imageUrl={candidateRiotIcon}
+									imageUrl={candidateRiotIcon ?? currentBidTarget.profileIconUrl}
 								/>
 								<div className="flex-1 min-w-0">
-									<div className="text-3xl font-bold truncate">{current.displayName}</div>
+									<div className="text-3xl font-bold truncate">{currentBidTarget.displayName}</div>
 									<div className="text-sm text-base-content/60">매물 진행 중 · 보이스에서 입찰 협의</div>
 								</div>
 							</div>
 
 							<div className="divider my-0 text-xs text-base-content/60">🎮 라이엇 연동 (솔로랭크)</div>
-							{/* key={current.userId} — draw() 직후 candidateSwr 가 이전 데이터 잠시 반환하는
-							    플리커 (다음 매물 이름 + 직전 매물 라이엇 정보) 차단. 매물 바뀌면 강제 리셋. */}
+							{/* key — 매물 교체 시 candidateSwr 의 이전 데이터 플리커 차단. */}
 							<CandidateRiotSection
-								key={`riot-${current.userId}`}
+								key={`riot-${currentBidTarget.userId}`}
 								data={candidateSwr.data}
 								error={candidateSwr.error}
 							/>
 
 							<div className="divider my-0 text-xs text-base-content/60">⚔️ 내전 기록</div>
-							<CandidateMookSection key={`mook-${current.userId}`} data={candidateSwr.data} />
+							<CandidateMookSection
+								key={`mook-${currentBidTarget.userId}`}
+								data={candidateSwr.data}
+							/>
 						</>
 					) : allPlaced ? (
 						<div className="text-lg text-success font-medium">
 							✅ 모두 배치 완료 — 아래 [▶ 토너먼트 진행] 클릭하세요.
 						</div>
 					) : (
-						<div className="text-base text-base-content/60">🎲 버튼으로 다음 인원 추출</div>
+						<div className="text-base text-base-content/60">
+							🎲 버튼으로 다음 인원 추출 (다른 화면 함께 sync)
+						</div>
 					)}
 				</div>
 			</div>
@@ -225,7 +302,12 @@ export function BiddingPanel({
 						t.initialPoints > 0 ? Math.round((t.currentPoints / t.initialPoints) * 100) : 0;
 					const fillPct = Math.round((t.members.length / 5) * 100);
 					const full = t.members.length >= 5;
-					const isBidding = current !== null;
+					const isBidding = currentBidTarget !== null;
+					const sharedIntent = intentByTeam.get(t.id);
+					const localValue = bidPoints[t.id] ?? "";
+					// 다른 사람들에게 broadcast 된 intent — 본인 input 값과 다르면 "타 화면 입력" 표시.
+					const sharedDiffersFromLocal =
+						sharedIntent !== undefined && localValue.trim() !== String(sharedIntent);
 					return (
 						<div
 							key={t.id}
@@ -246,6 +328,7 @@ export function BiddingPanel({
 										}
 										aria-valuenow={pointPct}
 										role="progressbar"
+										aria-label={`팀${t.teamIndex} 잔여 포인트 ${t.currentPoints} / ${t.initialPoints}`}
 									>
 										<span className="text-sm font-bold">{t.currentPoints}p</span>
 									</div>
@@ -281,28 +364,28 @@ export function BiddingPanel({
 									/>
 								</div>
 
-								{/* 입찰 입력 — current 매물이 있을 때만 보임. full 이면 비활성. */}
+								{/* 입찰 입력 / 의도 표시 — currentBidTarget 가 있을 때만. full 이면 비활성. */}
 								{isBidding &&
 									(full ? (
-										<div className="text-xs text-base-content/40 text-center bg-base-100/30 rounded-md py-1.5">
+										<div className="text-xs text-base-content/40 text-center surface-quiet-soft rounded-md py-1.5">
 											팀원 모집 완료
 										</div>
-									) : (
+									) : canEdit ? (
 										<div className="flex items-center gap-1.5 surface-quiet-soft rounded-md p-1.5">
 											<input
 												type="number"
 												placeholder="입찰가"
-												value={bidPoints[t.id] ?? ""}
-												onChange={(e) => setBidPoints((prev) => ({ ...prev, [t.id]: e.target.value }))}
-												disabled={!canEdit}
+												value={localValue}
+												onChange={(e) => handleBidInput(t.id, e.target.value)}
 												min={0}
 												className="input input-bordered input-sm flex-1 text-right tabular-nums"
+												aria-label={`팀${t.teamIndex} 입찰가`}
 											/>
 											<button
 												type="button"
 												className="btn btn-success btn-sm"
 												onClick={() => finalize(t.id)}
-												disabled={!canEdit || submitting}
+												disabled={submitting}
 											>
 												✓ 낙찰
 											</button>
@@ -310,13 +393,34 @@ export function BiddingPanel({
 												type="button"
 												className="btn btn-ghost btn-sm"
 												onClick={() => manualAssign(t.id)}
-												disabled={!canEdit || submitting}
+												disabled={submitting}
 												title="포인트 무관 수동 배치"
 											>
 												➕
 											</button>
 										</div>
+									) : sharedIntent !== undefined ? (
+										// 관전자 (또는 canEdit=false) 가 보는 read-only 진행 중 입찰가.
+										<div className="flex items-center gap-2 surface-quiet-soft rounded-md p-1.5 text-sm">
+											<span className="text-base-content/60">현재 입찰</span>
+											<span className="ml-auto font-bold tabular-nums text-warning">
+												{sharedIntent}p
+											</span>
+										</div>
+									) : (
+										<div className="text-xs text-base-content/40 text-center surface-quiet-soft rounded-md py-1.5">
+											입찰 대기
+										</div>
 									))}
+
+								{/* 다른 화면의 입찰 의도 표시 — 본인 입력과 다른 경우만 (UX noise 회피). */}
+								{isBidding && canEdit && sharedDiffersFromLocal && (
+									<div className="text-[11px] text-base-content/60 flex items-center gap-1.5 px-1">
+										<span className="inline-block size-1.5 rounded-full bg-info animate-pulse" aria-hidden />
+										다른 화면 입력:{" "}
+										<span className="font-bold tabular-nums text-info">{sharedIntent}p</span>
+									</div>
+								)}
 
 								<div className="space-y-1.5">
 									{t.members.length === 0 && (

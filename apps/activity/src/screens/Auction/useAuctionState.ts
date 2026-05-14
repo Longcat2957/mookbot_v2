@@ -25,6 +25,10 @@ export interface UseAuctionStateResult {
 	finalizeBid: (input: { targetUserId: string; teamId: number; points: number }) => Promise<void>;
 	manualAssign: (input: { targetUserId: string; teamId: number }) => Promise<void>;
 	revertBid: (targetUserId: string) => Promise<void>;
+	/** v0.14: 현재 매물 취소 — 운영자가 진행 중인 매물을 닫고 다음 draw 대기 상태로. */
+	cancelDraw: () => Promise<void>;
+	/** v0.14: 입찰 의도 (transient) 갱신 — points=null = clear. debounced 호출 권장. */
+	setBidIntent: (input: { teamId: number; points: number | null }) => Promise<void>;
 	startBracket: () => Promise<void>;
 	revertStage: (target: "CAPTAIN_PICK" | "POINT_ALLOC" | "BIDDING") => Promise<void>;
 	createMatch: (input: {
@@ -124,6 +128,24 @@ export function useAuctionState(tournamentId: number | null): UseAuctionStateRes
 		[tournamentId, swr],
 	);
 
+	const cancelDraw = useCallback(async () => {
+		await api(`/auction-tournaments/${tournamentId}/cancel-draw`, { method: "POST" });
+		swr.refresh();
+	}, [tournamentId, swr]);
+
+	const setBidIntent = useCallback(
+		async (input: { teamId: number; points: number | null }) => {
+			await api(`/auction-tournaments/${tournamentId}/bid-intent`, {
+				method: "POST",
+				body: JSON.stringify(input),
+			});
+			// 본인은 WS origin-suppress 되어 broadcast 못 받음 — refresh 로 직접 sync.
+			// useStaleWhileRevalidate 의 debounce(150ms) 가 연쇄 호출 흡수.
+			swr.refresh();
+		},
+		[tournamentId, swr],
+	);
+
 	const startBracket = useCallback(async () => {
 		await api(`/auction-tournaments/${tournamentId}/start-bracket`, { method: "POST" });
 		swr.refresh();
@@ -174,6 +196,8 @@ export function useAuctionState(tournamentId: number | null): UseAuctionStateRes
 		finalizeBid,
 		manualAssign,
 		revertBid,
+		cancelDraw,
+		setBidIntent,
 		startBracket,
 		revertStage,
 		createMatch,

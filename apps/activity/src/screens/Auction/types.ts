@@ -62,6 +62,19 @@ export interface AuctionBid {
 	createdAt: number;
 }
 
+export interface CurrentBidIntent {
+	teamId: number;
+	points: number;
+}
+
+export interface CurrentBidTarget {
+	userId: string;
+	displayName: string;
+	profileIconUrl: string | null;
+	/** 운영자들이 입력 중인 입찰 의도 (실시간 공유). transient — finalize/cancel/status 전환 시 자동 clear. */
+	intents: CurrentBidIntent[];
+}
+
 export interface AuctionTournamentDetail {
 	tournament: {
 		id: number;
@@ -70,6 +83,8 @@ export interface AuctionTournamentDetail {
 		championTeamId: number | null;
 		startedAt: number;
 		endedAt: number | null;
+		/** v0.14: BIDDING 진행 중 현재 매물 — null 이면 매물 없음 (draw 대기). */
+		currentBidTarget: CurrentBidTarget | null;
 	};
 	teams: AuctionTeam[];
 	unsold: Array<{ userId: string; displayName: string; profileIconUrl: string | null }>;
