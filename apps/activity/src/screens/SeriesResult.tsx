@@ -187,7 +187,12 @@ export function SeriesResult({
 											/>
 										</div>
 										<div className="timeline-end pb-2 w-full">
-											<GameSummaryCard game={g} participants={detail.participants} champById={champById} />
+											<GameSummaryCard
+												game={g}
+												participants={detail.participants}
+												champById={champById}
+												{...(onSelectUser ? { onSelectUser } : {})}
+											/>
 										</div>
 										{!isLast && <hr className="bg-base-300" />}
 									</li>
@@ -224,13 +229,16 @@ function GameSummaryCard({
 	game,
 	participants,
 	champById,
+	onSelectUser,
 }: {
 	game: GameDetail;
 	participants: LineupParticipant[];
 	champById: Map<number, Champion>;
+	onSelectUser?: (userId: string) => void;
 }) {
-	const lineup = new Map<string, string>();
-	for (const p of participants) lineup.set(`${p.team}_${p.role}`, p.displayName);
+	// 라인업 lookup — displayName 만이 아니라 userId 도 함께 보관해 프로필 진입 지원.
+	const lineup = new Map<string, LineupParticipant>();
+	for (const p of participants) lineup.set(`${p.team}_${p.role}`, p);
 
 	const teamSize = participants.length / 2;
 	const lanes = LANE_ORDER.slice(0, teamSize);
@@ -321,7 +329,9 @@ function GameSummaryCard({
 									{lanes.map((lane) => {
 										const pick = pickFor(team, lane);
 										const champ = pick?.championId ? champById.get(pick.championId) : null;
-										const player = lineup.get(`${team}_${lane}`) ?? "—";
+										const player = lineup.get(`${team}_${lane}`);
+										const playerName = player?.displayName ?? "—";
+										const canSelectPlayer = !!(onSelectUser && player?.userId);
 										return (
 											<div key={lane} className="flex items-center gap-2">
 												{champ ? (
@@ -337,7 +347,18 @@ function GameSummaryCard({
 													<div className="text-[10px] text-base-content/60 uppercase tracking-wide">
 														{LANE_LABEL[lane]}
 													</div>
-													<div className="text-sm font-medium truncate">{player}</div>
+													{canSelectPlayer ? (
+														<button
+															type="button"
+															onClick={() => onSelectUser?.(player!.userId as string)}
+															className="text-sm font-medium truncate text-left hover:text-primary hover:underline transition cursor-pointer w-full"
+															title={`${playerName} 프로필 보기`}
+														>
+															{playerName}
+														</button>
+													) : (
+														<div className="text-sm font-medium truncate">{playerName}</div>
+													)}
 													{pick && (
 														<div className="text-xs text-base-content/70 truncate">{pick.championName}</div>
 													)}

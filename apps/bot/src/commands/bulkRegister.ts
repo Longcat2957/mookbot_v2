@@ -23,11 +23,11 @@ type Outcome =
 	| { kind: "newlyLinked"; mention: string; displayName: string; gameName: string; tagLine: string }
 	| { kind: "renamed"; mention: string; displayName: string; from: string; to: string }
 	| {
-			kind: "subAdded";
+			kind: "mainSwitched";
 			mention: string;
 			displayName: string;
-			mainStays: string;
-			subAdded: string;
+			from: string; // 이전 메인 (game_name#tag_line)
+			to: string; // 새 메인 (괄호 안 라이엇 ID 검증 결과)
 	  }
 	| { kind: "unchanged"; mention: string; displayName: string }
 	| { kind: "ambiguous"; mention: string; displayName: string }
@@ -74,7 +74,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
 	const buckets: Record<Outcome["kind"], Outcome[]> = {
 		newlyLinked: [],
 		renamed: [],
-		subAdded: [],
+		mainSwitched: [],
 		unchanged: [],
 		ambiguous: [],
 		noPattern: [],
@@ -96,7 +96,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
 				`총 멤버: **${total}명**`,
 				`✅ 새로 연결: ${buckets.newlyLinked.length}명`,
 				`🔄 닉 변경 감지: ${buckets.renamed.length}명`,
-				`🆕 부계정 추가: ${buckets.subAdded.length}명`,
+				`🔁 메인 전환: ${buckets.mainSwitched.length}명`,
 				`↩️ 변동 없음: ${buckets.unchanged.length}명`,
 				`👤 users 만 (라이엇 미연결): ${userOnly}명`,
 				dryRun ? "\n*dry_run=true — DB 변경 없음*" : "",
@@ -112,8 +112,8 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
 	pushField(eb, "🔄 닉 변경", buckets.renamed, (o) =>
 		o.kind === "renamed" ? `${o.mention} ${o.displayName} — \`${o.from}\` → \`${o.to}\`` : "",
 	);
-	pushField(eb, "🆕 부계정 추가", buckets.subAdded, (o) =>
-		o.kind === "subAdded" ? `${o.mention} 메인: \`${o.mainStays}\`, 추가: \`${o.subAdded}\`` : "",
+	pushField(eb, "🔁 메인 전환", buckets.mainSwitched, (o) =>
+		o.kind === "mainSwitched" ? `${o.mention} ${o.displayName} — \`${o.from}\` → \`${o.to}\`` : "",
 	);
 	pushField(eb, "↩️ 변동 없음", buckets.unchanged, (o) => `${o.mention} ${o.displayName}`);
 	pushField(eb, "⚠️ 모호 (# 2개 이상)", buckets.ambiguous, (o) => `${o.mention} ${o.displayName}`);
@@ -261,6 +261,9 @@ async function processMember(member: GuildMember, dryRun: boolean): Promise<Outc
 		return { kind: "unchanged", mention, displayName };
 	}
 
+	// 괄호 안 라이엇 ID 가 이전 메인과 다른 puuid — "무조건적으로 대표 아이디" 정책에 따라
+	// 신원 upsert (다른 user 가 가지고 있던 puuid 도 user_id 덮어씀) 후 메인까지 전환.
+	// 기존 메인은 sub 로 demote 되어 계정 풀에는 남는다 (history 보존).
 	await db.upsertRiotAccountIdentity({
 		userId,
 		puuid: account.puuid,
@@ -268,11 +271,12 @@ async function processMember(member: GuildMember, dryRun: boolean): Promise<Outc
 		tagLine: account.tagLine,
 		profileIconId,
 	});
+	await db.setMainRiotAccount(userId, account.puuid);
 	return {
-		kind: "subAdded",
+		kind: "mainSwitched",
 		mention,
 		displayName,
-		mainStays: `${existingMain.game_name}#${existingMain.tag_line}`,
-		subAdded: `${account.gameName}#${account.tagLine}`,
+		from: `${existingMain.game_name}#${existingMain.tag_line}`,
+		to: `${account.gameName}#${account.tagLine}`,
 	};
 }
