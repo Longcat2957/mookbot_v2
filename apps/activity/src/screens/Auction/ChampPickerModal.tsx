@@ -21,10 +21,19 @@ export function ChampPickerModal({
 }) {
 	const [q, setQ] = useState("");
 	const inputRef = useRef<HTMLInputElement | null>(null);
+	// 모달 열기 직전 포커스 보유한 요소 — 닫을 때 복귀.
+	// 네이티브 <dialog> 미사용 (custom div 오버레이) 이므로 수동 복귀 필요.
+	const returnFocusRef = useRef<HTMLElement | null>(null);
 
 	useEffect(() => {
-		if (!open) setQ("");
-		else inputRef.current?.focus();
+		if (open) {
+			returnFocusRef.current = (document.activeElement as HTMLElement | null) ?? null;
+			inputRef.current?.focus();
+		} else {
+			setQ("");
+			returnFocusRef.current?.focus?.();
+			returnFocusRef.current = null;
+		}
 	}, [open]);
 
 	useEffect(() => {

@@ -65,12 +65,16 @@ export function Toaster({ timeoutMs = 2500 }: { timeoutMs?: number }) {
 	}, [timeoutMs]);
 
 	return (
-		<div className="toast toast-bottom toast-end z-50 pointer-events-none">
+		<div
+			className="toast toast-bottom toast-end z-50 pointer-events-none"
+			role="status"
+			aria-live="polite"
+			aria-atomic="true"
+		>
 			{toasts.map((t) => (
 				<div
 					key={t.id}
 					className={`alert ${ALERT_CLASS[t.tone]} alert-soft shadow-md pointer-events-auto`}
-					role="status"
 				>
 					<span>{t.message}</span>
 				</div>

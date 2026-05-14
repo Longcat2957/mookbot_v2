@@ -85,8 +85,9 @@ export function Roulette() {
 	}
 
 	const isLocked = phase === "spinning";
-	const labelRadius = 110; // px from center, depends on stage size — clamp(120, 30vw, 180) → 라벨은 그 60% 정도
-	// (실제 stage 크기는 clamp 이지만 라벨은 viewport 기반 px 사용으로 충분히 잘 위치)
+	// 라벨 위치 — stage 크기에 비례. stage 가 `clamp(240px, 60vw, 360px)` 이므로
+	// 반지름은 그 절반, 라벨은 반지름의 ~65% 지점에. CSS calc 로 viewport 따라감.
+	const labelRadius = "calc(clamp(240px, 60vw, 360px) / 2 * 0.65)";
 
 	return (
 		<div className="flex flex-col items-center gap-4 py-2">
@@ -147,7 +148,7 @@ export function Roulette() {
 								key={`label-${i}`}
 								className="mg-roulette-label"
 								style={{
-									transform: `translate(-50%, -50%) rotate(${angle}deg) translateY(-${labelRadius}px)`,
+									transform: `translate(-50%, -50%) rotate(${angle}deg) translateY(calc(-1 * ${labelRadius}))`,
 								}}
 							>
 								<span style={{ display: "inline-block", transform: `rotate(${-angle}deg)` }}>{lab}</span>

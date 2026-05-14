@@ -10,6 +10,7 @@ import { showToast } from "../components/Toaster.js";
 import { UserAvatar } from "../components/UserAvatar.js";
 import { usePerms } from "../state/perms.js";
 import { useStaleWhileRevalidate } from "../state/useStaleWhileRevalidate.js";
+import { winrateTextClass, winrateTextClassDim } from "../state/winrateColor.js";
 import { MmrChart } from "./Profile/MmrChart.js";
 import { Preferences } from "./Profile/Preferences.js";
 
@@ -137,8 +138,8 @@ export function Profile({
 						displayName={data.user.displayName}
 						imageUrl={
 							data.user.profileIconUrl ??
-							data.topChampions[0]?.splashUrl ??
 							data.topChampions[0]?.iconUrl ??
+							data.topChampions[0]?.splashUrl ??
 							null
 						}
 						size="xl"
@@ -209,7 +210,7 @@ export function Profile({
 			</div>
 
 			{/* 라인별 선호 챔프 (게시판 텍스트 풀이의 페이지 대체) */}
-			<details className="rounded-lg border border-base-300 bg-base-200/40" open>
+			<details className="surface-soft rounded-lg" open>
 				<summary className="cursor-pointer text-sm font-medium px-3 py-2 select-none flex items-center gap-2">
 					📌 선호 챔프
 					{isMe && <span className="badge badge-ghost badge-xs">편집 가능</span>}
@@ -220,7 +221,7 @@ export function Profile({
 			</details>
 
 			{/* MMR 시계열 그래프 */}
-			<details className="rounded-lg border border-base-300 bg-base-200/40">
+			<details className="surface-soft rounded-lg">
 				<summary className="cursor-pointer text-sm font-medium px-3 py-2 select-none">
 					📈 MMR 추이
 				</summary>
@@ -231,7 +232,7 @@ export function Profile({
 
 			{/* 주력 챔프 + 최근 게임 */}
 			<div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-				<div className="card bg-base-200/40 border border-base-300">
+				<div className="card surface-soft">
 					<div className="card-body p-3">
 						<h2 className="card-title text-base">🌟 주력 챔프</h2>
 						{data.topChampions.length === 0 ? (
@@ -257,13 +258,13 @@ export function Profile({
 					</div>
 				</div>
 
-				<div className="card bg-base-200/40 border border-base-300">
+				<div className="card surface-soft">
 					<div className="card-body p-3">
 						<h2 className="card-title text-base">🕒 최근 게임</h2>
 						{data.recentGames.length === 0 ? (
 							<div className="text-sm text-base-content/50 py-2">최근 게임 기록이 없습니다.</div>
 						) : (
-							<ul className="space-y-1.5 max-h-[420px] overflow-y-auto pr-1">
+							<ul className="space-y-1.5 max-h-[50vh] sm:max-h-[420px] overflow-y-auto pr-1">
 								{data.recentGames.map((g) => (
 									<RecentGameItem key={g.gameId} g={g} onClick={() => onSelectSeries(g.seriesId)} />
 								))}
@@ -279,14 +280,7 @@ export function Profile({
 function LaneMmrCard({ mmr }: { mmr: LaneMmr }) {
 	const wrPct = Math.round(mmr.winrate * 100);
 	const empty = mmr.mmr === null;
-	const radialColor =
-		wrPct >= 60
-			? "text-success"
-			: wrPct >= 50
-				? "text-info"
-				: wrPct >= 40
-					? "text-warning"
-					: "text-error";
+	const radialColor = winrateTextClass(wrPct);
 	return (
 		<div
 			className={`rounded-lg p-3 border ${empty ? "border-base-300 bg-base-200/30 opacity-60" : "border-base-300 bg-base-100"}`}
@@ -309,6 +303,7 @@ function LaneMmrCard({ mmr }: { mmr: LaneMmr }) {
 						aria-valuenow={wrPct}
 						aria-valuemin={0}
 						aria-valuemax={100}
+						aria-label={`${ROLE_LABEL[mmr.role] ?? mmr.role} 라인 승률 ${wrPct}%`}
 					>
 						{wrPct}
 					</div>
@@ -320,20 +315,7 @@ function LaneMmrCard({ mmr }: { mmr: LaneMmr }) {
 				<>
 					<div className="text-2xl font-bold leading-tight tabular-nums mt-0.5">{mmr.mmr}</div>
 					<div className="text-xs text-base-content/60 tabular-nums">
-						{mmr.games}G ·{" "}
-						<span
-							className={
-								wrPct >= 60
-									? "text-success"
-									: wrPct >= 50
-										? "text-info"
-										: wrPct >= 40
-											? "text-base-content/70"
-											: "text-error"
-							}
-						>
-							{wrPct}%
-						</span>
+						{mmr.games}G · <span className={winrateTextClassDim(wrPct)}>{wrPct}%</span>
 					</div>
 				</>
 			)}

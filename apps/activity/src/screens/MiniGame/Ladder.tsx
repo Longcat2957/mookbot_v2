@@ -246,11 +246,19 @@ export function Ladder() {
 		setRungsKey((k) => k + 1);
 	}
 
-	const inputs = Array.from({ length: count }, (_, i) => i);
-	const outputs = Array.from({ length: count }, (_, i) => i);
+	const inputs = useMemo(() => Array.from({ length: count }, (_, i) => i), [count]);
+	const outputs = useMemo(() => Array.from({ length: count }, (_, i) => i), [count]);
 	const isLocked = Object.values(inputStates).some((s) => s === "running" || s === "done");
 	const allDone = inputs.every((i) => inputStates[i] === "done");
 	const anyDone = Object.values(inputStates).some((s) => s === "done");
+
+	// input 별 SVG path — rungs/geom 변경 시에만 재계산.
+	// JSX 안에서 매 render 마다 호출되던 buildPath() 비용 제거.
+	const pathsByInput = useMemo(() => {
+		const m = new Map<number, string>();
+		for (const i of inputs) m.set(i, buildPath(i, rungs, geom));
+		return m;
+	}, [inputs, rungs, geom]);
 
 	return (
 		<div className="flex flex-col gap-3 py-2">
@@ -350,7 +358,7 @@ export function Ladder() {
 					{inputs.map((i) => {
 						const state = inputStates[i] ?? "idle";
 						const active = state === "running" || state === "done";
-						const pathD = buildPath(i, rungs, geom);
+						const pathD = pathsByInput.get(i) ?? "";
 						return (
 							<path
 								key={`trace-${rungsKey}-${i}`}
@@ -374,16 +382,29 @@ export function Ladder() {
 						/>
 					))}
 
-					{/* 입력 버튼 (top circles) */}
+					{/* 입력 버튼 (top circles) — SVG <g> 지만 키보드 접근 가능하게 role/tabIndex 부여.
+					    idle 상태만 활성. running/done 은 tabIndex=-1 로 포커스 스킵. */}
 					{inputs.map((i) => {
 						const state = inputStates[i] ?? "idle";
 						const color = TRACE_COLORS[i % TRACE_COLORS.length];
+						const disabled = state !== "idle";
 						return (
 							<g
 								key={`btn-${rungsKey}-${i}`}
 								className="mg-ladder-input-btn"
 								data-state={state}
-								onClick={() => startInput(i)}
+								role="button"
+								tabIndex={disabled ? -1 : 0}
+								aria-label={`사다리 입력 ${inputLabels[i] ?? i + 1}${disabled ? ` (${state === "running" ? "진행 중" : "완료"})` : " — 결과 보기"}`}
+								aria-disabled={disabled}
+								onClick={() => !disabled && startInput(i)}
+								onKeyDown={(e) => {
+									if (disabled) return;
+									if (e.key === "Enter" || e.key === " ") {
+										e.preventDefault();
+										startInput(i);
+									}
+								}}
 							>
 								<circle cx={geom.x(i)} cy={geom.topY - 22} r={15} fill={color} />
 								<text x={geom.x(i)} y={geom.topY - 22} className="mg-ladder-input-btn-text">
@@ -397,7 +418,7 @@ export function Ladder() {
 					{inputs.map((i) => {
 						const state = inputStates[i] ?? "idle";
 						const active = state === "running" || state === "done";
-						const pathD = buildPath(i, rungs, geom);
+						const pathD = pathsByInput.get(i) ?? "";
 						const color = TRACE_COLORS[i % TRACE_COLORS.length];
 						return (
 							<circle

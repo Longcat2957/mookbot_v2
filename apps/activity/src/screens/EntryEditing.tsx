@@ -7,6 +7,7 @@
 import { useEffect, useState } from "react";
 import { SaveStatusIndicator } from "../components/SaveStatus.js";
 import { usePerms } from "../state/perms.js";
+import { useCoarsePointer } from "../state/useCoarsePointer.js";
 import { EntryEditingSkeleton } from "./EntryEditing/EntryEditingSkeleton.js";
 import { ParticipantCard } from "./EntryEditing/ParticipantCard.js";
 import { SlotRow } from "./EntryEditing/SlotRow.js";
@@ -22,6 +23,7 @@ export function EntryEditing({
 }) {
 	const perms = usePerms();
 	const s = useEntryEditingState({ recruitmentId });
+	const coarse = useCoarsePointer();
 
 	// 관전 모드 — read-only alert dismissible (세션 단위). design_upgrade.md §6.7
 	const dismissKey = recruitmentId !== null ? `readonly-dismissed-rec-${recruitmentId}` : "";
@@ -156,7 +158,7 @@ export function EntryEditing({
 
 			{/* 코인토스 — BLUE 사이드 결정. 1팀 = BLUE 가 되도록 자동 정렬. */}
 			{perms.canEdit && !s.coinTossDecided && (
-				<div className="card bg-base-200 shadow-sm border-l-4 border-warning">
+				<div className="card surface-base shadow-sm border-l-4 border-warning">
 					<div className="card-body p-3 gap-2">
 						<div className="flex items-baseline justify-between flex-wrap gap-2">
 							<h3 className="font-bold text-sm">🪙 코인토스 — BLUE 사이드는 어느 팀?</h3>
@@ -222,7 +224,7 @@ export function EntryEditing({
 				{(["TEAM_1", "TEAM_2"] as const).map((team) => (
 					<div
 						key={team}
-						className={`card bg-base-200 shadow-sm border-l-4 ${
+						className={`card surface-base shadow-sm border-l-4 ${
 							team === "TEAM_1" ? "border-info" : "border-error"
 						}`}
 					>
@@ -259,7 +261,7 @@ export function EntryEditing({
 
 			{/* 후보 풀 — 컴팩트 가로 카드 */}
 			<div
-				className={`card bg-base-200 shadow-sm transition ${
+				className={`card surface-base shadow-sm transition ${
 					s.selectedUid !== null && s.assignment.has(s.selectedUid)
 						? "ring-2 ring-primary cursor-pointer"
 						: ""
@@ -316,7 +318,9 @@ export function EntryEditing({
 								</div>
 							</div>
 						)}
-						<span className="text-xs text-base-content/50">탭하여 선택 → 슬롯 탭 (또는 드래그)</span>
+						<span className="text-xs text-base-content/50">
+							{coarse ? "탭하여 선택 → 슬롯 탭으로 배치" : "탭하여 선택 → 슬롯 탭 (또는 드래그)"}
+						</span>
 					</div>
 					{s.unassigned.length === 0 ? (
 						<div className="text-center text-base-content/50 py-4 text-sm">

@@ -1,20 +1,16 @@
 // 도움말 modal — design_upgrade.md §4.7
 // 화면별 사용법 + 단축키 안내. navbar 의 ? 버튼 또는 ? 키로 열림.
+//
+// SHORTCUTS 는 `state/shortcuts.ts` 의 단일 출처에서 import — 단축키 추가/변경
+// 시 그 파일만 수정하면 이 모달이 자동 따라온다. (drift 방지)
 
 import { useEffect, useRef } from "react";
+import { SHORTCUTS } from "../state/shortcuts.js";
 
 interface Props {
 	open: boolean;
 	onClose: () => void;
 }
-
-const SHORTCUTS: { key: string; label: string }[] = [
-	{ key: "?", label: "이 도움말 열기 / 닫기" },
-	{ key: "/", label: "챔프 검색 input 으로 포커스 (픽/밴)" },
-	{ key: "Esc", label: "활성 슬롯 해제 · 검색 클리어 · 선택 취소" },
-	{ key: "Enter", label: "선택된 후보를 슬롯에 배치 (엔트리 수정)" },
-	{ key: "1 / 2 / 3", label: "게임 탭 전환 (픽/밴)" },
-];
 
 const NAVBAR_ITEMS: { icon: string; title: string; body: string }[] = [
 	{
@@ -123,10 +119,13 @@ export function HelpModal({ open, onClose }: Props) {
 						<tbody>
 							{SHORTCUTS.map((s) => (
 								<tr key={s.key}>
-									<td className="w-32 align-top">
+									<td className="w-40 align-top">
 										<kbd className="kbd kbd-sm">{s.key}</kbd>
 									</td>
-									<td className="text-sm">{s.label}</td>
+									<td className="text-sm">
+										{s.label}
+										{s.scope && <span className="text-xs text-base-content/50 ml-1">({s.scope})</span>}
+									</td>
 								</tr>
 							))}
 						</tbody>

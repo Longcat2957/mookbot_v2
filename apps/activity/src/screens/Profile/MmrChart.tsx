@@ -1,7 +1,7 @@
 // MMR 시계열 그래프 — Recharts.
 // 라인 5개 토글 (체크박스), x = 시간, y = MMR after.
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
 	CartesianGrid,
 	Line,
@@ -71,6 +71,32 @@ export function MmrChart({ userId }: { userId: string }) {
 			.catch((e) => setError(e instanceof Error ? e.message : String(e)));
 	}, [userId]);
 
+	// data.points 를 X 시간순 chart row 로 정규화 — 같은 시점 여러 라인일 수 있어 createdAt 단위 group.
+	// 라인별로 시계열 — 라인이 안 바뀐 시점은 이전 값 forward-fill.
+	// useMemo — points 가 동일하면 sort/normalize 재실행 안 함 (toggleRole 등으로 re-render 시 비용 절약).
+	// hooks 순서 일관성 위해 early return 위에 위치 (data null 시 빈 배열 반환).
+	const rows = useMemo<ChartRow[]>(() => {
+		if (!data) return [];
+		const out: ChartRow[] = [];
+		const lastValue: Partial<Record<Role, number>> = {};
+		const sorted = [...data.points].sort((a, b) => a.createdAt - b.createdAt);
+		for (const p of sorted) {
+			lastValue[p.role] = p.mmrAfter;
+			const last = out[out.length - 1];
+			const sec = p.createdAt;
+			if (last && last.createdAt === sec) {
+				last[p.role] = p.mmrAfter;
+			} else {
+				out.push({
+					createdAt: sec,
+					timeLabel: formatTime(sec),
+					...lastValue,
+				});
+			}
+		}
+		return out;
+	}, [data]);
+
 	if (error) {
 		return (
 			<div className="alert alert-warning text-sm">
@@ -87,27 +113,6 @@ export function MmrChart({ userId }: { userId: string }) {
 				MMR 변동 기록이 없습니다.
 			</div>
 		);
-	}
-
-	// data.points 를 X 시간순 chart row 로 정규화 — 같은 시점 여러 라인일 수 있어 createdAt 단위 group.
-	// 라인별로 시계열 — 라인이 안 바뀐 시점은 이전 값 forward-fill.
-	const rows: ChartRow[] = [];
-	const lastValue: Partial<Record<Role, number>> = {};
-	const sorted = [...data.points].sort((a, b) => a.createdAt - b.createdAt);
-	for (const p of sorted) {
-		lastValue[p.role] = p.mmrAfter;
-		const last = rows[rows.length - 1];
-		const sec = p.createdAt;
-		// 같은 초 내 변동들은 한 row 에 합치기 — 그래프 점 X 축 일치
-		if (last && last.createdAt === sec) {
-			last[p.role] = p.mmrAfter;
-		} else {
-			rows.push({
-				createdAt: sec,
-				timeLabel: formatTime(sec),
-				...lastValue,
-			});
-		}
 	}
 
 	const toggleRole = (role: Role) => {

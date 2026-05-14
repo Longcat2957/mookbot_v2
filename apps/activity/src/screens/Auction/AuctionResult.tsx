@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { api } from "../../api/rest.js";
 import { UserAvatar } from "../../components/UserAvatar.js";
 import { AuctionSteps } from "./AuctionSteps.js";
-import type { AuctionTournamentDetail } from "./types.js";
+import { type AuctionTournamentDetail, roundLabel } from "./types.js";
 
 interface MatchSeriesDetail {
 	id: number;
@@ -139,9 +139,9 @@ export function AuctionResult({
 				</div>
 			)}
 
-			{/* Bracket 결과 (20인) */}
+			{/* Bracket 결과 (20인) — AuctionBracket 과 동일한 모바일 폴백 (↓ "승자 진출"). */}
 			{is20 && semis.length > 0 && finalMatch && (
-				<div className="grid grid-cols-1 lg:grid-cols-[1fr_auto_1fr] gap-3 items-center">
+				<div className="grid grid-cols-1 lg:grid-cols-[1fr_auto_1fr] gap-3 lg:items-center">
 					<div className="space-y-3">
 						<h3 className="text-lg font-bold flex items-center gap-2">
 							<span className="badge badge-info badge-lg">4강</span>
@@ -150,8 +150,15 @@ export function AuctionResult({
 							<ResultMatchCard key={m.matchId} match={m} detail={detail} md={matchDetails[m.matchId]} />
 						))}
 					</div>
-					<div className="hidden lg:flex items-center text-4xl text-base-content/30 px-2 select-none">
-						→
+					<div
+						className="flex lg:flex-none lg:items-center text-base-content/40 select-none"
+						aria-hidden
+					>
+						<div className="hidden lg:block text-4xl px-2">→</div>
+						<div className="lg:hidden w-full flex flex-col items-center gap-1 py-1">
+							<div className="text-2xl leading-none">↓</div>
+							<div className="text-[10px] uppercase tracking-wider font-semibold">승자 진출</div>
+						</div>
 					</div>
 					<div>
 						<h3 className="text-lg font-bold flex items-center gap-2 mb-3">
@@ -185,7 +192,7 @@ export function AuctionResult({
 								? "border-2 border-info"
 								: "border border-base-300";
 						return (
-							<div key={t.id} className={`card bg-base-200 shadow-sm ${borderColor}`}>
+							<div key={t.id} className={`card surface-base shadow-sm ${borderColor}`}>
 								<div className="card-body p-4 gap-2">
 									<div className="flex items-center gap-2 flex-wrap">
 										<div className="badge badge-info badge-lg">팀{t.teamIndex}</div>
@@ -224,14 +231,13 @@ export function AuctionResult({
 					if (!md) return null;
 					const t1Wins = md.games.filter((g) => g.winningTeam === "TEAM_1").length;
 					const t2Wins = md.games.filter((g) => g.winningTeam === "TEAM_2").length;
-					const roundLabel =
-						m.round === "FINAL" ? "결승" : m.round === "SEMI" ? `4강 #${m.bracketIndex ?? ""}` : "매치";
 					return (
-						<div key={m.matchId} className="card bg-base-200 shadow-sm">
+						<div key={m.matchId} className="card surface-base shadow-sm">
 							<div className="card-body p-4 gap-2">
 								<div className="flex items-center justify-between flex-wrap gap-2">
 									<span className="text-base font-bold">
-										{roundLabel} <span className="badge badge-ghost">{m.format}</span>
+										{roundLabel(m.round, m.bracketIndex)}{" "}
+										<span className="badge badge-ghost">{m.format}</span>
 									</span>
 									<span className="tabular-nums text-base">
 										{t1?.captainName} <strong>{t1Wins}</strong> : <strong>{t2Wins}</strong> {t2?.captainName}
@@ -241,7 +247,7 @@ export function AuctionResult({
 									const picksByTeamRole = new Map<string, string>();
 									for (const p of g.picks) picksByTeamRole.set(`${p.team}_${p.role}`, p.championName);
 									return (
-										<details key={g.id} className="collapse collapse-arrow bg-base-100/40 mt-1">
+										<details key={g.id} className="collapse collapse-arrow surface-quiet-soft mt-1">
 											<summary className="collapse-title text-sm min-h-0 py-2">
 												Game {g.gameNumber} — {g.winningTeam === "TEAM_1" ? "1팀" : "2팀"} 승
 												{g.team1Side && ` · 1팀 ${g.team1Side}`}
@@ -325,7 +331,7 @@ function ResultMatchCard({
 			? isTeam1
 				? "bg-info/10 ring-1 ring-info"
 				: "bg-error/10 ring-1 ring-error"
-			: "bg-base-100/40";
+			: "surface-quiet-soft";
 		const badgeColor = isTeam1 ? "badge-info" : "badge-error";
 		return (
 			<div className={`p-2.5 rounded-md ${winnerBg}`}>
@@ -363,7 +369,7 @@ function ResultMatchCard({
 	};
 
 	return (
-		<div className="card bg-base-200 shadow border-2 border-success">
+		<div className="card surface-base shadow border-2 border-success">
 			<div className="card-body p-4 gap-3">
 				<TeamLine team={t1} teamSide="TEAM_1" />
 				<div className="flex items-center justify-center gap-4 py-1 tabular-nums">

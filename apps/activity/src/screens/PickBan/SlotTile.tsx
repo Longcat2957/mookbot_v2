@@ -28,7 +28,13 @@ export function SlotTile({
 			} ${banned && champion ? "grayscale opacity-70" : ""}`}
 		>
 			{champion ? (
-				<img src={champion.iconUrl} alt={champion.name} className="w-full h-full" draggable={false} />
+				<img
+					src={champion.iconUrl}
+					alt={champion.name}
+					className="w-full h-full"
+					draggable={false}
+					loading="lazy"
+				/>
 			) : (
 				<span className="text-2xl text-base-content/30">+</span>
 			)}

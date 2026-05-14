@@ -97,29 +97,20 @@ export function WelcomeCard({
 	);
 }
 
-function FeatureChip({
+// 공통 chip 본문 — clickable / static 가 시각만 동일하게 공유.
+function FeatureChipBody({
 	icon,
 	title,
 	desc,
 	action,
-	onClick,
 }: {
 	icon: string;
 	title: string;
 	desc: string;
 	action: string;
-	onClick?: () => void;
 }) {
-	const clickable = !!onClick;
-	const Wrapper = clickable ? "button" : "div";
 	return (
-		<Wrapper
-			type={clickable ? "button" : undefined}
-			onClick={onClick}
-			className={`text-left rounded-md p-3 bg-base-100/60 border border-base-300 ${
-				clickable ? "hover:bg-base-100 hover:border-primary/40 transition cursor-pointer" : ""
-			}`}
-		>
+		<>
 			<div className="flex items-center gap-2">
 				<span className="text-2xl leading-none">{icon}</span>
 				<div className="flex-1 min-w-0">
@@ -128,6 +119,42 @@ function FeatureChip({
 				</div>
 			</div>
 			<div className="text-xs text-base-content/70 mt-1.5 leading-snug">{desc}</div>
-		</Wrapper>
+		</>
+	);
+}
+
+interface FeatureChipBaseProps {
+	icon: string;
+	title: string;
+	desc: string;
+	action: string;
+}
+
+// onClick 분기로 button/div 가 type 무결성을 잃던 패턴을 두 컴포넌트로 분리.
+function FeatureChip(props: FeatureChipBaseProps & { onClick?: () => void }) {
+	return props.onClick ? (
+		<FeatureChipButton {...props} onClick={props.onClick} />
+	) : (
+		<FeatureChipStatic {...props} />
+	);
+}
+
+function FeatureChipButton({ onClick, ...body }: FeatureChipBaseProps & { onClick: () => void }) {
+	return (
+		<button
+			type="button"
+			onClick={onClick}
+			className="text-left rounded-md p-3 bg-base-100/60 border border-base-300 hover:bg-base-100 hover:border-primary/40 transition cursor-pointer"
+		>
+			<FeatureChipBody {...body} />
+		</button>
+	);
+}
+
+function FeatureChipStatic(body: FeatureChipBaseProps) {
+	return (
+		<div className="text-left rounded-md p-3 bg-base-100/60 border border-base-300">
+			<FeatureChipBody {...body} />
+		</div>
 	);
 }

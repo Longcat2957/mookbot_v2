@@ -10,7 +10,7 @@ export function EntryEditingSkeleton() {
 			</div>
 			<div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
 				{[0, 1].map((i) => (
-					<div key={i} className="card bg-base-200 shadow-sm">
+					<div key={i} className="card surface-base shadow-sm">
 						<div className="card-body p-4 gap-3">
 							<div className="skeleton h-6 w-16" />
 							{[0, 1, 2, 3, 4].map((j) => (
@@ -20,7 +20,7 @@ export function EntryEditingSkeleton() {
 					</div>
 				))}
 			</div>
-			<div className="card bg-base-200 shadow-sm">
+			<div className="card surface-base shadow-sm">
 				<div className="card-body p-4 space-y-3">
 					<div className="skeleton h-5 w-32" />
 					<div className="grid grid-cols-1 md:grid-cols-2 gap-3">

@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { UserAvatar } from "../../components/UserAvatar.js";
+import { useCoarsePointer } from "../../state/useCoarsePointer.js";
 import { LANE_LABEL, type Lane, type Participant, ROLE_LABEL } from "./types.js";
 
 export function SlotRow({
@@ -22,6 +23,8 @@ export function SlotRow({
 	recentlyChanged?: boolean;
 }) {
 	const [over, setOver] = useState(false);
+	// touch 환경에서는 HTML5 DnD 무효 — draggable 비활성. tap-to-place 만 노출.
+	const coarse = useCoarsePointer();
 
 	const baseRing = over
 		? "ring-2 ring-primary bg-primary/10"
@@ -70,12 +73,16 @@ export function SlotRow({
 			</span>
 			{participant ? (
 				<div
-					draggable
-					onDragStart={(e) => {
-						e.dataTransfer.setData("text/plain", participant.userId);
-						e.dataTransfer.effectAllowed = "move";
-					}}
-					className="flex-1 min-w-0 bg-base-300 rounded-md px-2 py-1.5 cursor-grab active:cursor-grabbing hover:bg-base-content/10 transition flex items-center gap-1.5"
+					draggable={!coarse}
+					onDragStart={
+						coarse
+							? undefined
+							: (e) => {
+									e.dataTransfer.setData("text/plain", participant.userId);
+									e.dataTransfer.effectAllowed = "move";
+								}
+					}
+					className={`flex-1 min-w-0 bg-base-300 rounded-md px-2 py-1.5 ${coarse ? "cursor-pointer" : "cursor-grab active:cursor-grabbing"} hover:bg-base-content/10 transition flex items-center gap-1.5`}
 				>
 					<UserAvatar
 						discordId={participant.userId}

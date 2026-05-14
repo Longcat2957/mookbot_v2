@@ -11,6 +11,7 @@ import { showToast } from "../components/Toaster.js";
 import { UserAvatar } from "../components/UserAvatar.js";
 import { usePerms } from "../state/perms.js";
 import { useStaleWhileRevalidate } from "../state/useStaleWhileRevalidate.js";
+import { winrateTextClassDim } from "../state/winrateColor.js";
 
 type Tab = "TOP" | "JUNGLE" | "MID" | "BOTTOM" | "SUPPORT" | "COMPOSITE";
 
@@ -160,10 +161,19 @@ function LeaderTable({
 						return (
 							<tr
 								key={r.userId}
-								className={`cursor-pointer transition ${
+								role="button"
+								tabIndex={0}
+								aria-label={`${r.rank}위 ${r.displayName} · MMR ${r.mmr} · ${wrPct}% — 프로필 열기`}
+								className={`cursor-pointer transition focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-inset ${
 									isMe ? "bg-primary/10 hover:bg-primary/20" : "hover:bg-base-200/60"
 								}`}
 								onClick={() => onSelectUser(r.userId)}
+								onKeyDown={(e) => {
+									if (e.key === "Enter" || e.key === " ") {
+										e.preventDefault();
+										onSelectUser(r.userId);
+									}
+								}}
 							>
 								<td className="text-center font-bold">{medal}</td>
 								<td className="font-medium">
@@ -199,19 +209,7 @@ function LeaderTable({
 								<td className="text-right text-base-content/70">
 									<span className="text-info">{r.wins}</span>-<span className="text-error">{r.losses}</span>
 								</td>
-								<td
-									className={`text-right font-medium ${
-										wrPct >= 60
-											? "text-success"
-											: wrPct >= 50
-												? "text-info"
-												: wrPct >= 40
-													? "text-base-content/70"
-													: "text-error"
-									}`}
-								>
-									{wrPct}%
-								</td>
+								<td className={`text-right font-medium ${winrateTextClassDim(wrPct)}`}>{wrPct}%</td>
 							</tr>
 						);
 					})}

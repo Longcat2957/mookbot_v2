@@ -204,6 +204,16 @@
 	filter: brightness(1.25);
 }
 
+/* 키보드 포커스 — SVG 는 기본 outline 못 받아 box-shadow 흉내 안 됨.
+ * 첫 child <circle> 의 stroke 로 표시. */
+.mg-ladder-input-btn:focus {
+	outline: none;
+}
+.mg-ladder-input-btn:focus-visible > circle {
+	stroke: var(--color-primary);
+	stroke-width: 3;
+}
+
 .mg-ladder-input-btn[data-state="running"],
 .mg-ladder-input-btn[data-state="done"] {
 	cursor: default;
@@ -307,4 +317,33 @@
 	pointer-events: none;
 	white-space: nowrap;
 	user-select: none;
+}
+
+/* ============================================================
+ * prefers-reduced-motion — 전정 장애/멀미 민감 사용자 보호.
+ * 결과는 즉시 보여주되 모든 연속 애니메이션 / 장시간 transition 제거.
+ * ============================================================ */
+@media (prefers-reduced-motion: reduce) {
+	.mg-coin-bob-active {
+		animation: none;
+	}
+	.mg-coin {
+		transition: none;
+	}
+	.mg-coin-shadow-flipping {
+		animation: none;
+	}
+	.mg-ladder-rung {
+		opacity: 1;
+		transition: none;
+	}
+	.mg-ladder-trace {
+		transition: none;
+	}
+	.mg-ladder-dot {
+		transition: none;
+	}
+	.mg-roulette {
+		transition: none;
+	}
 }

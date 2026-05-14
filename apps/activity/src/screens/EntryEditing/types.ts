@@ -77,9 +77,5 @@ export interface RecruitmentDetail {
 export type Slot = `${Team}_${Lane}`;
 export type Assignment = Map<string, Slot>;
 
-export function wrColor(wr: number): string {
-	if (wr >= 60) return "badge-success";
-	if (wr >= 50) return "badge-info";
-	if (wr >= 40) return "badge-warning";
-	return "badge-error";
-}
+// 호환 alias — 신규 코드는 `state/winrateColor.ts` 의 `winrateBadgeClass` 직접 사용.
+export { winrateBadgeClass as wrColor } from "../../state/winrateColor.js";

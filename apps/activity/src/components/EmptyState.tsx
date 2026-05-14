@@ -3,12 +3,19 @@
 
 import type { ReactNode } from "react";
 
+interface EmptyStateAction {
+	label: string;
+	onClick: () => void;
+	variant?: "primary" | "ghost";
+}
+
 interface EmptyStateProps {
 	icon?: ReactNode;
 	title: string;
 	description?: ReactNode;
 	steps?: ReactNode[]; // 번호 매긴 다음 액션 가이드
-	cta?: ReactNode; // 우측 / 하단 버튼들
+	/** CTA 버튼들 — label/onClick 객체 배열. 호출처가 매번 button 작성 안 하도록. */
+	actions?: EmptyStateAction[];
 	tone?: "neutral" | "info" | "warning";
 }
 
@@ -23,11 +30,11 @@ export function EmptyState({
 	title,
 	description,
 	steps,
-	cta,
+	actions,
 	tone = "neutral",
 }: EmptyStateProps) {
 	return (
-		<div className={`card bg-base-200 border ${TONE_BORDER[tone]} shadow-sm`} role="status">
+		<div className={`card surface-base border ${TONE_BORDER[tone]} shadow-sm`} role="status">
 			<div className="card-body items-center text-center py-8 gap-3">
 				{icon && (
 					<div className="text-base-content/40" aria-hidden>
@@ -46,7 +53,20 @@ export function EmptyState({
 						))}
 					</ol>
 				)}
-				{cta && <div className="mt-2 flex flex-wrap gap-2 justify-center">{cta}</div>}
+				{actions && actions.length > 0 && (
+					<div className="mt-2 flex flex-wrap gap-2 justify-center">
+						{actions.map((a, i) => (
+							<button
+								type="button"
+								key={i}
+								onClick={a.onClick}
+								className={`btn btn-sm ${a.variant === "ghost" ? "btn-ghost" : "btn-primary"}`}
+							>
+								{a.label}
+							</button>
+						))}
+					</div>
+				)}
 			</div>
 		</div>
 	);

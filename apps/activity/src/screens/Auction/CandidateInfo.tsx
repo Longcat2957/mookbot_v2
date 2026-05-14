@@ -111,7 +111,7 @@ export function CandidateRiotSection({
 			</div>
 
 			{bestAccount.bestRanked ? (
-				<div className="flex items-center gap-3 bg-base-100/40 rounded-md p-2.5">
+				<div className="flex items-center gap-3 surface-quiet-soft rounded-md p-2.5">
 					{bestAccount.profileIconUrl && (
 						<img
 							src={bestAccount.profileIconUrl}
@@ -156,7 +156,7 @@ export function CandidateRiotSection({
 						{bestAccount.masteries.map((m) => (
 							<div
 								key={m.championId}
-								className="flex flex-col items-center gap-1 bg-base-100/40 rounded-md p-1.5"
+								className="flex flex-col items-center gap-1 surface-quiet-soft rounded-md p-1.5"
 							>
 								<img src={m.iconUrl} alt={m.name} className="size-12 rounded-md" draggable={false} />
 								<div className="text-xs font-medium truncate w-full text-center">{m.name}</div>
@@ -212,7 +212,7 @@ export function CandidateMookSection({ data }: { data: AuctionCardData | null })
 							return (
 								<div
 									key={c.championId}
-									className="flex items-center gap-1.5 bg-base-100/40 rounded-md px-1.5 py-1"
+									className="flex items-center gap-1.5 surface-quiet-soft rounded-md px-1.5 py-1"
 									title={`${c.championName} · ${c.plays}경기 (${c.wins}W ${c.losses}L · ${wr}%)`}
 								>
 									<img src={c.iconUrl} alt={c.championName} className="size-7 rounded" draggable={false} />

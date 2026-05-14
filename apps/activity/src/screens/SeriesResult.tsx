@@ -69,6 +69,13 @@ export function SeriesResult({
 	const detail = detailSwr.data;
 	const error = detailSwr.error;
 	const champions = useMemo(() => champSwr.data ?? [], [champSwr.data]);
+	// id → Champion 인덱스. champions 가 동일하면 재계산 안 함.
+	// hooks 순서 위해 early return 위에 위치.
+	const champById = useMemo(() => {
+		const m = new Map<number, Champion>();
+		for (const c of champions) m.set(c.id, c);
+		return m;
+	}, [champions]);
 
 	if (seriesId === null) {
 		return (
@@ -91,11 +98,12 @@ export function SeriesResult({
 	}
 	if (!detail) return <SeriesResultSkeleton />;
 
-	const champById = new Map<number, Champion>();
-	for (const c of champions) champById.set(c.id, c);
-
-	const t1Wins = detail.games.filter((g) => g.winningTeam === "TEAM_1").length;
-	const t2Wins = detail.games.filter((g) => g.winningTeam === "TEAM_2").length;
+	let t1Wins = 0;
+	let t2Wins = 0;
+	for (const g of detail.games) {
+		if (g.winningTeam === "TEAM_1") t1Wins++;
+		else if (g.winningTeam === "TEAM_2") t2Wins++;
+	}
 	const teamSize = detail.participants.length / 2;
 
 	const startedDate = new Date(detail.series.startedAt * 1000);
@@ -114,7 +122,7 @@ export function SeriesResult({
 
 			{/* Hero mini — 스코어 + 우승 트로피 */}
 			<div
-				className={`card bg-base-200 shadow-sm ${
+				className={`card surface-base shadow-sm ${
 					detail.series.winningTeam ? "border border-success" : ""
 				}`}
 			>
@@ -269,7 +277,7 @@ function GameSummaryCard({
 							<div
 								key={team}
 								className={`relative rounded-lg p-3 ${
-									isWinner ? "border border-success bg-success/5" : "bg-base-100/40"
+									isWinner ? "border border-success bg-success/5" : "surface-quiet-soft"
 								}`}
 							>
 								{isWinner && (

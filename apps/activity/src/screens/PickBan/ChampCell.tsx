@@ -1,3 +1,4 @@
+import { memo } from "react";
 import type { Champion, PickUsage } from "./types.js";
 
 const TEAM_LABEL = { TEAM_1: "1팀", TEAM_2: "2팀" } as const;
@@ -9,7 +10,9 @@ const LANE_SHORT: Record<string, string> = {
 	SUPPORT: "서폿",
 };
 
-export function ChampCell({
+// 그리드에 한 번에 ~160 개 렌더되므로 React.memo 로 props 미변동 시 skip.
+// 부모(PickBanBoard, ChampPickerModal) 가 onClick 을 useCallback 으로 만들면 효과 큼.
+function ChampCellImpl({
 	champ,
 	disabled,
 	blocked,
@@ -47,7 +50,13 @@ export function ChampCell({
 					: "hover:ring-2 hover:ring-primary hover:scale-105"
 			} ${mainCount ? "ring-1 ring-warning/50" : ""}`}
 		>
-			<img src={champ.iconUrl} alt={champ.name} className="w-full aspect-square" draggable={false} />
+			<img
+				src={champ.iconUrl}
+				alt={champ.name}
+				className="w-full aspect-square"
+				draggable={false}
+				loading="lazy"
+			/>
 			<span className="text-[10px] truncate w-full px-1 bg-base-300 text-center">{champ.name}</span>
 			{blocked === "fearless" && (
 				<span
@@ -84,3 +93,5 @@ export function ChampCell({
 		</button>
 	);
 }
+
+export const ChampCell = memo(ChampCellImpl);

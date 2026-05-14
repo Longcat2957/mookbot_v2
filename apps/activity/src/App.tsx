@@ -114,6 +114,7 @@ function AppInner() {
 	const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
 
 	// "?" 단축키 — 도움말 토글. design_upgrade.md §4.5
+	// SoT: state/shortcuts.ts — HelpModal 이 표시하는 단축키 목록과 sync.
 	useEffect(() => {
 		const onKey = (e: KeyboardEvent) => {
 			if (e.key !== "?") return;

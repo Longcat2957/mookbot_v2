@@ -59,7 +59,7 @@ export function MiniGame({ onBack }: { onBack: () => void }) {
 				</button>
 			</div>
 
-			<div className="card bg-base-200/40 border border-base-300">
+			<div className="card surface-soft">
 				<div className="card-body p-4 sm:p-6">
 					{tool === "coin" && <CoinFlip />}
 					{tool === "ladder" && <Ladder />}

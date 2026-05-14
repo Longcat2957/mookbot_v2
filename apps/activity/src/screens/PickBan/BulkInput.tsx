@@ -165,7 +165,7 @@ export function BulkInput({
 	}
 
 	return (
-		<details className="rounded-md border border-base-300 bg-base-200/40">
+		<details className="surface-soft rounded-md">
 			<summary className="cursor-pointer text-sm font-medium px-3 py-2 select-none flex items-center gap-2">
 				<span>📋 일괄 입력</span>
 				<span className="text-xs text-base-content/60 font-normal">

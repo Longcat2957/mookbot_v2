@@ -21,13 +21,20 @@ interface LinkResponse {
 	account: Account | null;
 }
 
+interface LinkFormState {
+	riotId: string;
+	busy: boolean;
+	error: string | null;
+}
+
+const LINK_FORM_INITIAL: LinkFormState = { riotId: "", busy: false, error: null };
+
 export function MyRiotAccounts({ onBack }: { onBack: () => void }) {
 	const [accounts, setAccounts] = useState<Account[] | null>(null);
 	const [error, setError] = useState<string | null>(null);
 	const [busyPuuid, setBusyPuuid] = useState<string | null>(null);
-	const [newRiotId, setNewRiotId] = useState("");
-	const [linkBusy, setLinkBusy] = useState(false);
-	const [linkError, setLinkError] = useState<string | null>(null);
+	// 폼 상태 단일화 — riotId + busy + error 가 항상 함께 변동.
+	const [linkForm, setLinkForm] = useState<LinkFormState>(LINK_FORM_INITIAL);
 
 	const reload = useCallback(async () => {
 		setError(null);
@@ -45,22 +52,21 @@ export function MyRiotAccounts({ onBack }: { onBack: () => void }) {
 
 	const handleLink = async (e: React.FormEvent) => {
 		e.preventDefault();
-		const trimmed = newRiotId.trim();
+		const trimmed = linkForm.riotId.trim();
 		if (!trimmed) return;
-		setLinkBusy(true);
-		setLinkError(null);
+		setLinkForm((s) => ({ ...s, busy: true, error: null }));
 		try {
 			const r = await api<LinkResponse>("/me/riot-accounts", {
 				method: "POST",
 				body: JSON.stringify({ riotId: trimmed }),
 			});
 			if (r.account) showToast(`✅ ${r.account.gameName}#${r.account.tagLine} 연결됨`);
-			setNewRiotId("");
+			setLinkForm(LINK_FORM_INITIAL);
 			await reload();
 		} catch (err) {
-			setLinkError(err instanceof Error ? err.message : String(err));
+			setLinkForm((s) => ({ ...s, error: err instanceof Error ? err.message : String(err) }));
 		} finally {
-			setLinkBusy(false);
+			setLinkForm((s) => ({ ...s, busy: false }));
 		}
 	};
 
@@ -133,7 +139,7 @@ export function MyRiotAccounts({ onBack }: { onBack: () => void }) {
 			)}
 
 			{/* 연결된 계정 목록 */}
-			<div className="card bg-base-200 shadow-sm">
+			<div className="card surface-base shadow-sm">
 				<div className="card-body p-3 gap-2">
 					<h3 className="card-title text-base">연결된 계정</h3>
 					{accounts === null ? (
@@ -216,7 +222,7 @@ export function MyRiotAccounts({ onBack }: { onBack: () => void }) {
 			</div>
 
 			{/* 신규 추가 폼 */}
-			<form onSubmit={handleLink} className="card bg-base-200 shadow-sm">
+			<form onSubmit={handleLink} className="card surface-base shadow-sm">
 				<div className="card-body p-3 gap-2">
 					<h3 className="card-title text-base">새 계정 추가</h3>
 					<p className="text-xs text-base-content/60">
@@ -226,18 +232,18 @@ export function MyRiotAccounts({ onBack }: { onBack: () => void }) {
 					<div className="join">
 						<input
 							type="text"
-							value={newRiotId}
-							onChange={(e) => setNewRiotId(e.target.value)}
+							value={linkForm.riotId}
+							onChange={(e) => setLinkForm((s) => ({ ...s, riotId: e.target.value }))}
 							placeholder="예: Hide on bush#KR1"
 							className="input input-sm input-bordered join-item flex-1"
-							disabled={linkBusy}
+							disabled={linkForm.busy}
 						/>
 						<button
 							type="submit"
 							className="btn btn-sm btn-primary join-item"
-							disabled={linkBusy || !newRiotId.trim()}
+							disabled={linkForm.busy || !linkForm.riotId.trim()}
 						>
-							{linkBusy ? (
+							{linkForm.busy ? (
 								<>
 									<span className="loading loading-spinner loading-xs" />
 									연결 중…
@@ -247,9 +253,9 @@ export function MyRiotAccounts({ onBack }: { onBack: () => void }) {
 							)}
 						</button>
 					</div>
-					{linkError && (
+					{linkForm.error && (
 						<div className="alert alert-error text-xs">
-							<span>{linkError}</span>
+							<span>{linkForm.error}</span>
 						</div>
 					)}
 				</div>

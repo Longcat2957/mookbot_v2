@@ -1,4 +1,5 @@
 import { UserAvatar } from "../../components/UserAvatar.js";
+import { useCoarsePointer } from "../../state/useCoarsePointer.js";
 import { ChampionTile } from "./ChampionTile.js";
 import { type Participant, ROLE_LABEL } from "./types.js";
 
@@ -18,16 +19,23 @@ export function ParticipantCard({
 	const { displayName, roles, history } = participant;
 	const totalWr =
 		history.total.plays > 0 ? Math.round((history.total.wins / history.total.plays) * 100) : 0;
+	// touch 환경에서는 HTML5 DnD 가 작동 안 함 — draggable 비활성 + cursor 도 pointer.
+	// tap-to-place 만 노출되어 사용자가 잡고 끌려는 시도를 안 함.
+	const coarse = useCoarsePointer();
 
 	return (
 		<div
-			draggable
+			draggable={!coarse}
 			role={onTap ? "button" : undefined}
 			tabIndex={onTap ? 0 : undefined}
-			onDragStart={(e) => {
-				e.dataTransfer.setData("text/plain", participant.userId);
-				e.dataTransfer.effectAllowed = "move";
-			}}
+			onDragStart={
+				coarse
+					? undefined
+					: (e) => {
+							e.dataTransfer.setData("text/plain", participant.userId);
+							e.dataTransfer.effectAllowed = "move";
+						}
+			}
 			onClick={onTap}
 			onKeyDown={(e) => {
 				if (onTap && (e.key === "Enter" || e.key === " ")) {
@@ -35,7 +43,7 @@ export function ParticipantCard({
 					onTap();
 				}
 			}}
-			className={`bg-base-300 rounded-lg cursor-grab active:cursor-grabbing hover:bg-base-content/10 transition px-3 py-2 flex items-center gap-2 min-w-0 ${
+			className={`bg-base-300 rounded-lg ${coarse ? "cursor-pointer" : "cursor-grab active:cursor-grabbing"} hover:bg-base-content/10 transition px-3 py-2 flex items-center gap-2 min-w-0 ${
 				selected
 					? "ring-2 ring-primary bg-primary/10"
 					: recentlyChanged

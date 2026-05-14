@@ -57,6 +57,7 @@ export function PickBan({
 	}, [s.detail, s.draft]);
 
 	// W1 키보드 단축키 — Ctrl+1/2/3 (Game 탭) + B/R (사이드 결정 시).
+	// SoT: state/shortcuts.ts — HelpModal 이 표시하는 단축키 목록과 sync.
 	// early return 전에 위치해야 hooks 호출 순서 일관성 유지 (React #310 회피).
 	// team1Side 는 closure 안에서 s.draft 의 currentGame 으로 derive.
 	useEffect(() => {
@@ -220,7 +221,7 @@ export function PickBan({
 
 			{/* 시리즈 스코어 + 라인업 — 단일 카드 (라인업 collapse) */}
 			<div
-				className={`card bg-base-200 shadow-sm ${s.seriesCompleted ? "border border-success" : ""}`}
+				className={`card surface-base shadow-sm ${s.seriesCompleted ? "border border-success" : ""}`}
 			>
 				<div className="card-body p-4 gap-3">
 					<div className="flex items-end gap-4 flex-wrap">
@@ -251,7 +252,7 @@ export function PickBan({
 							</div>
 						)}
 					</div>
-					<details className="collapse collapse-arrow bg-base-100/40">
+					<details className="collapse collapse-arrow surface-quiet-soft">
 						<summary className="collapse-title text-sm font-medium py-2 min-h-0 px-3">
 							라인업 보기
 						</summary>
@@ -333,7 +334,7 @@ export function PickBan({
 					)}
 				</div>
 			) : (
-				<div className="card bg-base-200 shadow-sm border-l-4 border-primary">
+				<div className="card surface-base shadow-sm border-l-4 border-primary">
 					<div className="card-body p-3 gap-2">
 						<h3 className="font-bold text-sm">Game {draft.currentGame} — 1팀이 어느 사이드인가요?</h3>
 						<div className="grid grid-cols-2 gap-2">

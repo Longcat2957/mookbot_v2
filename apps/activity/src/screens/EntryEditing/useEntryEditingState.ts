@@ -92,9 +92,12 @@ export function useEntryEditingState({
 		return () => window.removeEventListener("keydown", onKey);
 	}, [selectedUid]);
 
-	// debounced 엔트리 draft 저장 — 본인이 만든 변경만 PUT
+	// debounced 엔트리 draft 저장 — 본인이 만든 변경만 PUT.
+	// lastSaved 초기값을 "{}" 로 두는 이유: 빈 Map 직렬화와 매치시켜, 첫 fetch
+	// 가 도착하기 전 빈 초기 state 가 "dirty" 로 오인되어 서버 draft 를 빈 객체로
+	// 덮어쓰는 race 를 방지 (gate 는 아래 save effect 의 !detail 도 함께 처리).
 	const draftSaveTimer = useRef<number | null>(null);
-	const lastSaved = useRef<string>("");
+	const lastSaved = useRef<string>("{}");
 
 	// SWR — fetch 중 화면을 비우지 않고, 본인 dirty 변경은 incoming 에 덮이지
 	// 않게 보호 (hot_fix.md §3.3).
@@ -166,7 +169,10 @@ export function useEntryEditingState({
 	const [savedAt, setSavedAt] = useState<number | null>(null);
 	const [retryNonce, setRetryNonce] = useState(0);
 	useEffect(() => {
-		if (recruitmentId === null || !perms.canEdit) return;
+		// !detail 가드 — 첫 fetch 가 도착해 onApply 가 assignment / lastSaved 를
+		// 서버 truth 로 채우기 전에는 절대 PUT 하지 않음. PickBan 의 !draft 가드와
+		// 동일 의도 (빈 초기 state 가 서버 draft 를 덮어쓰는 race 차단).
+		if (recruitmentId === null || !perms.canEdit || !detail) return;
 		const serialized = JSON.stringify(Object.fromEntries(assignment));
 		if (serialized === lastSaved.current) return;
 		setSaveStatus("saving");
@@ -189,7 +195,7 @@ export function useEntryEditingState({
 		return () => {
 			if (draftSaveTimer.current) window.clearTimeout(draftSaveTimer.current);
 		};
-	}, [assignment, recruitmentId, perms.canEdit, retryNonce]);
+	}, [assignment, recruitmentId, perms.canEdit, retryNonce, detail]);
 
 	// derived
 	const teamSize = detail ? detail.recruitment.targetCount / 2 : 0;
@@ -415,6 +421,7 @@ export function useEntryEditingState({
 	const clearCoinToss = useCallback(() => setCoinTossDecided(false), []);
 
 	// Ctrl+Z / Ctrl+Shift+Z / Ctrl+Y 단축키 — IME compositionend 후만 발동.
+	// SoT: state/shortcuts.ts — HelpModal 이 표시하는 단축키 목록과 sync.
 	useEffect(() => {
 		if (!perms.canEdit) return;
 		const onKey = (e: KeyboardEvent) => {

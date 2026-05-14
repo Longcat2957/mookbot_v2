@@ -23,15 +23,27 @@ body,
 }
 
 /* ============================================================
+ * z-index 컨벤션
+ * ============================================================
+ * 새 stacking 추가 시 아래 단계 중 하나에 맞춰 사용 (Tailwind utility 직접).
+ *   z-10  : 페이지 내부 sticky 영역 (인라인 alert, side-panel 등)
+ *   z-20  : 페이지 내부 강조 sticky (PickBan 상단 알림 등)
+ *   z-30  : popover / dropdown content (navbar menu, SearchBar 결과, ⋯ 메뉴)
+ *   z-50  : 전역 overlay (modal, toast)
+ *
+ * 새 단계 도입 전에 위 4개로 충분한지 검토할 것. */
+
+/* ============================================================
  * 디자인 토큰 — surface variants + interactive cards
  * ============================================================
  * 화면별 카드/패널 스타일을 통일하기 위한 utility class.
  * 사용 가이드:
- *   surface-base   : 메인 콘텐츠 카드 (불투명 base-200)
- *   surface-soft   : 보조 패널 / 섹션 (반투명 + 테두리)
- *   surface-quiet  : 메타 정보 박스 (base-100, 컨테이너 안의 작은 박스)
- *   card-action    : 클릭 가능 카드 (hover/focus/active 전환 일관)
- *   card-status-*  : 좌측 4px 테두리 — 의미 색상 매핑
+ *   surface-base       : 메인 콘텐츠 카드 (불투명 base-200)
+ *   surface-soft       : 보조 패널 / 섹션 (반투명 base-200 + 테두리)
+ *   surface-quiet      : 메타 정보 박스 (base-100, 컨테이너 안의 작은 박스)
+ *   surface-quiet-soft : 컨테이너 안의 반투명 quiet 박스 (base-100/40, 테두리 없음)
+ *   card-action        : 클릭 가능 카드 (hover/focus/active 전환 일관)
+ *   card-status-*      : 좌측 4px 테두리 — 의미 색상 매핑
  *
  * daisyUI 의 `card` 클래스와 함께 사용 (예: `card surface-base shadow-sm`).
  * --tw-* 변수 직접 안 만지고 @apply 만 사용 — daisyUI theme 변경에 자연 따라감.
@@ -47,6 +59,10 @@ body,
 
 	.surface-quiet {
 		@apply bg-base-100;
+	}
+
+	.surface-quiet-soft {
+		@apply bg-base-100/40;
 	}
 
 	/* 클릭 가능한 카드 — 일관된 hover/focus 전환.
@@ -73,5 +89,18 @@ body,
 	}
 	.card-status-me {
 		@apply border-l-4 border-primary;
+	}
+}
+
+/* prefers-reduced-motion — 전정 장애/멀미 민감 사용자 보호.
+ * Tailwind/daisyUI 의 transition/animation 도 일괄 비활성. 결과는 즉시 표시. */
+@media (prefers-reduced-motion: reduce) {
+	*,
+	*::before,
+	*::after {
+		animation-duration: 0.01ms !important;
+		animation-iteration-count: 1 !important;
+		transition-duration: 0.01ms !important;
+		scroll-behavior: auto !important;
 	}
 }

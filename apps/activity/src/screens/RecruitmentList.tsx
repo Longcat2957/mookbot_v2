@@ -248,7 +248,7 @@ export function RecruitmentList({
 									if (ar.status === "CONVERTED") onSelectAuctionTournament(ar.id);
 									else onSelectAuctionRecruitment(ar.id);
 								}}
-								className="card bg-base-200 hover:bg-base-300 transition cursor-pointer text-left border-l-4 border-warning"
+								className="card-action card-status-waiting"
 							>
 								<div className="card-body p-3 gap-1.5">
 									<div className="flex items-center justify-between">

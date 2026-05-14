@@ -8,6 +8,7 @@
 // 클라이언트는 props 로 받은 데이터만 렌더 — 별도 fetch 없음.
 
 import { useMemo, useState } from "react";
+import { winrateBadgeClass as wrColorClass } from "../state/winrateColor.js";
 
 type Side = "BLUE" | "RED";
 type Team = "TEAM_1" | "TEAM_2";
@@ -51,13 +52,6 @@ const LANE_LABEL: Record<string, string> = {
 	BOTTOM: "원딜",
 	SUPPORT: "서폿",
 };
-
-function wrColorClass(wr: number): string {
-	if (wr >= 60) return "badge-success";
-	if (wr >= 50) return "badge-info";
-	if (wr >= 40) return "badge-warning";
-	return "badge-error";
-}
 
 export function BalancePreview({ team1Side, participants }: Props) {
 	const team2Side: Side = team1Side === "BLUE" ? "RED" : "BLUE";

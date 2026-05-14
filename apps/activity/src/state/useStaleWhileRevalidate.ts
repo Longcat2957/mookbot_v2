@@ -103,7 +103,9 @@ export function useStaleWhileRevalidate<T>(
 					try {
 						onApplyRef.current?.(next, prev);
 					} catch (err) {
-						console.warn("[swr] onApply threw", err);
+						// onApply 사용자 콜백의 버그를 silent 하게 삼키지 않도록 console.error.
+						// 데이터 자체는 그대로 적용 — 사용자 콜백 실패가 stale 화면을 만들지 않게.
+						console.error("[swr] onApply threw — fix the callback", err);
 					}
 					return next;
 				});

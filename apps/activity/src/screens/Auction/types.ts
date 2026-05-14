@@ -14,6 +14,14 @@ export type TournamentStatus =
 export type MatchRound = "SEMI" | "FINAL" | "SINGLE";
 export type MatchFormat = "BO1" | "BO3";
 
+/** 라운드 라벨 — UI 의 단일 출처. bracketIndex 가 있으면 "4강 #1" 처럼 인덱스도 표기. */
+export function roundLabel(round: MatchRound, bracketIndex?: number | null): string {
+	if (round === "FINAL") return "결승";
+	if (round === "SINGLE") return "매치";
+	// SEMI
+	return bracketIndex != null ? `4강 #${bracketIndex}` : "4강";
+}
+
 export interface AuctionTeamMember {
 	userId: string;
 	displayName: string;

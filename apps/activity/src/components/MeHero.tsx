@@ -6,6 +6,7 @@ import { useCallback } from "react";
 import { api } from "../api/rest.js";
 import { usePerms } from "../state/perms.js";
 import { useStaleWhileRevalidate } from "../state/useStaleWhileRevalidate.js";
+import { winrateTextClassDim } from "../state/winrateColor.js";
 import { UserAvatar } from "./UserAvatar.js";
 
 const ROLE_LABEL: Record<string, string> = {
@@ -78,16 +79,7 @@ export function MeHero({ onSelectMe }: { onSelectMe: () => void }) {
 		user.profileIconUrl ?? topChampions[0]?.splashUrl ?? topChampions[0]?.iconUrl ?? null;
 	const mainChampName = topChampions[0]?.championName;
 	const wrPct = totals.games > 0 ? Math.round(totals.winrate * 100) : null;
-	const wrColor =
-		wrPct === null
-			? "text-base-content/50"
-			: wrPct >= 60
-				? "text-success"
-				: wrPct >= 50
-					? "text-info"
-					: wrPct >= 40
-						? "text-base-content/70"
-						: "text-error";
+	const wrColor = wrPct === null ? "text-base-content/50" : winrateTextClassDim(wrPct);
 
 	const sortedMmrs = [...laneMmrs].sort(
 		(a, b) =>
@@ -148,35 +140,27 @@ export function MeHero({ onSelectMe }: { onSelectMe: () => void }) {
 					</div>
 				</div>
 
-				{/* 라인별 MMR 5칸 */}
-				<div className="grid grid-cols-5 gap-1.5">
+				{/* 라인별 MMR — 5라인을 항상 한 줄에 보이도록 5칸 고정.
+				    초소형(360dp) 에서도 각 셀이 굵게 보이게 텍스트 크기/패딩을 sm 분기. */}
+				<div className="grid grid-cols-5 gap-1 sm:gap-1.5">
 					{sortedMmrs.map((m) => {
 						const empty = m.mmr === null;
 						const lanePct = !empty && m.games > 0 ? Math.round(m.winrate * 100) : null;
-						const laneWrColor =
-							lanePct === null
-								? "text-base-content/40"
-								: lanePct >= 60
-									? "text-success"
-									: lanePct >= 50
-										? "text-info"
-										: lanePct >= 40
-											? "text-base-content/60"
-											: "text-error";
+						const laneWrColor = lanePct === null ? "text-base-content/40" : winrateTextClassDim(lanePct);
 						return (
 							<div
 								key={m.role}
-								className={`rounded-md p-1.5 text-center ${empty ? "bg-base-100/30" : "surface-quiet"}`}
+								className={`rounded-md p-1 sm:p-1.5 text-center ${empty ? "bg-base-100/30" : "surface-quiet"}`}
 							>
 								<div className="text-[9px] uppercase tracking-wide text-base-content/60">
 									{ROLE_LABEL[m.role] ?? m.role}
 								</div>
 								<div
-									className={`text-lg font-bold tabular-nums leading-none mt-0.5 ${empty ? "text-base-content/30" : ""}`}
+									className={`text-base sm:text-lg font-bold tabular-nums leading-none mt-0.5 ${empty ? "text-base-content/30" : ""}`}
 								>
 									{m.mmr ?? "—"}
 								</div>
-								<div className="text-[9px] tabular-nums leading-tight mt-0.5">
+								<div className="text-[9px] tabular-nums leading-tight mt-0.5 whitespace-nowrap">
 									{empty ? (
 										<span className="text-base-content/30">—</span>
 									) : (

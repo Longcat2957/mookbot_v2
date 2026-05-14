@@ -43,7 +43,7 @@ export class ErrorBoundary extends Component<Props, State> {
 		const componentStack = errorInfo?.componentStack ?? null;
 
 		return (
-			<div className="card bg-base-200 border border-error/40 shadow-sm">
+			<div className="card surface-base border border-error/40 shadow-sm">
 				<div className="card-body p-5 gap-3">
 					<div className="flex items-start gap-3">
 						<div className="text-3xl text-error leading-none" aria-hidden>

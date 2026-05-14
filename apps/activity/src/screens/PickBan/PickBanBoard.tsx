@@ -113,6 +113,7 @@ export function PickBanBoard({
 	}, [activeSlot, perms.canEdit]);
 
 	// "/" 단축키로 검색 input focus — design_upgrade.md §4.5
+	// SoT: state/shortcuts.ts — HelpModal 이 표시하는 단축키 목록과 sync.
 	useEffect(() => {
 		const onKey = (e: KeyboardEvent) => {
 			if (e.key !== "/") return;
@@ -253,6 +254,7 @@ export function PickBanBoard({
 	);
 
 	// W1 키보드 단축키 — Tab/Shift+Tab/Enter/Backspace (활성 슬롯 전제).
+	// SoT: state/shortcuts.ts — HelpModal 이 표시하는 단축키 목록과 sync.
 	// IME 한글 자모 조합 중에는 isComposing 으로 skip — Enter 가 자모 확정으로 가로채지 않게.
 	useEffect(() => {
 		if (!perms.canEdit) return;
@@ -419,7 +421,7 @@ export function PickBanBoard({
 				</div>
 
 				{/* 챔프 그리드 — split 안 우측 40%, lg+ sticky (top-2 ~ 화면 끝) */}
-				<div className="card bg-base-200 shadow-sm lg:sticky lg:top-2 lg:max-h-[calc(100vh-1rem)] lg:overflow-y-auto">
+				<div className="card surface-base shadow-sm lg:sticky lg:top-2 lg:max-h-[calc(100vh-1rem)] lg:overflow-y-auto">
 					<div className="card-body p-4 gap-3">
 						<div className="flex items-center gap-2 flex-wrap">
 							<div className="join flex-1 min-w-[200px]">
@@ -533,7 +535,7 @@ export function PickBanBoard({
 							))}
 
 						{blocked.length > 0 && (
-							<details className="bg-base-100/40 rounded-md">
+							<details className="surface-quiet-soft rounded-md">
 								<summary className="cursor-pointer text-xs font-medium px-3 py-2 text-base-content/70">
 									사용 불가 ({blocked.length}) — 이번 게임 사용 또는 Hard Fearless
 								</summary>

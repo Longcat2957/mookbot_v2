@@ -108,7 +108,7 @@ export function ResultPanel({
 	}, [perms.canEdit, ready, submitting, submit]);
 
 	return (
-		<div className="card bg-base-200 shadow-sm border-l-4 border-success">
+		<div className="card surface-base shadow-sm border-l-4 border-success">
 			<div className="card-body p-4 gap-3">
 				<div className="space-y-2">
 					<h3 className="card-title text-base">Game {gameDraft.gameNumber} 결과 입력</h3>

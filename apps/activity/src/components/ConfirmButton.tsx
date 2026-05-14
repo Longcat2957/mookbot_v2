@@ -9,12 +9,12 @@ interface ConfirmButtonProps {
 	confirmLabel?: string;
 	onConfirm: () => void | Promise<void>;
 	disabled?: boolean;
-	disabledReason?: string;
 	className?: string; // 기본 btn class 외 추가 (예: "join-item")
 	variant?: "warning" | "error";
 	size?: "xs" | "sm" | "md";
 	timeoutMs?: number;
-	title?: string;
+	/** tooltip — disabled 여부와 무관하게 hover 시 표시. 이전 title/disabledReason 통합. */
+	tooltipText?: string;
 }
 
 export function ConfirmButton({
@@ -22,12 +22,11 @@ export function ConfirmButton({
 	confirmLabel = "다시 클릭 = 확정",
 	onConfirm,
 	disabled,
-	disabledReason,
 	className = "",
 	variant = "warning",
 	size = "sm",
 	timeoutMs = 3000,
-	title,
+	tooltipText,
 }: ConfirmButtonProps) {
 	const [pending, setPending] = useState(false);
 	const [running, setRunning] = useState(false);
@@ -90,8 +89,7 @@ export function ConfirmButton({
 			? "btn-error btn-outline"
 			: "btn-warning";
 
-	const tipText = disabled ? disabledReason : title;
-	const wrapperClass = tipText ? "tooltip tooltip-bottom" : "";
+	const wrapperClass = tooltipText ? "tooltip tooltip-bottom" : "";
 
 	const button = (
 		<button
@@ -122,7 +120,7 @@ export function ConfirmButton({
 
 	if (!wrapperClass) return button;
 	return (
-		<span className={wrapperClass} data-tip={tipText}>
+		<span className={wrapperClass} data-tip={tooltipText}>
 			{button}
 		</span>
 	);

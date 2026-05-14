@@ -40,7 +40,7 @@ export function TeamColumn({
 	const lanes = LANE_ORDER.slice(0, teamSize);
 
 	return (
-		<div className={`card bg-base-200 shadow-sm border-l-4 ${borderColor}`}>
+		<div className={`card surface-base shadow-sm border-l-4 ${borderColor}`}>
 			<div className="card-body p-3 gap-2">
 				<div className="flex items-center justify-between">
 					<h3 className={`card-title text-base ${headerColor}`}>{teamLabel}</h3>
