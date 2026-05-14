@@ -1,4 +1,6 @@
 import { beforeEach, describe, expect, it } from "vitest";
+import { D1KvStore } from "../kv/d1.js";
+import { __setKvStoreForTest } from "../kv/factory.js";
 import { createTestDb, installDbDriver, type TestDb } from "../test-utils/db-harness.js";
 import { deleteKv, getKv, setKv } from "./kv.js";
 
@@ -6,6 +8,8 @@ let db: TestDb;
 beforeEach(() => {
 	db = createTestDb();
 	installDbDriver(db);
+	// facade → D1KvStore 강제. REDIS_URL 누설로 인한 Redis 시도 차단.
+	__setKvStoreForTest(new D1KvStore());
 });
 
 describe("guild_kv", () => {

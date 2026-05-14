@@ -1,12 +1,13 @@
 import { fileURLToPath } from "node:url";
 import cookie from "@fastify/cookie";
 import websocket from "@fastify/websocket";
-import { datadragon, log } from "@mookbot/core";
+import { closeRedis, datadragon, log } from "@mookbot/core";
 import { config } from "dotenv";
 import Fastify from "fastify";
 import { validateEnv } from "./env.js";
 import { fastifyErrorHandler } from "./http/_errors.js";
 import { registerRoutes } from "./http/routes.js";
+import { initWsPubSub } from "./ws/rooms.js";
 import { registerWs } from "./ws/server.js";
 
 config({ path: fileURLToPath(new URL("../../../.env", import.meta.url)) });
@@ -26,6 +27,7 @@ await app.register(websocket);
 
 await registerRoutes(app);
 await registerWs(app);
+await initWsPubSub();
 
 // Data Dragon 챔피언/스펠/아이템 룩업 초기화 — fail-soft (네트워크 일시 장애시 graceful)
 datadragon
@@ -38,3 +40,16 @@ const host = process.env.API_HOST ?? "0.0.0.0";
 
 await app.listen({ port, host });
 log.info({ port, host }, "api listening");
+
+const shutdown = async (signal: string) => {
+	log.info({ signal }, "shutdown: graceful close");
+	try {
+		await app.close();
+		await closeRedis();
+	} catch (err) {
+		log.error({ err }, "shutdown error");
+	}
+	process.exit(0);
+};
+process.on("SIGTERM", () => void shutdown("SIGTERM"));
+process.on("SIGINT", () => void shutdown("SIGINT"));

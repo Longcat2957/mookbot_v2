@@ -6,11 +6,7 @@
 
 import { datadragon, db } from "@mookbot/core";
 import type { FastifyInstance } from "fastify";
-import {
-	clearBidIntents,
-	getBidIntents,
-	setBidIntent,
-} from "../domain/auctionBidIntents.js";
+import { clearBidIntents, getBidIntents, setBidIntent } from "../domain/auctionBidIntents.js";
 import { invalidate, requireEditor, requireSession, rewriteDD } from "./_helpers.js";
 
 export async function registerAuctionTournamentRoutes(app: FastifyInstance): Promise<void> {
@@ -120,7 +116,7 @@ export async function registerAuctionTournamentRoutes(app: FastifyInstance): Pro
 					userId: currentBidTargetUserId,
 					displayName: nameById.get(currentBidTargetUserId) ?? currentBidTargetUserId,
 					profileIconUrl: iconByUser.get(currentBidTargetUserId) ?? null,
-					intents: getBidIntents(id),
+					intents: await getBidIntents(id),
 				}
 			: null;
 
@@ -217,7 +213,7 @@ export async function registerAuctionTournamentRoutes(app: FastifyInstance): Pro
 				});
 			}
 			await db.setAuctionTournamentStatus(id, "POINT_ALLOC");
-			clearBidIntents(id); // defensive — revive 경로 잔재 cleanup
+			await clearBidIntents(id); // defensive — revive 경로 잔재 cleanup
 
 			await db.recordAudit({
 				operatorId: sid,
@@ -275,7 +271,7 @@ export async function registerAuctionTournamentRoutes(app: FastifyInstance): Pro
 				return reply.code(409).send({ error: `status=${t.status}` });
 			}
 			await db.setAuctionTournamentStatus(id, "BIDDING");
-			clearBidIntents(id); // BIDDING 진입 — 이전 잔재 cleanup
+			await clearBidIntents(id); // BIDDING 진입 — 이전 잔재 cleanup
 			invalidate(`auction-tournament:${id}`, sid);
 			return { ok: true };
 		},
@@ -299,7 +295,7 @@ export async function registerAuctionTournamentRoutes(app: FastifyInstance): Pro
 			// 정상 종료 — 모두 배치 완료. 현재 매물 잔재가 있으면 cleanup + broadcast.
 			if (t.current_bid_target_user_id) {
 				await db.setAuctionCurrentBidTarget(id, null);
-				clearBidIntents(id);
+				await clearBidIntents(id);
 				invalidate(`auction-tournament:${id}`, sid);
 			}
 			return { userId: null, displayName: null, remainingCount: 0, done: true };
@@ -308,7 +304,7 @@ export async function registerAuctionTournamentRoutes(app: FastifyInstance): Pro
 		const users = await db.listUsers([pick.user_id]);
 		// v0.14: DB 에 현재 매물 set + 이전 매물의 입찰 의도 잔재 clear → 모든 화면 sync.
 		await db.setAuctionCurrentBidTarget(id, pick.user_id);
-		clearBidIntents(id);
+		await clearBidIntents(id);
 		invalidate(`auction-tournament:${id}`, sid);
 		return {
 			userId: pick.user_id,
@@ -375,7 +371,7 @@ export async function registerAuctionTournamentRoutes(app: FastifyInstance): Pro
 		});
 		// v0.14: 매물 확정 — 현재 매물 + 입찰 의도 clear.
 		await db.setAuctionCurrentBidTarget(id, null);
-		clearBidIntents(id);
+		await clearBidIntents(id);
 		invalidate(`auction-tournament:${id}`, sid);
 		return { ok: true };
 	});
@@ -417,7 +413,7 @@ export async function registerAuctionTournamentRoutes(app: FastifyInstance): Pro
 		// v0.14: 수동 배치도 현재 매물 + 입찰 의도 clear (manual-assign 은 보통 현재 매물 + 다른
 		// teamId 조합이지만, 안전을 위해 매물 ID 일치 여부 무관하게 clear).
 		await db.setAuctionCurrentBidTarget(id, null);
-		clearBidIntents(id);
+		await clearBidIntents(id);
 		invalidate(`auction-tournament:${id}`, sid);
 		return { ok: true };
 	});
@@ -435,7 +431,7 @@ export async function registerAuctionTournamentRoutes(app: FastifyInstance): Pro
 			if (t.status !== "BIDDING") return reply.code(409).send({ error: `status=${t.status}` });
 			if (!t.current_bid_target_user_id) return { ok: true }; // 이미 비어 있음 (멱등)
 			await db.setAuctionCurrentBidTarget(id, null);
-			clearBidIntents(id);
+			await clearBidIntents(id);
 			invalidate(`auction-tournament:${id}`, sid);
 			return { ok: true };
 		},
@@ -469,7 +465,7 @@ export async function registerAuctionTournamentRoutes(app: FastifyInstance): Pro
 		if (points !== null && (typeof points !== "number" || !Number.isFinite(points) || points < 0)) {
 			return reply.code(400).send({ error: "points: number >= 0 or null" });
 		}
-		setBidIntent(id, teamId, points);
+		await setBidIntent(id, teamId, points);
 		invalidate(`auction-tournament:${id}`, sid);
 		return { ok: true };
 	});
@@ -572,7 +568,7 @@ export async function registerAuctionTournamentRoutes(app: FastifyInstance): Pro
 		}
 
 		// v0.14: revert-stage 가 어디로 가든 in-memory intents 잔재 cleanup.
-		clearBidIntents(id);
+		await clearBidIntents(id);
 		await db.recordAudit({
 			operatorId: sid,
 			action: "auction-tournament.stage-reverted",
@@ -603,7 +599,7 @@ export async function registerAuctionTournamentRoutes(app: FastifyInstance): Pro
 					.send({ error: `배치 미완료 (${allMembers.length}/${recruitParts.length})` });
 			}
 			await db.setAuctionTournamentStatus(id, "BRACKET_SETUP");
-			clearBidIntents(id);
+			await clearBidIntents(id);
 			invalidate(`auction-tournament:${id}`, sid);
 			return { ok: true };
 		},
@@ -620,7 +616,7 @@ export async function registerAuctionTournamentRoutes(app: FastifyInstance): Pro
 			return reply.code(409).send({ error: `status=${t.status}` });
 		}
 		await db.cancelAuctionTournament(id);
-		clearBidIntents(id);
+		await clearBidIntents(id);
 		await db.recordAudit({
 			operatorId: sid,
 			action: "auction-tournament.cancelled",

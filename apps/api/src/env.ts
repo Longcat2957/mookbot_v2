@@ -36,6 +36,10 @@ const schema = z.object({
 	ERROR_WEBHOOK_URL: z.string().url().optional(),
 	ERROR_WEBHOOK_LEVEL: z.string().optional(),
 	ERROR_WEBHOOK_SERVICE: z.string().optional(),
+
+	// Redis/Valkey 연결 URL — entry/pickban/cache 드래프트 백엔드.
+	// 미설정 시 D1 단일 backend 폴백 (dev/test). prod 에선 필수.
+	REDIS_URL: z.string().url().optional(),
 });
 
 export function validateEnv(): void {
