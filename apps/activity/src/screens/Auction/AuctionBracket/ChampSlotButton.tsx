@@ -17,7 +17,15 @@ export function ChampSlotButton({
 		>
 			{champion ? (
 				<>
-					<img src={champion.iconUrl} alt={champion.name} className="w-4 h-4 rounded" />
+					<img
+						src={champion.iconUrl}
+						alt={champion.name}
+						width={16}
+						height={16}
+						className="w-4 h-4 rounded"
+						loading="lazy"
+						decoding="async"
+					/>
 					<span className="truncate text-[10px]">{champion.name}</span>
 					{onClear && (
 						<button

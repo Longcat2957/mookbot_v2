@@ -34,8 +34,12 @@ function RiotRankCard({ account }: { account: RiotAccount }) {
 				<img
 					src={account.profileIconUrl}
 					alt=""
+					width={48}
+					height={48}
 					className="size-12 rounded-md ring-1 ring-base-content/10"
 					draggable={false}
+					loading="lazy"
+					decoding="async"
 				/>
 			)}
 			<div className="flex-1 min-w-0">
@@ -66,7 +70,16 @@ function RiotMasteries({ account }: { account: RiotAccount }) {
 						key={m.championId}
 						className="flex flex-col items-center gap-1 surface-quiet-soft rounded-md p-1.5"
 					>
-						<img src={m.iconUrl} alt={m.name} className="size-12 rounded-md" draggable={false} />
+						<img
+							src={m.iconUrl}
+							alt={m.name}
+							width={48}
+							height={48}
+							className="size-12 rounded-md"
+							draggable={false}
+							loading="lazy"
+							decoding="async"
+						/>
 						<div className="text-xs font-medium truncate w-full text-center">{m.name}</div>
 						<div className="text-[10px] text-base-content/60 tabular-nums">
 							Lv {m.level} · {formatPoints(m.points)}p

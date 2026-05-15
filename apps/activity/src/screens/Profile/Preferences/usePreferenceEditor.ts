@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { api } from "../../../api/rest.js";
-import { useStaleWhileRevalidate } from "../../../state/useStaleWhileRevalidate.js";
+import { useChampionCatalog } from "../../../features/champions/useChampionCatalog.js";
 import type { Champion } from "../../PickBan/types.js";
 import type { PreferenceChamp, Role } from "./types.js";
 
@@ -23,12 +23,8 @@ export function usePreferenceEditor({
 	const [error, setError] = useState<string | null>(null);
 	const searchRef = useRef<HTMLInputElement | null>(null);
 
-	const champFetcher = useCallback(
-		() => api<{ champions: Champion[] }>("/champions").then((response) => response.champions),
-		[],
-	);
-	const champSwr = useStaleWhileRevalidate<Champion[]>("champions", champFetcher);
-	const champions = champSwr.data ?? [];
+	const champCatalog = useChampionCatalog<Champion>();
+	const champions = champCatalog.champions;
 
 	const champById = useMemo(() => {
 		const map = new Map<number, Champion>();
@@ -114,7 +110,12 @@ export function usePreferenceEditor({
 	return {
 		atLimit,
 		champById,
-		champSwr,
+		champSwr: {
+			data: champCatalog.data,
+			error: champCatalog.error,
+			refresh: champCatalog.refresh,
+			refreshing: champCatalog.refreshing,
+		},
 		error,
 		filtered,
 		removeAt,

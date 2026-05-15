@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { api } from "../../../api/rest.js";
+import { useChampionCatalog } from "../../../features/champions/useChampionCatalog.js";
 import { ChampPickerModal } from "../ChampPickerModal.js";
 import type { AuctionMatch, AuctionTournamentDetail } from "../types.js";
 import type { MatchDetail } from "./_shared.js";
@@ -41,19 +42,10 @@ export function GameInputForm({
 	const [assign, setAssign] = useState<RoleAssignment>(() => createEmptyAssignment());
 	const [picks, setPicks] = useState<RolePicks>(() => createEmptyPicks());
 	const [bans, setBans] = useState<TeamBans>(() => createEmptyBans());
-	const [champions, setChampions] = useState<Champion[]>([]);
+	const { champions } = useChampionCatalog<Champion>();
 	const [picker, setPicker] = useState<ChampPickerTarget | null>(null);
 	const [submitting, setSubmitting] = useState(false);
 	const [error, setError] = useState<string | null>(null);
-
-	useEffect(() => {
-		(async () => {
-			try {
-				const r = await api<{ champions: Champion[] }>("/champions");
-				setChampions(r.champions);
-			} catch {}
-		})();
-	}, []);
 
 	const champById = useMemo(() => new Map(champions.map((c) => [c.id, c])), [champions]);
 	const usedChampIds = useMemo(() => usedChampionIds(picks, bans), [picks, bans]);

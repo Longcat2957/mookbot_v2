@@ -1,4 +1,5 @@
-import { memo } from "react";
+import { memo, useCallback } from "react";
+import { markRender } from "../../debug/renderMetrics.js";
 import type { Champion, PickUsage } from "./types.js";
 
 const TEAM_LABEL = { TEAM_1: "1팀", TEAM_2: "2팀" } as const;
@@ -18,6 +19,7 @@ function ChampCellImpl({
 	blocked,
 	reason,
 	onClick,
+	onSelect,
 	mainCount,
 	previousUsage,
 }: {
@@ -26,9 +28,19 @@ function ChampCellImpl({
 	blocked?: "used" | "fearless";
 	reason: string;
 	onClick?: () => void;
+	onSelect?: (championId: number) => void;
 	mainCount?: number;
 	previousUsage?: PickUsage[] | undefined;
 }) {
+	markRender("PickBan.ChampCell");
+	const handleClick = useCallback(() => {
+		if (onClick) {
+			onClick();
+			return;
+		}
+		onSelect?.(champ.id);
+	}, [champ.id, onClick, onSelect]);
+
 	// W3 — 이전 게임 사용 정보. title 에 append + 좌하단 G1/G2 badge.
 	const usageTitle = previousUsage?.length
 		? `\n${previousUsage
@@ -42,7 +54,7 @@ function ChampCellImpl({
 		<button
 			type="button"
 			disabled={disabled}
-			onClick={onClick}
+			onClick={handleClick}
 			title={reason + usageTitle}
 			className={`relative rounded-md overflow-hidden transition flex flex-col items-center ${
 				disabled
@@ -53,9 +65,12 @@ function ChampCellImpl({
 			<img
 				src={champ.iconUrl}
 				alt={champ.name}
+				width={64}
+				height={64}
 				className="w-full aspect-square"
 				draggable={false}
 				loading="lazy"
+				decoding="async"
 			/>
 			<span className="text-[10px] truncate w-full px-1 bg-base-300 text-center">{champ.name}</span>
 			{blocked === "fearless" && (

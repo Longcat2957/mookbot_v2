@@ -98,32 +98,39 @@ export function usePickBanBoardState({
 
 	const team2Side: Side = team1Side === "BLUE" ? "RED" : "BLUE";
 
-	const handleSlotClick = (team: Team, kind: "ban" | "pick", idx: number) => {
-		if (!perms.canEdit) return;
-		const arr = kind === "ban" ? gameDraft.bans[team] : gameDraft.picks[team];
-		const filled = arr[idx] !== null;
-		const same = activeSlot?.kind === kind && activeSlot?.team === team && activeSlot?.idx === idx;
-		if (same && filled) {
+	const handleSlotClick = useCallback(
+		(team: Team, kind: "ban" | "pick", idx: number) => {
+			if (!perms.canEdit) return;
+			const arr = kind === "ban" ? gameDraft.bans[team] : gameDraft.picks[team];
+			const filled = arr[idx] !== null;
+			const same = activeSlot?.kind === kind && activeSlot?.team === team && activeSlot?.idx === idx;
+			if (same && filled) {
+				setActiveSlot({ kind, team, idx });
+				queueMicrotask(() => {
+					setSlot(null);
+					setActiveSlot(null);
+				});
+				return;
+			}
 			setActiveSlot({ kind, team, idx });
-			queueMicrotask(() => {
-				setSlot(null);
-				setActiveSlot(null);
-			});
-			return;
-		}
-		setActiveSlot({ kind, team, idx });
-	};
+		},
+		[activeSlot, gameDraft, perms.canEdit, setActiveSlot, setSlot],
+	);
 
 	const activeSlotInfo = useMemo(() => {
 		return getActiveSlotInfo(activeSlot, lineup);
 	}, [activeSlot, lineup]);
 
-	const handleApplyBulk = (
-		changes: { team: Team; kind: "ban" | "pick"; championIds: (number | null)[] }[],
-	) => {
-		if (changes.length === 0) return;
-		onChange(applyBulkChanges(gameDraft, changes));
-	};
+	const handleApplyBulk = useCallback(
+		(changes: { team: Team; kind: "ban" | "pick"; championIds: (number | null)[] }[]) => {
+			if (changes.length === 0) return;
+			onChange(applyBulkChanges(gameDraft, changes));
+		},
+		[gameDraft, onChange],
+	);
+
+	const clearActiveSlot = useCallback(() => setActiveSlot(null), [setActiveSlot]);
+	const clearSearch = useCallback(() => setSearch(""), []);
 
 	return {
 		perms,
@@ -147,7 +154,7 @@ export function usePickBanBoardState({
 		commitChampion,
 		handleSlotClick,
 		handleApplyBulk,
-		clearActiveSlot: () => setActiveSlot(null),
-		clearSearch: () => setSearch(""),
+		clearActiveSlot,
+		clearSearch,
 	};
 }

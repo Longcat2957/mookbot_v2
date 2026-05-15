@@ -14,6 +14,7 @@ export function SlotTile({
 	onClick: () => void;
 }) {
 	const dim = size === "lg" ? "w-12 h-12" : "w-10 h-10";
+	const imageSize = size === "lg" ? 48 : 40;
 	return (
 		<button
 			type="button"
@@ -31,9 +32,12 @@ export function SlotTile({
 				<img
 					src={champion.iconUrl}
 					alt={champion.name}
+					width={imageSize}
+					height={imageSize}
 					className="w-full h-full"
 					draggable={false}
 					loading="lazy"
+					decoding="async"
 				/>
 			) : (
 				<span className="text-2xl text-base-content/30">+</span>

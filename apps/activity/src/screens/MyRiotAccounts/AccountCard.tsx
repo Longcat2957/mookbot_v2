@@ -15,7 +15,15 @@ export function AccountCard({ account, busy, onSetMain, onRefresh, onUnlink }: P
 		>
 			<div className="card-body p-3 gap-2 flex-row items-center flex-wrap">
 				{account.profileIconUrl ? (
-					<img src={account.profileIconUrl} alt="" className="size-10 rounded shrink-0" loading="lazy" />
+					<img
+						src={account.profileIconUrl}
+						alt=""
+						width={40}
+						height={40}
+						className="size-10 rounded shrink-0"
+						loading="lazy"
+						decoding="async"
+					/>
 				) : (
 					<div className="size-10 rounded bg-base-300 shrink-0" />
 				)}

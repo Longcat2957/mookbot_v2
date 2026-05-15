@@ -1,4 +1,5 @@
 import type { RefObject } from "react";
+import { markRender } from "../../debug/renderMetrics.js";
 import { BlockedChampionGrid } from "./ChampionPanel/BlockedChampionGrid.js";
 import { ChampionFilterTabs } from "./ChampionPanel/ChampionFilterTabs.js";
 import { ChampionSearchHeader } from "./ChampionPanel/ChampionSearchHeader.js";
@@ -37,6 +38,7 @@ export function ChampionPanel({
 	previousPicks?: Map<number, PickUsage[]> | undefined;
 	onCommitChampion: (championId: number) => void;
 }) {
+	markRender("PickBan.ChampionPanel");
 	return (
 		<div className="card surface-base shadow-sm lg:sticky lg:top-2 lg:max-h-[calc(100vh-1rem)] lg:overflow-y-auto">
 			<div className="card-body p-4 gap-3">

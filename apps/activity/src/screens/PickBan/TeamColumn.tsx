@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import { markRender } from "../../debug/renderMetrics.js";
 import { SlotTile } from "./SlotTile.js";
 import {
 	type Champion,
@@ -28,6 +29,7 @@ export function TeamColumn({
 	activeSlot: { kind: "ban" | "pick"; team: Team; idx: number } | null;
 	onSlotClick: (team: Team, kind: "ban" | "pick", idx: number) => void;
 }) {
+	markRender(`PickBan.TeamColumn.${team}`);
 	const teamLabel = team === "TEAM_1" ? "1팀" : "2팀";
 	const champById = useMemo(() => {
 		const m = new Map<number, Champion>();

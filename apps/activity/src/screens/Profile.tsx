@@ -1,12 +1,18 @@
+import { lazy, Suspense, useState } from "react";
 import { usePerms } from "../state/perms.js";
 import { LaneMmrCard } from "./Profile/LaneMmrCard.js";
-import { MmrChart } from "./Profile/MmrChart.js";
-import { Preferences } from "./Profile/Preferences.js";
 import { ProfileHeader } from "./Profile/ProfileHeader.js";
 import { ProfileSkeleton } from "./Profile/ProfileSkeleton.js";
 import { RecentGamesCard } from "./Profile/RecentGamesCard.js";
 import { TopChampionsCard } from "./Profile/TopChampionsCard.js";
 import { useProfileData } from "./Profile/useProfileData.js";
+
+const Preferences = lazy(() =>
+	import("./Profile/Preferences.js").then((module) => ({ default: module.Preferences })),
+);
+const MmrChart = lazy(() =>
+	import("./Profile/MmrChart.js").then((module) => ({ default: module.MmrChart })),
+);
 
 export function Profile({
 	userId,
@@ -22,6 +28,8 @@ export function Profile({
 	const perms = usePerms();
 	const isMe = perms.discordId === userId;
 	const { data, error } = useProfileData(userId);
+	const [shouldLoadPreferences, setShouldLoadPreferences] = useState(false);
+	const [shouldLoadMmrChart, setShouldLoadMmrChart] = useState(false);
 
 	if (error) {
 		return (
@@ -55,22 +63,40 @@ export function Profile({
 			</div>
 
 			{/* 라인별 선호 챔프 (게시판 텍스트 풀이의 페이지 대체) */}
-			<details className="surface-soft rounded-lg" open>
+			<details
+				className="surface-soft rounded-lg"
+				onToggle={(event) => {
+					if (event.currentTarget.open) setShouldLoadPreferences(true);
+				}}
+			>
 				<summary className="cursor-pointer text-sm font-medium px-3 py-2 select-none flex items-center gap-2">
 					📌 선호 챔프
 					{isMe && <span className="badge badge-ghost badge-xs">편집 가능</span>}
 				</summary>
 				<div className="px-3 pb-3 pt-1">
-					<Preferences userId={userId} isMe={isMe} />
+					{shouldLoadPreferences && (
+						<Suspense fallback={<div className="skeleton h-24 w-full rounded-lg" />}>
+							<Preferences userId={userId} isMe={isMe} />
+						</Suspense>
+					)}
 				</div>
 			</details>
 
-			<details className="surface-soft rounded-lg">
+			<details
+				className="surface-soft rounded-lg"
+				onToggle={(event) => {
+					if (event.currentTarget.open) setShouldLoadMmrChart(true);
+				}}
+			>
 				<summary className="cursor-pointer text-sm font-medium px-3 py-2 select-none">
 					📈 MMR 추이
 				</summary>
 				<div className="px-3 pb-3 pt-1">
-					<MmrChart userId={userId} />
+					{shouldLoadMmrChart && (
+						<Suspense fallback={<div className="skeleton h-48 w-full rounded-lg" />}>
+							<MmrChart userId={userId} />
+						</Suspense>
+					)}
 				</div>
 			</details>
 

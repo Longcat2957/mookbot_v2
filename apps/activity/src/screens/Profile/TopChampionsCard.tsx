@@ -16,8 +16,11 @@ export function TopChampionsCard({ champions }: { champions: TopChampion[] }) {
 									<img
 										src={champion.iconUrl}
 										alt={champion.championName}
+										width={36}
+										height={36}
 										className="w-9 h-9 rounded"
 										loading="lazy"
+										decoding="async"
 									/>
 									<div className="flex-1 min-w-0">
 										<div className="font-medium truncate text-sm">{champion.championName}</div>

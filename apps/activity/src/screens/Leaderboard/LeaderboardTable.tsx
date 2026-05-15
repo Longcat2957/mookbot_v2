@@ -74,7 +74,7 @@ function LeaderboardRow({
 						discordId={row.userId}
 						displayName={row.displayName}
 						imageUrl={
-							row.profileIconUrl ?? row.topChampion?.splashUrl ?? row.topChampion?.iconUrl ?? null
+							row.profileIconUrl ?? row.topChampion?.iconUrl ?? row.topChampion?.splashUrl ?? null
 						}
 						size="sm"
 					/>

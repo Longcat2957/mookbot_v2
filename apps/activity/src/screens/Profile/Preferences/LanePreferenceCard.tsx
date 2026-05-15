@@ -41,8 +41,11 @@ export function LanePreferenceCard({
 							<img
 								src={champ.iconUrl}
 								alt={champ.championName}
+								width={20}
+								height={20}
 								className="w-5 h-5 rounded"
 								loading="lazy"
+								decoding="async"
 							/>
 							<span className="text-xs">{champ.championName}</span>
 						</div>

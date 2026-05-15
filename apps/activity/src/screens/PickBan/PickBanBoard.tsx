@@ -1,3 +1,4 @@
+import { markRender } from "../../debug/renderMetrics.js";
 import { ActiveSlotToolbar } from "./ActiveSlotToolbar.js";
 import { BulkInput } from "./BulkInput.js";
 import { ChampionPanel } from "./ChampionPanel.js";
@@ -24,6 +25,7 @@ export function PickBanBoard({
 	previousPicks?: Map<number, PickUsage[]>;
 	onChange: (g: GameDraft) => void;
 }) {
+	markRender("PickBanBoard");
 	const board = usePickBanBoardState({
 		teamSize,
 		gameDraft,

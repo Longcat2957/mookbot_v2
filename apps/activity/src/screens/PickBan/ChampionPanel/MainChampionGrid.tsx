@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import { ChampCell } from "../ChampCell.js";
 import type { ActiveSlot, ChampionPlay, PickUsage, SeriesParticipant } from "../types.js";
 
@@ -14,6 +15,20 @@ export function MainChampionGrid({
 	previousPicks?: Map<number, PickUsage[]> | undefined;
 	onCommitChampion: (championId: number) => void;
 }) {
+	const championCells = useMemo(
+		() =>
+			mains.map((main) => ({
+				main,
+				champ: {
+					id: main.championId,
+					idSlug: "",
+					name: main.championName,
+					iconUrl: main.iconUrl,
+				},
+			})),
+		[mains],
+	);
+
 	if (!activePlayer || mains.length === 0) return null;
 
 	return (
@@ -22,15 +37,10 @@ export function MainChampionGrid({
 				🌟 주력 챔프 ({activePlayer.displayName})
 			</div>
 			<div className="grid grid-cols-[repeat(auto-fill,minmax(60px,1fr))] gap-1.5">
-				{mains.map((main) => (
+				{championCells.map(({ main, champ }) => (
 					<ChampCell
 						key={main.championId}
-						champ={{
-							id: main.championId,
-							idSlug: "",
-							name: main.championName,
-							iconUrl: main.iconUrl,
-						}}
+						champ={champ}
 						disabled={!activeSlot}
 						mainCount={main.plays}
 						reason={
@@ -39,7 +49,7 @@ export function MainChampionGrid({
 								: `${main.championName} · ${main.plays}회 (${main.wins}승 ${main.losses}패)`
 						}
 						previousUsage={previousPicks?.get(main.championId)}
-						onClick={() => onCommitChampion(main.championId)}
+						onSelect={onCommitChampion}
 					/>
 				))}
 			</div>

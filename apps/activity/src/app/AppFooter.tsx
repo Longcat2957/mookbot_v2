@@ -1,5 +1,6 @@
 import type { AuthedUser } from "../sdk/client.js";
 import { FooterButton } from "./FooterButton.js";
+import { loadLeaderboard, loadMiniGame, loadProfile } from "./screenLoaders.js";
 import type { AppNavigation } from "./useAppNavigation.js";
 
 export function AppFooter({
@@ -28,18 +29,21 @@ export function AppFooter({
 					label="내 프로필"
 					active={nav.stage === "PROFILE" && nav.profileUserId === user.id}
 					onClick={() => nav.openProfile(user.id)}
+					onPrefetch={loadProfile}
 				/>
 				<FooterButton
 					icon="🏆"
 					label="리더보드"
 					active={nav.stage === "LEADERBOARD"}
 					onClick={nav.openLeaderboard}
+					onPrefetch={loadLeaderboard}
 				/>
 				<FooterButton
 					icon="🎲"
 					label="도구"
 					active={nav.stage === "MINIGAME"}
 					onClick={nav.openMinigame}
+					onPrefetch={loadMiniGame}
 				/>
 				<FooterButton icon="❓" label="도움말" onClick={onOpenHelp} />
 			</nav>

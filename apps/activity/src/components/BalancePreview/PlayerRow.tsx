@@ -47,7 +47,15 @@ export function PlayerRow({
 							return (
 								<li key={champion.championId} className="flex items-center gap-1.5 text-xs">
 									{champion.iconUrl && (
-										<img src={champion.iconUrl} alt="" className="size-5 rounded shrink-0" loading="lazy" />
+										<img
+											src={champion.iconUrl}
+											alt=""
+											width={20}
+											height={20}
+											className="size-5 rounded shrink-0"
+											loading="lazy"
+											decoding="async"
+										/>
 									)}
 									<span className="flex-1 truncate">{champion.championName}</span>
 									<span className="tabular-nums text-base-content/60 shrink-0">

@@ -3,6 +3,7 @@ import { SystemDot } from "../components/SystemDot.js";
 import type { AuthedUser } from "../sdk/client.js";
 import { usePerms } from "../state/perms.js";
 import { ContextChip } from "./ContextChip.js";
+import { loadLeaderboard, loadMiniGame, loadProfile } from "./screenLoaders.js";
 import type { AppNavigation } from "./useAppNavigation.js";
 
 export function AppHeader({
@@ -81,6 +82,8 @@ export function AppHeader({
 									type="button"
 									className={nav.stage === "PROFILE" && nav.profileUserId === user.id ? "active" : ""}
 									onClick={() => nav.openProfile(user.id)}
+									onFocus={loadProfile}
+									onPointerEnter={loadProfile}
 								>
 									<span className="text-base">📇</span>
 									<span>내 프로필</span>
@@ -94,6 +97,8 @@ export function AppHeader({
 									type="button"
 									className={nav.stage === "LEADERBOARD" ? "active" : ""}
 									onClick={nav.openLeaderboard}
+									onFocus={loadLeaderboard}
+									onPointerEnter={loadLeaderboard}
 								>
 									<span className="text-base">🏆</span>
 									<span>리더보드</span>
@@ -104,6 +109,8 @@ export function AppHeader({
 									type="button"
 									className={nav.stage === "MINIGAME" ? "active" : ""}
 									onClick={nav.openMinigame}
+									onFocus={loadMiniGame}
+									onPointerEnter={loadMiniGame}
 								>
 									<span className="text-base">🎲</span>
 									<span>도구 / 미니게임</span>

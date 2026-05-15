@@ -41,7 +41,7 @@ export function UsableChampionGrid({
 						disabled={!activeSlot}
 						reason={!activeSlot ? "슬롯 먼저 선택" : champion.name}
 						previousUsage={previousPicks?.get(champion.id)}
-						onClick={() => onCommitChampion(champion.id)}
+						onSelect={onCommitChampion}
 					/>
 				))}
 			</div>

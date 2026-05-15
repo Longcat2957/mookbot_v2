@@ -12,8 +12,12 @@ export function ChampionTile({ champ }: { champ: ChampionPlay; compact?: boolean
 					<img
 						src={champ.iconUrl}
 						alt={champ.championName}
+						width={36}
+						height={36}
 						className="w-9 h-9 rounded border border-base-content/20"
 						draggable={false}
+						loading="lazy"
+						decoding="async"
 					/>
 				) : (
 					<div className="w-9 h-9 rounded bg-base-content/10 flex items-center justify-center text-[10px]">

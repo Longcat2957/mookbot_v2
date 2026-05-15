@@ -1,5 +1,6 @@
 import { useCallback, useMemo } from "react";
 import { api } from "../../api/rest.js";
+import { useChampionCatalog } from "../../features/champions/useChampionCatalog.js";
 import { useStaleWhileRevalidate } from "../../state/useStaleWhileRevalidate.js";
 import type { Champion, SeriesDetail } from "./types.js";
 
@@ -9,13 +10,9 @@ export function useSeriesResultData(seriesId: number | null) {
 		debounceMs: 150,
 		enabled: seriesId !== null,
 	});
-	const champFetcher = useCallback(
-		() => api<{ champions: Champion[] }>("/champions").then((response) => response.champions),
-		[],
-	);
-	const champSwr = useStaleWhileRevalidate<Champion[]>("champions", champFetcher);
+	const champCatalog = useChampionCatalog<Champion>();
 
-	const champions = useMemo(() => champSwr.data ?? [], [champSwr.data]);
+	const champions = champCatalog.champions;
 	const champById = useMemo(() => {
 		const map = new Map<number, Champion>();
 		for (const champ of champions) map.set(champ.id, champ);

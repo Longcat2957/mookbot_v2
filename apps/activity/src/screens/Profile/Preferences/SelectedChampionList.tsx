@@ -39,7 +39,15 @@ export function SelectedChampionList({
 								className="flex items-center gap-1 bg-base-100 rounded pl-1 pr-0.5 py-0.5 border border-base-300"
 							>
 								{champ?.iconUrl && (
-									<img src={champ.iconUrl} alt={champ.name} className="w-5 h-5 rounded" loading="lazy" />
+									<img
+										src={champ.iconUrl}
+										alt={champ.name}
+										width={20}
+										height={20}
+										className="w-5 h-5 rounded"
+										loading="lazy"
+										decoding="async"
+									/>
 								)}
 								<span className="text-xs">{champ?.name ?? `#${id}`}</span>
 								<button

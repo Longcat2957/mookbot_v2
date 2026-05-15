@@ -56,7 +56,11 @@ export function GameTeamPanel({
 								src={banChamp.iconUrl}
 								alt={banChamp.name}
 								title={`밴: ${banChamp.name}`}
+								width={32}
+								height={32}
 								className="size-8 rounded grayscale opacity-70 ring-1 ring-error/40"
+								loading="lazy"
+								decoding="async"
 							/>
 						) : (
 							<span
@@ -82,7 +86,11 @@ export function GameTeamPanel({
 								<img
 									src={champ.iconUrl}
 									alt={champ.name}
+									width={40}
+									height={40}
 									className="w-10 h-10 rounded border border-base-content/20"
+									loading="lazy"
+									decoding="async"
 								/>
 							) : (
 								<div className="w-10 h-10 rounded bg-base-content/10" />

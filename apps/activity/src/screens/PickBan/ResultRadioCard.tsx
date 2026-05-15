@@ -67,8 +67,12 @@ export function ResultRadioCard({
 							src={champ.iconUrl}
 							alt={champ.name}
 							title={`${lanes[i]} · ${champ.name}`}
+							width={28}
+							height={28}
 							className="size-7 rounded-md ring-1 ring-base-content/10"
 							draggable={false}
+							loading="lazy"
+							decoding="async"
 						/>
 					) : (
 						<span

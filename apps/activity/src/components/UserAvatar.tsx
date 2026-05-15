@@ -39,6 +39,14 @@ const SIZE_TEXT: Record<string, string> = {
 	xl: "text-xl",
 };
 
+const SIZE_PX: Record<string, number> = {
+	xs: 20,
+	sm: 28,
+	md: 36,
+	lg: 48,
+	xl: 64,
+};
+
 export type UserAvatarSize = "xs" | "sm" | "md" | "lg" | "xl";
 
 export function UserAvatar({
@@ -60,13 +68,22 @@ export function UserAvatar({
 }) {
 	const sizeW = SIZE_W[size] ?? SIZE_W.md;
 	const sizeText = SIZE_TEXT[size] ?? SIZE_TEXT.md;
+	const sizePx = SIZE_PX[size] ?? SIZE_PX.md;
 	const ringClass = ring ? "ring-2 ring-primary ring-offset-2 ring-offset-base-200" : "";
 
 	if (imageUrl) {
 		return (
 			<div className={`avatar shrink-0 ${className}`}>
 				<div className={`${sizeW} rounded-full ${ringClass} bg-base-300 overflow-hidden`}>
-					<img src={imageUrl} alt={displayName} loading="lazy" className="object-cover w-full h-full" />
+					<img
+						src={imageUrl}
+						alt={displayName}
+						width={sizePx}
+						height={sizePx}
+						loading="lazy"
+						decoding="async"
+						className="object-cover w-full h-full"
+					/>
 				</div>
 			</div>
 		);

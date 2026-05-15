@@ -10,7 +10,7 @@ export function MeIdentity({
 	mainRiot: RiotAccount | undefined;
 	topChampion: TopChampion | undefined;
 }) {
-	const avatarUrl = user.profileIconUrl ?? topChampion?.splashUrl ?? topChampion?.iconUrl ?? null;
+	const avatarUrl = user.profileIconUrl ?? topChampion?.iconUrl ?? topChampion?.splashUrl ?? null;
 
 	return (
 		<div className="flex items-start gap-3 min-w-0 flex-1">

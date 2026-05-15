@@ -49,7 +49,16 @@ function MookChampionList({ topChampions }: { topChampions: AuctionCardData["top
 								className="flex items-center gap-1.5 surface-quiet-soft rounded-md px-1.5 py-1"
 								title={`${c.championName} · ${c.plays}경기 (${c.wins}W ${c.losses}L · ${wr}%)`}
 							>
-								<img src={c.iconUrl} alt={c.championName} className="size-7 rounded" draggable={false} />
+								<img
+									src={c.iconUrl}
+									alt={c.championName}
+									width={28}
+									height={28}
+									className="size-7 rounded"
+									draggable={false}
+									loading="lazy"
+									decoding="async"
+								/>
 								<div className="text-xs leading-tight">
 									<div className="font-medium truncate max-w-[5rem]">{c.championName}</div>
 									<div className="text-[10px] text-base-content/60 tabular-nums">

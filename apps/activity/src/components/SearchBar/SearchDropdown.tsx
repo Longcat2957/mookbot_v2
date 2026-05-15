@@ -62,7 +62,7 @@ function SearchResultButton({
 			<UserAvatar
 				discordId={hit.discordId}
 				displayName={hit.displayName}
-				imageUrl={hit.profileIconUrl ?? hit.topChampion?.splashUrl ?? hit.topChampion?.iconUrl ?? null}
+				imageUrl={hit.profileIconUrl ?? hit.topChampion?.iconUrl ?? hit.topChampion?.splashUrl ?? null}
 				size="sm"
 			/>
 			<div className="min-w-0 flex-1">

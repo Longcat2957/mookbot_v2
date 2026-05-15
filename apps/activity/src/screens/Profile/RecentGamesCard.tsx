@@ -42,8 +42,11 @@ function RecentGameItem({ game, onClick }: { game: RecentGame; onClick: () => vo
 					<img
 						src={game.iconUrl}
 						alt={game.championName ?? ""}
+						width={36}
+						height={36}
 						className="w-9 h-9 rounded"
 						loading="lazy"
+						decoding="async"
 					/>
 				) : (
 					<div className="w-9 h-9 rounded bg-base-300" />

@@ -33,8 +33,7 @@ vi.mock("../../state/perms.js", () => ({
 	usePerms: () => ({ canEdit: canEditMock }),
 }));
 
-// SWR mock — onApply 캡처 + data/refresh 제어. hook 이 렌더마다 useStaleWhileRevalidate
-// 를 두 번 호출 (detail / champions). 호출 카운트의 짝/홀로 구분 — 짝=detail, 홀=champions.
+// PickBan catalog 는 공유 champion cache 로 이동했으므로 이 테스트에서는 별도 mock 으로 고정.
 type SwrCall<T> = {
 	data: T | null;
 	error: string | null;
@@ -43,18 +42,18 @@ type SwrCall<T> = {
 };
 let detailSwr: SwrCall<SeriesDetail>;
 let champSwr: SwrCall<unknown>;
-let swrCallIndex = 0;
+vi.mock("./usePickBanCatalog.js", () => ({
+	usePickBanCatalog: () => champSwr.data ?? [],
+}));
+
+// SWR mock — usePickBanState 의 series detail SWR onApply 캡처 + data/refresh 제어.
 vi.mock("../../state/useStaleWhileRevalidate.js", () => ({
 	useStaleWhileRevalidate: <T>(
 		_key: unknown,
 		_fetcher: () => Promise<T>,
 		opts?: SwrOptions<T>,
 	): SwrState<T> => {
-		const isDetail = swrCallIndex % 2 === 0;
-		swrCallIndex++;
-		const slot = isDetail
-			? (detailSwr as unknown as SwrCall<T>)
-			: (champSwr as unknown as SwrCall<T>);
+		const slot = detailSwr as unknown as SwrCall<T>;
 		slot.onApply = opts?.onApply;
 		return {
 			data: slot.data,
@@ -125,7 +124,6 @@ beforeEach(() => {
 	wsUnsubscribe.mockReset();
 	showToastMock.mockReset();
 	canEditMock = true;
-	swrCallIndex = 0;
 	detailSwr = { data: null, error: null, refresh: vi.fn() };
 	champSwr = { data: [], error: null, refresh: vi.fn() };
 });
