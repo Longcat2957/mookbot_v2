@@ -91,7 +91,10 @@ const cleanedForScan = raw
 	.join("\n");
 
 const DANGER_PATTERNS: Array<{ re: RegExp; label: string }> = [
-	{ re: /\bDROP\s+TABLE\b(?!\s+IF\s+EXISTS\s+games_v2\b|\s+IF\s+EXISTS\s+games_old)/i, label: "DROP TABLE" },
+	{
+		re: /\bDROP\s+TABLE\b(?!\s+IF\s+EXISTS\s+games_v2\b|\s+IF\s+EXISTS\s+games_old)/i,
+		label: "DROP TABLE",
+	},
 	{ re: /\bALTER\s+TABLE\s+\S+\s+DROP\s+COLUMN\b/i, label: "ALTER TABLE ... DROP COLUMN" },
 	{ re: /\bALTER\s+TABLE\s+\S+\s+RENAME\b/i, label: "ALTER TABLE ... RENAME" },
 	{ re: /\bDELETE\s+FROM\s+\S+\s*(;|$)/im, label: "DELETE FROM (without WHERE)" },

@@ -10,18 +10,17 @@ export interface AuthedUser {
 }
 
 export async function initSdk(): Promise<{ user: AuthedUser }> {
-	if (!sdk) throw new Error("VITE_DISCORD_CLIENT_ID not set");
+	const clientId = CLIENT_ID;
+	if (!sdk || !clientId) throw new Error("VITE_DISCORD_CLIENT_ID not set");
 
-	const stage = (s: string): void => {
-		console.log(`[mookbot] stage: ${s}`);
-	};
+	const stage = (_s: string): void => {};
 
 	stage("ready");
 	await sdk.ready();
 
 	stage("authorize");
 	const { code } = await sdk.commands.authorize({
-		client_id: CLIENT_ID!,
+		client_id: clientId,
 		response_type: "code",
 		state: "",
 		prompt: "none",

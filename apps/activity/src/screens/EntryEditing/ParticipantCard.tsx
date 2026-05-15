@@ -24,6 +24,7 @@ export function ParticipantCard({
 	const coarse = useCoarsePointer();
 
 	return (
+		// biome-ignore lint/a11y/noStaticElementInteractions: HTML5 draggable card with optional tap-to-place behavior.
 		<div
 			draggable={!coarse}
 			role={onTap ? "button" : undefined}

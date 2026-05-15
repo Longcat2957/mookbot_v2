@@ -38,9 +38,11 @@ export async function registerAuctionRecruitRoutes(app: FastifyInstance): Promis
 		]);
 		const nameById = new Map(users.map((u) => [u.discord_id, u.display_name]));
 		const iconByUser = new Map(
-			mains
-				.filter((m) => m.profile_icon_id != null)
-				.map((m) => [m.user_id, rewriteDD(datadragon.getProfileIconUrl(m.profile_icon_id!))]),
+			mains.flatMap((m) =>
+				m.profile_icon_id == null
+					? []
+					: [[m.user_id, rewriteDD(datadragon.getProfileIconUrl(m.profile_icon_id))] as const],
+			),
 		);
 
 		return {

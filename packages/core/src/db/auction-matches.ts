@@ -75,10 +75,10 @@ export async function setAuctionMatchFormat(
 	matchId: number,
 	format: AuctionMatchFormat,
 ): Promise<void> {
-	await execute(
-		`UPDATE auction_matches SET format = ? WHERE id = ? AND deleted_at IS NULL`,
-		[format, matchId],
-	);
+	await execute(`UPDATE auction_matches SET format = ? WHERE id = ? AND deleted_at IS NULL`, [
+		format,
+		matchId,
+	]);
 }
 
 /**

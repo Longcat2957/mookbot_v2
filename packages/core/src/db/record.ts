@@ -186,8 +186,11 @@ export async function recordGameAndUpdateMmr(input: RecordGameInput): Promise<Re
 		mmrByKey.get(`${userId}|${role}`) ?? DEFAULT_MMR;
 
 	const matchups: LaneMatchup[] = activeRoles.map((role) => {
-		const team1User = team1ByRole.get(role)!;
-		const team2User = team2ByRole.get(role)!;
+		const team1User = team1ByRole.get(role);
+		const team2User = team2ByRole.get(role);
+		if (!team1User || !team2User) {
+			throw new Error(`recordGame: missing matchup user for role ${role}`);
+		}
 		return {
 			role,
 			team1: { userId: team1User, mmr: mmrFor(team1User, role) },

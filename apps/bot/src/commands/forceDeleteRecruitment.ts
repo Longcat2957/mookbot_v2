@@ -148,7 +148,7 @@ export async function handleButton(interaction: ButtonInteraction): Promise<void
 	if (rec.channel_id && rec.message_id) {
 		try {
 			const ch = await interaction.client.channels.fetch(rec.channel_id);
-			if (ch && ch.isTextBased() && "messages" in ch) {
+			if (ch?.isTextBased() && "messages" in ch) {
 				const msg = await ch.messages.fetch(rec.message_id);
 				await msg.delete();
 				messageDeleted = true;

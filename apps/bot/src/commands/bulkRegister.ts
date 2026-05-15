@@ -136,7 +136,7 @@ function pushField(
 	const lines = items.slice(0, max).map((o) => `• ${render(o)}`);
 	if (items.length > max) lines.push(`• ... 외 ${items.length - max}명`);
 	let value = lines.join("\n");
-	if (value.length > 1000) value = value.slice(0, 996) + "…";
+	if (value.length > 1000) value = `${value.slice(0, 996)}…`;
 	eb.addFields({ name: `${label} (${items.length})`, value });
 }
 
@@ -185,7 +185,7 @@ async function processMember(member: GuildMember, dryRun: boolean): Promise<Outc
 			mention,
 			displayName,
 			from: `${existingMain.game_name}#${existingMain.tag_line}`,
-			to: tried + " (dry-run)",
+			to: `${tried} (dry-run)`,
 		};
 	}
 

@@ -38,7 +38,9 @@ async function fetchLatestVersion(): Promise<string> {
 	const res = await fetch(`${BASE_URL}/api/versions.json`);
 	if (!res.ok) throw new Error(`Failed to fetch versions: ${res.status}`);
 	const versions = (await res.json()) as string[];
-	return versions[0]!;
+	const latest = versions[0];
+	if (!latest) throw new Error("Data Dragon versions response is empty");
+	return latest;
 }
 
 async function fetchJson<T>(url: string): Promise<T> {

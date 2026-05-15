@@ -13,7 +13,7 @@ interface EmptyStateProps {
 	icon?: ReactNode;
 	title: string;
 	description?: ReactNode;
-	steps?: ReactNode[]; // 번호 매긴 다음 액션 가이드
+	steps?: Array<{ id: string; content: ReactNode }>; // 번호 매긴 다음 액션 가이드
 	/** CTA 버튼들 — label/onClick 객체 배열. 호출처가 매번 button 작성 안 하도록. */
 	actions?: EmptyStateAction[];
 	tone?: "neutral" | "info" | "warning";
@@ -46,19 +46,19 @@ export function EmptyState({
 				{steps && steps.length > 0 && (
 					<ol className="text-sm text-base-content/80 mt-2 space-y-1.5 text-left max-w-prose">
 						{steps.map((s, i) => (
-							<li key={i} className="flex gap-2">
+							<li key={s.id} className="flex gap-2">
 								<span className="badge badge-ghost badge-sm shrink-0 mt-0.5 tabular-nums">{i + 1}</span>
-								<span>{s}</span>
+								<span>{s.content}</span>
 							</li>
 						))}
 					</ol>
 				)}
 				{actions && actions.length > 0 && (
 					<div className="mt-2 flex flex-wrap gap-2 justify-center">
-						{actions.map((a, i) => (
+						{actions.map((a) => (
 							<button
 								type="button"
-								key={i}
+								key={a.label}
 								onClick={a.onClick}
 								className={`btn btn-sm ${a.variant === "ghost" ? "btn-ghost" : "btn-primary"}`}
 							>

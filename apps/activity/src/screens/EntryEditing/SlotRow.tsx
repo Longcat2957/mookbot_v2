@@ -39,6 +39,7 @@ export function SlotRow({
 						: "";
 
 	return (
+		// biome-ignore lint/a11y/noStaticElementInteractions: drop target plus optional tap-to-place behavior.
 		<div
 			role={onTap ? "button" : undefined}
 			tabIndex={onTap ? 0 : undefined}
@@ -72,6 +73,7 @@ export function SlotRow({
 				{LANE_LABEL[lane]}
 			</span>
 			{participant ? (
+				// biome-ignore lint/a11y/noStaticElementInteractions: draggable assigned participant chip.
 				<div
 					draggable={!coarse}
 					onDragStart={

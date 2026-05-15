@@ -2,7 +2,7 @@
 // Discord Activity sandbox 가 native confirm/alert 차단 → 시각화된 2-click 패턴.
 // 첫 클릭 → 빨강 + N초 progress 카운트다운, 두번째 클릭 = 확정. 타임아웃 = 자동 취소.
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 interface ConfirmButtonProps {
 	label: string;
@@ -36,7 +36,7 @@ export function ConfirmButton({
 	const rafRef = useRef<number | null>(null);
 	const timerRef = useRef<number | null>(null);
 
-	const cancel = () => {
+	const cancel = useCallback(() => {
 		setPending(false);
 		setProgress(1);
 		startRef.current = null;
@@ -48,9 +48,9 @@ export function ConfirmButton({
 			window.clearTimeout(timerRef.current);
 			timerRef.current = null;
 		}
-	};
+	}, []);
 
-	useEffect(() => () => cancel(), []);
+	useEffect(() => () => cancel(), [cancel]);
 
 	const tick = () => {
 		if (startRef.current === null) return;
@@ -69,7 +69,7 @@ export function ConfirmButton({
 			setProgress(1);
 			startRef.current = performance.now();
 			rafRef.current = requestAnimationFrame(tick);
-			timerRef.current = window.setTimeout(() => cancel(), timeoutMs);
+			timerRef.current = window.setTimeout(cancel, timeoutMs);
 			return;
 		}
 		// 2번째 클릭 = 확정

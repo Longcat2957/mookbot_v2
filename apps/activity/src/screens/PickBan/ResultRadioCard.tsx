@@ -32,6 +32,7 @@ export function ResultRadioCard({
 					radioFill: "bg-error border-error",
 				};
 	return (
+		// biome-ignore lint/a11y/useSemanticElements: visual card works as a segmented radio option.
 		<button
 			type="button"
 			onClick={onClick}
@@ -62,7 +63,7 @@ export function ResultRadioCard({
 					const champ = cid !== null ? champById.get(cid) : null;
 					return champ ? (
 						<img
-							key={i}
+							key={`${lanes[i]}-${cid}`}
 							src={champ.iconUrl}
 							alt={champ.name}
 							title={`${lanes[i]} · ${champ.name}`}
@@ -71,7 +72,7 @@ export function ResultRadioCard({
 						/>
 					) : (
 						<span
-							key={i}
+							key={`${lanes[i]}-empty`}
 							className="size-7 rounded-md border border-dashed border-base-content/20"
 							aria-hidden
 						/>

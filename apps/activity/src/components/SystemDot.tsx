@@ -28,6 +28,7 @@ export function SystemDot() {
 		<span className="tooltip tooltip-bottom" data-tip={STATUS_LABEL[status]}>
 			<span
 				className="inline-flex items-center gap-1 px-1.5 py-1 rounded-md hover:bg-base-300/60 cursor-default"
+				role="status"
 				aria-label={STATUS_LABEL[status]}
 			>
 				<span className={`inline-block size-2 rounded-full ${STATUS_DOT[status]}`} aria-hidden />

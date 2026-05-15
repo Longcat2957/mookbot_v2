@@ -18,68 +18,63 @@ type Role = "TOP" | "JUNGLE" | "MID" | "BOTTOM" | "SUPPORT";
 
 export async function registerAuctionMatchRoutes(app: FastifyInstance): Promise<void> {
 	// 매치 상세 (브래킷 / 결과 화면용) — match 메타 + games + picks/bans
-	app.get<{ Params: { matchId: string } }>(
-		"/api/auction-matches/:matchId",
-		async (req, reply) => {
-			const sid = requireSession(req, reply);
-			if (!sid) return;
-			const matchId = Number(req.params.matchId);
-			if (!Number.isFinite(matchId)) return reply.code(400).send({ error: "invalid id" });
-			const match = await db.getAuctionMatch(matchId);
-			if (!match) return reply.code(404).send({ error: "not found" });
+	app.get<{ Params: { matchId: string } }>("/api/auction-matches/:matchId", async (req, reply) => {
+		const sid = requireSession(req, reply);
+		if (!sid) return;
+		const matchId = Number(req.params.matchId);
+		if (!Number.isFinite(matchId)) return reply.code(400).send({ error: "invalid id" });
+		const match = await db.getAuctionMatch(matchId);
+		if (!match) return reply.code(404).send({ error: "not found" });
 
-			const games = await db.listGamesInAuctionMatch(matchId);
-			const [gamePicks, gameBans] = await Promise.all([
-				Promise.all(
-					games.map(async (g) => ({ gameId: g.id, picks: await db.getGamePicks(g.id) })),
-				),
-				Promise.all(games.map(async (g) => ({ gameId: g.id, bans: await db.getGameBans(g.id) }))),
-			]);
-			const picksByGame = new Map(gamePicks.map((x) => [x.gameId, x.picks]));
-			const bansByGame = new Map(gameBans.map((x) => [x.gameId, x.bans]));
+		const games = await db.listGamesInAuctionMatch(matchId);
+		const [gamePicks, gameBans] = await Promise.all([
+			Promise.all(games.map(async (g) => ({ gameId: g.id, picks: await db.getGamePicks(g.id) }))),
+			Promise.all(games.map(async (g) => ({ gameId: g.id, bans: await db.getGameBans(g.id) }))),
+		]);
+		const picksByGame = new Map(gamePicks.map((x) => [x.gameId, x.picks]));
+		const bansByGame = new Map(gameBans.map((x) => [x.gameId, x.bans]));
 
-			return {
-				match: {
-					id: match.id,
-					tournamentId: match.tournament_id,
-					round: match.round,
-					bracketIndex: match.bracket_index,
-					team1Id: match.team1_id,
-					team2Id: match.team2_id,
-					format: match.format,
-					status: match.status,
-					winningTeam: match.winning_team,
-					startedAt: match.started_at,
-					endedAt: match.ended_at,
-				},
-				games: games.map((g) => ({
-					id: g.id,
-					gameNumber: g.game_number,
-					winningTeam: g.winning_team,
-					team1Side: g.team1_side,
-					durationSec: g.duration_sec,
-					picks: (picksByGame.get(g.id) ?? []).map((p) => {
-						const champ = datadragon.findChampion(p.champion_name);
-						return {
-							team: p.team,
-							role: p.role,
-							championName: p.champion_name,
-							championId: champ ? Number(champ.key) : null,
-						};
-					}),
-					bans: (bansByGame.get(g.id) ?? []).map((b) => {
-						const champ = datadragon.findChampion(b.champion_name);
-						return {
-							team: b.team,
-							position: b.position,
-							championName: b.champion_name,
-							championId: champ ? Number(champ.key) : null,
-						};
-					}),
-				})),
-			};
-		},
-	);
+		return {
+			match: {
+				id: match.id,
+				tournamentId: match.tournament_id,
+				round: match.round,
+				bracketIndex: match.bracket_index,
+				team1Id: match.team1_id,
+				team2Id: match.team2_id,
+				format: match.format,
+				status: match.status,
+				winningTeam: match.winning_team,
+				startedAt: match.started_at,
+				endedAt: match.ended_at,
+			},
+			games: games.map((g) => ({
+				id: g.id,
+				gameNumber: g.game_number,
+				winningTeam: g.winning_team,
+				team1Side: g.team1_side,
+				durationSec: g.duration_sec,
+				picks: (picksByGame.get(g.id) ?? []).map((p) => {
+					const champ = datadragon.findChampion(p.champion_name);
+					return {
+						team: p.team,
+						role: p.role,
+						championName: p.champion_name,
+						championId: champ ? Number(champ.key) : null,
+					};
+				}),
+				bans: (bansByGame.get(g.id) ?? []).map((b) => {
+					const champ = datadragon.findChampion(b.champion_name);
+					return {
+						team: b.team,
+						position: b.position,
+						championName: b.champion_name,
+						championId: champ ? Number(champ.key) : null,
+					};
+				}),
+			})),
+		};
+	});
 
 	// 토너먼트의 매치 생성 — 운영자가 round + bracket + 양 팀 + format 결정.
 	// 10인 → round='SINGLE', bracketIndex=null, 1매치.
@@ -209,10 +204,15 @@ export async function registerAuctionMatchRoutes(app: FastifyInstance): Promise<
 			winningTeam: body.winningTeam,
 			team1Side: body.team1Side,
 			...(body.durationMin ? { durationSec: body.durationMin * 60 } : {}),
-			stats: participants.map((p, i) => ({
-				userId: p.userId,
-				championId: body.picks[p.team][i % body.picks[p.team].length]!.championId,
-			})),
+			stats: participants.map((p, i) => {
+				const teamPicks = body.picks[p.team];
+				const pick = teamPicks[i % teamPicks.length];
+				if (!pick) throw new Error(`missing pick for ${p.team}`);
+				return {
+					userId: p.userId,
+					championId: pick.championId,
+				};
+			}),
 			participants,
 		});
 
@@ -252,7 +252,7 @@ export async function registerAuctionMatchRoutes(app: FastifyInstance): Promise<
 			const finalMatch = allMatches.find(
 				(m) => (m.round === "FINAL" || m.round === "SINGLE") && m.status === "COMPLETED",
 			);
-			if (finalMatch && finalMatch.winning_team) {
+			if (finalMatch?.winning_team) {
 				const championTeamId =
 					finalMatch.winning_team === "TEAM_1" ? finalMatch.team1_id : finalMatch.team2_id;
 				await db.completeAuctionTournament(match.tournament_id, championTeamId);
@@ -304,7 +304,8 @@ export async function registerAuctionMatchRoutes(app: FastifyInstance): Promise<
 
 			const games = await db.listGamesInAuctionMatch(matchId);
 			if (games.length === 0) return reply.code(409).send({ error: "되돌릴 게임이 없음" });
-			const last = games[games.length - 1]!;
+			const last = games.at(-1);
+			if (!last) return reply.code(409).send({ error: "되돌릴 게임이 없음" });
 			await cloudflare.execute(`DELETE FROM games WHERE id = ?`, [last.id]);
 
 			// 매치가 COMPLETED 였으면 IN_PROGRESS 복원

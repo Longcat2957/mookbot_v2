@@ -11,11 +11,11 @@ dist
 *.tsbuildinfo
 .pnpm-store
 coverage/
-.claude/settings.local.json
 
 # rotation backups
 .env.bak*
 *.bak-[0-9]*
 
-# 로컬 작업 메모
+# 로컬 agent 작업 메모 / tool state
 .claude/
+.codex/

@@ -1,0 +1,53 @@
+import type { AuthedUser } from "../sdk/client.js";
+import { FooterButton } from "./FooterButton.js";
+import type { AppNavigation } from "./useAppNavigation.js";
+
+export function AppFooter({
+	user,
+	nav,
+	onOpenHelp,
+}: {
+	user: AuthedUser;
+	nav: AppNavigation;
+	onOpenHelp: () => void;
+}) {
+	if (
+		nav.stage !== "LIST" &&
+		nav.stage !== "LEADERBOARD" &&
+		nav.stage !== "MINIGAME" &&
+		nav.stage !== "PROFILE"
+	) {
+		return null;
+	}
+
+	return (
+		<footer className="footer footer-center bg-base-200/60 border-t border-base-300 text-base-content/70 p-4">
+			<nav className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 w-full max-w-screen-md">
+				<FooterButton
+					icon="📇"
+					label="내 프로필"
+					active={nav.stage === "PROFILE" && nav.profileUserId === user.id}
+					onClick={() => nav.openProfile(user.id)}
+				/>
+				<FooterButton
+					icon="🏆"
+					label="리더보드"
+					active={nav.stage === "LEADERBOARD"}
+					onClick={nav.openLeaderboard}
+				/>
+				<FooterButton
+					icon="🎲"
+					label="도구"
+					active={nav.stage === "MINIGAME"}
+					onClick={nav.openMinigame}
+				/>
+				<FooterButton icon="❓" label="도움말" onClick={onOpenHelp} />
+			</nav>
+			<aside className="text-[10px] text-base-content/50">
+				<p>
+					<span className="font-bold">monkey</span> · LoL 내전 매니저
+				</p>
+			</aside>
+		</footer>
+	);
+}

@@ -52,16 +52,19 @@ export function TeamColumn({
 						<span>🚫</span> 밴 ({draft.bans[team].filter(Boolean).length}/{teamSize})
 					</div>
 					<div className="flex gap-1 flex-wrap">
-						{draft.bans[team].map((cid, i) => (
-							<SlotTile
-								key={`b${i}`}
-								size="md"
-								champion={cid !== null ? (champById.get(cid) ?? null) : null}
-								active={activeSlot?.kind === "ban" && activeSlot.team === team && activeSlot.idx === i}
-								onClick={() => onSlotClick(team, "ban", i)}
-								banned
-							/>
-						))}
+						{draft.bans[team].map((cid, i) => {
+							const lane = lanes[i] ?? `extra-${i + 1}`;
+							return (
+								<SlotTile
+									key={`${team}-ban-${lane}`}
+									size="md"
+									champion={cid !== null ? (champById.get(cid) ?? null) : null}
+									active={activeSlot?.kind === "ban" && activeSlot.team === team && activeSlot.idx === i}
+									onClick={() => onSlotClick(team, "ban", i)}
+									banned
+								/>
+							);
+						})}
 					</div>
 				</div>
 

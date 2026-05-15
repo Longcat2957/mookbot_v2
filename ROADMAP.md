@@ -99,7 +99,7 @@
 - **세 가지 후속 정리** (v0.3.25):
   - `operatorRoleConfigured` 응답 필드 제거: v0.3.23 이후 항상 `true` 라 의미 없는 필드. `apps/api/src/http/auth.ts` + `apps/activity/src/state/perms.tsx` + `apps/activity/src/App.tsx` 정리. dropdown 의 ✏️/👁 뱃지는 항상 표시.
   - `pnpm deploy:vps` 자동화 스크립트 (`scripts/deploy-vps.sh`): preflight (working tree clean + main 동기화) → `docker:release` → `ssh root@141.164.46.191 ... compose pull && up -d` → health check. 매 release 마다 같은 시퀀스 반복하던 것을 한 명령으로.
-  - `.claude/settings.json` biome format 적용 — 잔존 1 error 정리, `pnpm check` 가 깨끗.
+  - agent harness 설정 정리 — legacy agent 설정을 제거하고 Codex용 `AGENTS.md` 기준으로 작업 명령/안전 규칙 통합.
 - **audit log 커버리지 확장** (v0.3.26) — 기존 destructive action (force-delete*, season-reset, mmr.adjust, series.early-complete, series.revert, cleanup-stale) 만 audit 되던 것을 정상 lifecycle 까지 확장. 신규 actions: `series.created`, `series.completed`, `game.recorded`, `game.undone`, `recruitment.created`, `recruitment.cancelled`, `recruitment.closed`. `/로그` 웹뷰가 진짜 운영 타임라인이 됨 — 누가 언제 모집을 만들었고 어떤 게임을 기록했는지까지 추적. pickban draft 저장은 너무 빈번해 제외 (game.recorded 가 최종 결과 캡처).
 
 ### Phase 11 — 권한 캐시 fix + 라이엇 self-service + 페이지네이션 (v0.4.0)
@@ -316,7 +316,7 @@
 - **× 닫기 버튼 제거** — monkey 로고와 중복 동작이라 정리. UI 잡음 ↓.
 
 ### 메타 — 운영 / 워크플로우 (cross-cutting)
-- **`.claude/settings.json` committed** — Claude Code 권한 prompt 감소 + release 자동화 allowlist (typecheck/test/build, gh, git, ssh, docker:release 등). destructive 명령은 deny 명시 (force push, hard reset, db:migrate:drop, wrangler d1 execute 등).
+- **Codex harness 정리** — legacy agent 권한 설정을 제거하고 `AGENTS.md` 에 repo 구조, 검증 명령, 안전 규칙, release 흐름을 문서화. 로컬 tool state 는 `.claude/`, `.codex/` 모두 ignore.
 - **1인 개발 워크플로우 정착** — PR/리뷰 ceremony 제거, `main` 브랜치 직접 commit + push. release 흐름은 `commit → version:patch → push → docker:release → ssh` (자동화: `pnpm deploy:vps`, v0.3.25).
 
 ## 📅 백로그 (Backlog)

@@ -111,7 +111,7 @@ export async function registerLogsRoutes(app: FastifyInstance): Promise<void> {
 	});
 
 	// 명시적 로그아웃 — 쿠키 삭제 (UX nicety).
-	app.post("/api/logs/logout", async (req, reply) => {
+	app.post("/api/logs/logout", async (_req, reply) => {
 		reply.clearCookie(COOKIE_NAME, { path: "/api/logs" });
 		return { ok: true };
 	});

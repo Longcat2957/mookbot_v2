@@ -7,6 +7,7 @@ import { wsClient } from "../../api/ws.js";
 import { showToast } from "../../components/Toaster.js";
 import { useStaleWhileRevalidate } from "../../state/useStaleWhileRevalidate.js";
 import type { AuctionTournamentDetail, MatchFormat, MatchRound } from "./types.js";
+import { useAuctionActions } from "./useAuctionActions.js";
 
 export interface UseAuctionStateResult {
 	detail: AuctionTournamentDetail | null;
@@ -58,152 +59,12 @@ export function useAuctionState(tournamentId: number | null): UseAuctionStateRes
 			showToast("다른 운영자가 경매 상태를 변경했습니다");
 		});
 	}, [tournamentId, swr]);
-
-	const setCaptains = useCallback(
-		async (userIds: string[]) => {
-			await api(`/auction-tournaments/${tournamentId}/captains`, {
-				method: "PUT",
-				body: JSON.stringify({ captainUserIds: userIds }),
-			});
-			swr.refresh();
-		},
-		[tournamentId, swr],
-	);
-
-	const setPoints = useCallback(
-		async (points: Array<{ teamId: number; initialPoints: number }>) => {
-			await api(`/auction-tournaments/${tournamentId}/points`, {
-				method: "PUT",
-				body: JSON.stringify({ points }),
-			});
-			swr.refresh();
-		},
-		[tournamentId, swr],
-	);
-
-	const startBidding = useCallback(async () => {
-		await api(`/auction-tournaments/${tournamentId}/start-bidding`, { method: "POST" });
-		swr.refresh();
-	}, [tournamentId, swr]);
-
-	const draw = useCallback(async () => {
-		const result = await api<{
-			userId: string | null;
-			displayName: string | null;
-			remainingCount: number;
-			done: boolean;
-		}>(`/auction-tournaments/${tournamentId}/draw`, { method: "POST" });
-		// 본인은 WS origin-suppress 로 broadcast 무시됨 — 강제 refresh 로 새 매물 sync.
-		swr.refresh();
-		return result;
-	}, [tournamentId, swr]);
-
-	const finalizeBid = useCallback(
-		async (input: { targetUserId: string; teamId: number; points: number }) => {
-			await api(`/auction-tournaments/${tournamentId}/finalize-bid`, {
-				method: "POST",
-				body: JSON.stringify(input),
-			});
-			swr.refresh();
-		},
-		[tournamentId, swr],
-	);
-
-	const manualAssign = useCallback(
-		async (input: { targetUserId: string; teamId: number }) => {
-			await api(`/auction-tournaments/${tournamentId}/manual-assign`, {
-				method: "POST",
-				body: JSON.stringify(input),
-			});
-			swr.refresh();
-		},
-		[tournamentId, swr],
-	);
-
-	const revertBid = useCallback(
-		async (targetUserId: string) => {
-			await api(`/auction-tournaments/${tournamentId}/revert-bid`, {
-				method: "POST",
-				body: JSON.stringify({ targetUserId }),
-			});
-			swr.refresh();
-		},
-		[tournamentId, swr],
-	);
-
-	const cancelDraw = useCallback(async () => {
-		await api(`/auction-tournaments/${tournamentId}/cancel-draw`, { method: "POST" });
-		swr.refresh();
-	}, [tournamentId, swr]);
-
-	const setBidIntent = useCallback(
-		async (input: { teamId: number; points: number | null }) => {
-			await api(`/auction-tournaments/${tournamentId}/bid-intent`, {
-				method: "POST",
-				body: JSON.stringify(input),
-			});
-			// 본인은 WS origin-suppress 되어 broadcast 못 받음 — refresh 로 직접 sync.
-			// useStaleWhileRevalidate 의 debounce(150ms) 가 연쇄 호출 흡수.
-			swr.refresh();
-		},
-		[tournamentId, swr],
-	);
-
-	const startBracket = useCallback(async () => {
-		await api(`/auction-tournaments/${tournamentId}/start-bracket`, { method: "POST" });
-		swr.refresh();
-	}, [tournamentId, swr]);
-
-	const revertStage = useCallback(
-		async (target: "CAPTAIN_PICK" | "POINT_ALLOC" | "BIDDING") => {
-			await api(`/auction-tournaments/${tournamentId}/revert-stage`, {
-				method: "POST",
-				body: JSON.stringify({ target }),
-			});
-			swr.refresh();
-		},
-		[tournamentId, swr],
-	);
-
-	const createMatch = useCallback(
-		async (input: {
-			round: MatchRound;
-			bracketIndex: number | null;
-			team1Id: number;
-			team2Id: number;
-			format: MatchFormat;
-		}) => {
-			const res = await api<{ matchId: number }>(`/auction-tournaments/${tournamentId}/matches`, {
-				method: "POST",
-				body: JSON.stringify(input),
-			});
-			swr.refresh();
-			return res;
-		},
-		[tournamentId, swr],
-	);
-
-	const cancel = useCallback(async () => {
-		await api(`/auction-tournaments/${tournamentId}/cancel`, { method: "POST" });
-		swr.refresh();
-	}, [tournamentId, swr]);
+	const actions = useAuctionActions({ tournamentId, refresh: swr.refresh });
 
 	return {
 		detail: swr.data,
 		error: swr.error,
 		refresh: swr.refresh,
-		setCaptains,
-		setPoints,
-		startBidding,
-		draw,
-		finalizeBid,
-		manualAssign,
-		revertBid,
-		cancelDraw,
-		setBidIntent,
-		startBracket,
-		revertStage,
-		createMatch,
-		cancel,
+		...actions,
 	};
 }

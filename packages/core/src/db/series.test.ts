@@ -347,9 +347,11 @@ describe("deleteSeriesPhysical (legacy alias → soft-delete)", () => {
 		).rejects.toThrow(/이미 존재/);
 
 		// 원본 row 와 게임은 그대로 남아 있어야 함 (history 보존).
-		const row = db
-			.prepare("SELECT id, status, deleted_at FROM series WHERE id = ?")
-			.get(s.id) as { id: number; status: string; deleted_at: number | null };
+		const row = db.prepare("SELECT id, status, deleted_at FROM series WHERE id = ?").get(s.id) as {
+			id: number;
+			status: string;
+			deleted_at: number | null;
+		};
 		expect(row.deleted_at).not.toBeNull();
 		const gameCount = db
 			.prepare("SELECT COUNT(*) AS n FROM games WHERE ranked_series_id = ?")

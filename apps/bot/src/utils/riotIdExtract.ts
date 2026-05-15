@@ -28,8 +28,8 @@ export function extractRiotIdFromDisplayName(displayName: string): ExtractedRiot
 	const match = displayName.match(/\(([^)]+)\)\s*$/);
 	if (!match) return undefined;
 
-	const inner = match[1]!.trim();
-	if (inner.length === 0) return undefined;
+	const inner = match[1]?.trim();
+	if (!inner) return undefined;
 
 	const hashIdx = inner.indexOf("#");
 	if (hashIdx < 0) {

@@ -37,20 +37,18 @@ export async function getGame(id: number): Promise<GameRow | undefined> {
 }
 
 export async function listGamesInSeries(seriesId: number): Promise<GameRow[]> {
-	return query<GameRow>(
-		`SELECT * FROM games WHERE ranked_series_id = ? ORDER BY game_number`,
-		[seriesId],
-	);
+	return query<GameRow>(`SELECT * FROM games WHERE ranked_series_id = ? ORDER BY game_number`, [
+		seriesId,
+	]);
 }
 
 /**
  * 경매내전 매치의 게임 목록.
  */
 export async function listGamesInAuctionMatch(matchId: number): Promise<GameRow[]> {
-	return query<GameRow>(
-		`SELECT * FROM games WHERE auction_match_id = ? ORDER BY game_number`,
-		[matchId],
-	);
+	return query<GameRow>(`SELECT * FROM games WHERE auction_match_id = ? ORDER BY game_number`, [
+		matchId,
+	]);
 }
 
 export async function getGameStats(gameId: number): Promise<GameStatRow[]> {

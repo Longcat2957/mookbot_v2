@@ -1,6 +1,6 @@
 import { useState } from "react";
-import { UserAvatar } from "../../../components/UserAvatar.js";
 import type { AuctionTeam } from "../types.js";
+import { PointAllocatorTeamCard } from "./PointAllocatorTeamCard.js";
 
 // ============================================================
 // POINT_ALLOC — 팀별 초기 포인트 (기본 1000, 조정 가능)
@@ -27,9 +27,10 @@ export function PointAllocator({
 		setError(null);
 		try {
 			// 변경된 팀만 저장 → start-bidding 전이
-			const changed = teams
-				.filter((t) => points[t.id] !== t.initialPoints)
-				.map((t) => ({ teamId: t.id, initialPoints: points[t.id]! }));
+			const changed = teams.flatMap((t) => {
+				const initialPoints = points[t.id] ?? t.initialPoints;
+				return initialPoints === t.initialPoints ? [] : [{ teamId: t.id, initialPoints }];
+			});
 			if (changed.length > 0) await onSet(changed);
 			await onStartBidding();
 		} catch (err) {
@@ -75,44 +76,14 @@ export function PointAllocator({
 				<div className="grid grid-cols-1 md:grid-cols-2 gap-3">
 					{teams.map((t) => {
 						const p = points[t.id] ?? 0;
-						const pct = baseline > 0 ? Math.round((p / 1000) * 50) : 50; // 1000p = 50% (중앙). 2000p = 100%
 						return (
-							<div key={t.id} className="card bg-base-100">
-								<div className="card-body p-4 gap-2.5">
-									<div className="flex items-center gap-3">
-										<div
-											className="radial-progress text-warning tabular-nums"
-											style={{ "--value": pct, "--size": "4rem", "--thickness": "5px" } as React.CSSProperties}
-											aria-valuenow={pct}
-											role="progressbar"
-										>
-											<span className="text-sm font-bold">{p}p</span>
-										</div>
-										<UserAvatar
-											discordId={t.captainUserId}
-											displayName={t.captainName}
-											imageUrl={t.captainProfileIconUrl}
-											size="sm"
-										/>
-										<div className="flex-1 min-w-0">
-											<div className="flex items-center gap-1.5">
-												<div className="badge badge-info badge-lg">팀{t.teamIndex}</div>
-												<span className="badge badge-warning badge-sm">👑</span>
-											</div>
-											<div className="font-bold text-base truncate">{t.captainName}</div>
-										</div>
-									</div>
-									<input
-										type="number"
-										value={p}
-										onChange={(e) => setPoints((prev) => ({ ...prev, [t.id]: Number(e.target.value) }))}
-										disabled={!canEdit}
-										min={0}
-										step={50}
-										className="input input-bordered w-full text-right tabular-nums text-lg font-bold"
-									/>
-								</div>
-							</div>
+							<PointAllocatorTeamCard
+								key={t.id}
+								team={t}
+								points={p}
+								canEdit={canEdit}
+								onChange={(next) => setPoints((prev) => ({ ...prev, [t.id]: next }))}
+							/>
 						);
 					})}
 				</div>

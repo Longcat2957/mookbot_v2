@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { api } from "../../../api/rest.js";
-import { UserAvatar } from "../../../components/UserAvatar.js";
 import type { AuctionRecruitmentDetail } from "../types.js";
+import { CaptainCandidateButton } from "./CaptainCandidateButton.js";
 
 // ============================================================
 // CAPTAIN_PICK — 4명 (20인) 또는 2명 (10인) 선출
@@ -82,33 +82,13 @@ export function CaptainPicker({
 					{recruit.participants.map((p) => {
 						const isSelected = selected.includes(p.userId);
 						return (
-							<button
+							<CaptainCandidateButton
 								key={p.userId}
-								type="button"
-								onClick={() => toggle(p.userId)}
-								disabled={!canEdit}
-								className={`flex items-center gap-2.5 p-2.5 rounded-md border-2 transition ${
-									isSelected
-										? "border-warning bg-warning/15"
-										: "border-base-300 bg-base-100 hover:bg-base-300/40"
-								} ${!canEdit ? "cursor-not-allowed opacity-60" : ""}`}
-								aria-pressed={isSelected}
-							>
-								<div className={isSelected ? "ring-2 ring-warning rounded-full" : ""}>
-									<UserAvatar
-										discordId={p.userId}
-										displayName={p.displayName}
-										imageUrl={p.profileIconUrl}
-										size="sm"
-									/>
-								</div>
-								<div className="flex-1 min-w-0 text-left">
-									<div className="font-bold text-base truncate">{p.displayName}</div>
-									{isSelected && (
-										<div className="text-sm text-warning font-medium flex items-center gap-1">👑 팀장</div>
-									)}
-								</div>
-							</button>
+								participant={p}
+								selected={isSelected}
+								canEdit={canEdit}
+								onToggle={() => toggle(p.userId)}
+							/>
 						);
 					})}
 				</div>

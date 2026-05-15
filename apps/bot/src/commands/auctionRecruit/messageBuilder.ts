@@ -164,7 +164,7 @@ export async function refreshAuctionRecruitMessage(
 
 	try {
 		const ch = await interaction.client.channels.fetch(channelId);
-		if (!ch || !ch.isTextBased() || !("messages" in ch)) {
+		if (!ch?.isTextBased() || !("messages" in ch)) {
 			return "채널 접근 불가";
 		}
 		const msg = await ch.messages.fetch(messageId);
@@ -208,7 +208,7 @@ export async function refreshAuctionRecruitMessageWithClient(
 
 	try {
 		const ch = await client.channels.fetch(channelId);
-		if (!ch || !ch.isTextBased() || !("messages" in ch)) {
+		if (!ch?.isTextBased() || !("messages" in ch)) {
 			return "채널 접근 불가";
 		}
 		const msg = await ch.messages.fetch(messageId);
@@ -222,7 +222,7 @@ export async function refreshAuctionRecruitMessageWithClient(
 		if (isAccessOrMissingError(err)) {
 			try {
 				const ch = await client.channels.fetch(channelId);
-				if (!ch || !ch.isTextBased() || !("send" in ch)) {
+				if (!ch?.isTextBased() || !("send" in ch)) {
 					return `${detail} (폴백 채널 접근 불가)`;
 				}
 				const newMsg = await ch.send({

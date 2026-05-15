@@ -5,7 +5,7 @@ import { UserAvatar } from "../../../components/UserAvatar.js";
 import { useStaleWhileRevalidate } from "../../../state/useStaleWhileRevalidate.js";
 import type { AuctionMatch, AuctionTournamentDetail, MatchFormat } from "../types.js";
 import type { MatchDetail } from "./_shared.js";
-import { FormatSelect } from "./MatchSetup.js";
+import { FormatSelect } from "./FormatSelect.js";
 
 export function FinalSetup({
 	detail,
@@ -122,8 +122,10 @@ function useFinalParticipants(
 		return wsClient.subscribe(`auction-match:${m2Id}`, () => m2Swr.refresh());
 	}, [m2Id, m2Swr]);
 
+	const [semi1, semi2] = semis;
 	if (
-		semis.length !== 2 ||
+		!semi1 ||
+		!semi2 ||
 		!m1Swr.data ||
 		!m2Swr.data ||
 		m1Swr.data.match.status !== "COMPLETED" ||
@@ -133,7 +135,7 @@ function useFinalParticipants(
 	) {
 		return null;
 	}
-	const w1 = m1Swr.data.match.winningTeam === "TEAM_1" ? semis[0]!.team1Id : semis[0]!.team2Id;
-	const w2 = m2Swr.data.match.winningTeam === "TEAM_1" ? semis[1]!.team1Id : semis[1]!.team2Id;
+	const w1 = m1Swr.data.match.winningTeam === "TEAM_1" ? semi1.team1Id : semi1.team2Id;
+	const w2 = m2Swr.data.match.winningTeam === "TEAM_1" ? semi2.team1Id : semi2.team2Id;
 	return [w1, w2];
 }

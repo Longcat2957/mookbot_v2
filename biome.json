@@ -1,5 +1,5 @@
 {
-	"$schema": "https://biomejs.dev/schemas/2.4.13/schema.json",
+	"$schema": "https://biomejs.dev/schemas/2.4.14/schema.json",
 	"vcs": {
 		"enabled": true,
 		"clientKind": "git",
@@ -81,6 +81,9 @@
 					"suspicious": {
 						"noConsole": "off",
 						"noExplicitAny": "warn"
+					},
+					"style": {
+						"noNonNullAssertion": "off"
 					}
 				}
 			}
@@ -96,6 +99,19 @@
 				"packages/core/src/db/_assert.ts",
 				"apps/bot/src/deploy-commands.ts"
 			],
+			"linter": {
+				"rules": {
+					"suspicious": {
+						"noConsole": "off"
+					},
+					"style": {
+						"noNonNullAssertion": "off"
+					}
+				}
+			}
+		},
+		{
+			"includes": ["packages/core/src/db/backfill-profile-icons.ts"],
 			"linter": {
 				"rules": {
 					"suspicious": {

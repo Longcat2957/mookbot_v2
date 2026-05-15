@@ -61,6 +61,7 @@ function ChampCellImpl({
 			{blocked === "fearless" && (
 				<span
 					className="absolute top-0.5 left-0.5 badge badge-error badge-xs"
+					role="img"
 					aria-label="Hard Fearless"
 				>
 					F
@@ -69,6 +70,7 @@ function ChampCellImpl({
 			{blocked === "used" && (
 				<span
 					className="absolute top-0.5 left-0.5 badge badge-warning badge-xs"
+					role="img"
 					aria-label="이번 게임 사용"
 				>
 					U
@@ -77,6 +79,7 @@ function ChampCellImpl({
 			{mainCount !== undefined && mainCount > 0 && (
 				<span
 					className="absolute top-0.5 right-0.5 badge badge-warning badge-xs tabular-nums"
+					role="img"
 					aria-label={`${mainCount}회 플레이`}
 				>
 					{mainCount}
@@ -85,6 +88,7 @@ function ChampCellImpl({
 			{previousUsage && previousUsage.length > 0 && (
 				<span
 					className="absolute bottom-5 right-0.5 badge badge-info badge-xs tabular-nums"
+					role="img"
 					aria-label={`이전 게임 사용: ${previousUsage.map((u) => `G${u.gameNumber}`).join(", ")}`}
 				>
 					{previousUsage.map((u) => `G${u.gameNumber}`).join(",")}

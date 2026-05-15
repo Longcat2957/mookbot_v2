@@ -55,8 +55,10 @@ export function ChampPickerModal({
 		: champions;
 
 	return (
+		// biome-ignore lint/a11y/noStaticElementInteractions: modal backdrop closes on pointer click; Escape is handled globally.
 		<div
 			className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-3"
+			role="presentation"
 			onClick={(e) => {
 				if (e.target === e.currentTarget) onClose();
 			}}

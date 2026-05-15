@@ -101,7 +101,11 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
 		isAuction = !!auctionRec;
 	}
 
-	const rec = isAuction ? auctionRec! : normalRec!;
+	const rec = isAuction ? auctionRec : normalRec;
+	if (!rec) {
+		await interaction.editReply(`❌ ${isAuction ? "경매" : "일반"} 모집 #${recruitmentId} 없음.`);
+		return;
+	}
 	if (rec.status !== "OPEN") {
 		await interaction.editReply(
 			`❌ ${isAuction ? "경매" : "일반"} 모집 status=${rec.status} — OPEN 일 때만 추가 가능.`,

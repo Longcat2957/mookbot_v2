@@ -416,11 +416,11 @@ describe("DELETE /api/series/:id/games/last", () => {
 		expect(del.json()).toMatchObject({ ok: true, deletedGame: 1 });
 
 		// 게임 행 / cascade — game_stats / mmr_changes 모두 삭제
-		expect(
-			db.prepare("SELECT COUNT(*) AS n FROM games WHERE ranked_series_id = ?").get(sid),
-		).toEqual({
-			n: 0,
-		});
+		expect(db.prepare("SELECT COUNT(*) AS n FROM games WHERE ranked_series_id = ?").get(sid)).toEqual(
+			{
+				n: 0,
+			},
+		);
 		expect(db.prepare("SELECT COUNT(*) AS n FROM mmr_changes").get()).toEqual({ n: 0 });
 
 		// user_lane_mmr — mmr 1500 복귀 + 누적 카운터 reset.

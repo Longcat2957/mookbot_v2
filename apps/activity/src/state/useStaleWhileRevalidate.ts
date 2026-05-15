@@ -68,6 +68,7 @@ export function useStaleWhileRevalidate<T>(
 	const debounceTimer = useRef<number | null>(null);
 	const inflight = useRef(false);
 	const queued = useRef(false);
+	const dataRef = useRef<T | null>(null);
 	// fetcher / onApply 는 매 렌더 새 closure — useEffect deps 에 넣으면
 	// 무한 fetch. ref 로 latest 값을 잡아 effect 안에서만 호출.
 	const fetcherRef = useRef(fetcher);
@@ -76,15 +77,22 @@ export function useStaleWhileRevalidate<T>(
 		fetcherRef.current = fetcher;
 		onApplyRef.current = opts.onApply;
 	});
+	useEffect(() => {
+		dataRef.current = data;
+	}, [data]);
 
 	// key 변경 시 데이터 reset (시리즈 / 모집 전환). 첫 로드 skeleton 다시 노출.
 	useEffect(() => {
+		void key;
 		setData(null);
+		dataRef.current = null;
 		setError(null);
 		setRefreshing(false);
 	}, [key]);
 
 	useEffect(() => {
+		void key;
+		void nonce;
 		if (opts.enabled === false) return;
 		let cancelled = false;
 
@@ -95,7 +103,7 @@ export function useStaleWhileRevalidate<T>(
 			}
 			inflight.current = true;
 			// data 가 이미 있으면 background refresh — refreshing 만 표시 (skeleton X)
-			setRefreshing((prev) => prev || data !== null);
+			setRefreshing((prev) => prev || dataRef.current !== null);
 			try {
 				const next = await fetcherRef.current();
 				if (cancelled) return;

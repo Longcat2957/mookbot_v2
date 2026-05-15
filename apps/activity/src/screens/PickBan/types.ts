@@ -76,6 +76,7 @@ export const LANE_LABEL: Record<string, string> = {
 };
 
 export const LANE_ORDER = ["TOP", "JUNGLE", "MID", "BOTTOM", "SUPPORT"] as const;
+export type Lane = (typeof LANE_ORDER)[number];
 
 export function emptyGameDraft(n: number, banCount: number, pickCount: number): GameDraft {
 	return {

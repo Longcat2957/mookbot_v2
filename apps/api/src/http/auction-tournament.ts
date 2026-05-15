@@ -88,16 +88,19 @@ export async function registerAuctionTournamentRoutes(app: FastifyInstance): Pro
 		]);
 		const nameById = new Map(users.map((u) => [u.discord_id, u.display_name]));
 		const iconByUser = new Map(
-			mains
-				.filter((m) => m.profile_icon_id != null)
-				.map((m) => [m.user_id, rewriteDD(datadragon.getProfileIconUrl(m.profile_icon_id!))]),
+			mains.flatMap((m) =>
+				m.profile_icon_id == null
+					? []
+					: [[m.user_id, rewriteDD(datadragon.getProfileIconUrl(m.profile_icon_id))] as const],
+			),
 		);
 
 		// team_id → members
 		const membersByTeam = new Map<number, typeof allMembers>();
 		for (const m of allMembers) {
-			if (!membersByTeam.has(m.team_id)) membersByTeam.set(m.team_id, []);
-			membersByTeam.get(m.team_id)!.push(m);
+			const members = membersByTeam.get(m.team_id) ?? [];
+			members.push(m);
+			membersByTeam.set(m.team_id, members);
 		}
 		// 모든 팀원 user_id 모음 (unsold 계산용)
 		const placedUserIds = new Set(allMembers.map((m) => m.user_id));
@@ -205,11 +208,11 @@ export async function registerAuctionTournamentRoutes(app: FastifyInstance): Pro
 				// (실제 운영 흐름은 한 번 설정 후 거의 안 바뀜)
 			}
 
-			for (let i = 0; i < captains.length; i++) {
+			for (const [i, captainUserId] of captains.entries()) {
 				await db.createAuctionTeam({
 					tournamentId: id,
 					teamIndex: i + 1,
-					captainUserId: captains[i]!,
+					captainUserId,
 				});
 			}
 			await db.setAuctionTournamentStatus(id, "POINT_ALLOC");
@@ -300,7 +303,8 @@ export async function registerAuctionTournamentRoutes(app: FastifyInstance): Pro
 			}
 			return { userId: null, displayName: null, remainingCount: 0, done: true };
 		}
-		const pick = remaining[Math.floor(Math.random() * remaining.length)]!;
+		const pick = remaining[Math.floor(Math.random() * remaining.length)];
+		if (!pick) return { userId: null, displayName: null, remainingCount: 0, done: true };
 		const users = await db.listUsers([pick.user_id]);
 		// v0.14: DB 에 현재 매물 set + 이전 매물의 입찰 의도 잔재 clear → 모든 화면 sync.
 		await db.setAuctionCurrentBidTarget(id, pick.user_id);

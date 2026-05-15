@@ -64,19 +64,19 @@ function formatEmbed(obj: PinoLogObject, service: string): DiscordEmbed {
 
 	if (obj.err) {
 		const errLine = `${obj.err.name ?? "Error"}: ${obj.err.message ?? "(no message)"}`;
-		fields.push({ name: "error", value: "```\n" + errLine.slice(0, 1000) + "\n```" });
+		fields.push({ name: "error", value: `\`\`\`\n${errLine.slice(0, 1000)}\n\`\`\`` });
 		if (obj.err.stack) {
 			fields.push({
 				name: "stack",
-				value: "```\n" + formatStack(obj.err.stack) + "\n```",
+				value: `\`\`\`\n${formatStack(obj.err.stack)}\n\`\`\``,
 			});
 		}
 	}
 
 	if (Object.keys(ctx).length > 0) {
 		let ctxStr = JSON.stringify(ctx, null, 2);
-		if (ctxStr.length > 800) ctxStr = ctxStr.slice(0, 800) + "\n…(truncated)";
-		fields.push({ name: "context", value: "```json\n" + ctxStr + "\n```" });
+		if (ctxStr.length > 800) ctxStr = `${ctxStr.slice(0, 800)}\n…(truncated)`;
+		fields.push({ name: "context", value: `\`\`\`json\n${ctxStr}\n\`\`\`` });
 	}
 
 	return {

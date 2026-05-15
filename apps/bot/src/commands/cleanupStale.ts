@@ -95,10 +95,7 @@ async function buildPreview(days: number): Promise<{
 	}
 	for (const at of staleAuctionTournaments) {
 		// 매치/팀 기록 있으면 skip — 운영자가 /경매강제삭제 로 명시 처리
-		const [matches, teams] = await Promise.all([
-			listAuctionMatches(at.id),
-			listAuctionTeams(at.id),
-		]);
+		const [matches, teams] = await Promise.all([listAuctionMatches(at.id), listAuctionTeams(at.id)]);
 		const item: PreviewItem = {
 			kind: "auction-tournament",
 			id: at.id,

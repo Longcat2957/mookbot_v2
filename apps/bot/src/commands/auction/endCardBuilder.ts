@@ -44,8 +44,9 @@ export async function renderEndCardComponents(
 
 	const teamMembersByTeam = new Map<number, typeof allMembers>();
 	for (const m of allMembers) {
-		if (!teamMembersByTeam.has(m.team_id)) teamMembersByTeam.set(m.team_id, []);
-		teamMembersByTeam.get(m.team_id)!.push(m);
+		const members = teamMembersByTeam.get(m.team_id) ?? [];
+		members.push(m);
+		teamMembersByTeam.set(m.team_id, members);
 	}
 
 	const teamRoster = teams

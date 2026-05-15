@@ -135,7 +135,8 @@ export async function fetchPlayHistoryFor(userIds: string[]): Promise<Map<string
 	}
 
 	for (const [uid, roleMap] of byUserRole) {
-		const h = result.get(uid)!;
+		const h = result.get(uid);
+		if (!h) continue;
 		const byRole: Record<string, ChampionPlay[]> = {};
 		for (const [role, list] of roleMap) {
 			list.sort((a, b) => b.plays - a.plays);
@@ -150,8 +151,8 @@ export async function fetchPlayHistoryFor(userIds: string[]): Promise<Map<string
 			list.push(makeChampPlay(champId, data.plays, data.wins));
 		}
 		list.sort((a, b) => b.plays - a.plays);
-		const h = result.get(uid)!;
-		h.topChampions = list.slice(0, 5);
+		const h = result.get(uid);
+		if (h) h.topChampions = list.slice(0, 5);
 	}
 
 	const roleByUser = new Map<string, RolePlay[]>();
@@ -167,7 +168,8 @@ export async function fetchPlayHistoryFor(userIds: string[]): Promise<Map<string
 	}
 	for (const [uid, list] of roleByUser) {
 		list.sort((a, b) => b.plays - a.plays);
-		const h = result.get(uid)!;
+		const h = result.get(uid);
+		if (!h) continue;
 		h.rolePlays = list;
 		h.topRole = list[0] ?? null;
 		const total = list.reduce(

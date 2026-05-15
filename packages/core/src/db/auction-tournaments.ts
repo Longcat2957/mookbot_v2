@@ -111,10 +111,7 @@ export async function setAuctionTournamentStatus(
  * BIDDING 진행 중 "현재 매물 후보" 설정 — userId 가 NULL 이면 clear.
  * /draw 가 set, /finalize-bid / /manual-assign / /cancel-draw 가 NULL 호출.
  */
-export async function setAuctionCurrentBidTarget(
-	id: number,
-	userId: string | null,
-): Promise<void> {
+export async function setAuctionCurrentBidTarget(id: number, userId: string | null): Promise<void> {
 	await execute(
 		`UPDATE auction_tournaments
 		 SET current_bid_target_user_id = ?
