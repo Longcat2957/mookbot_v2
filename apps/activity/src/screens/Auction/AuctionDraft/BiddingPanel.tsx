@@ -1,4 +1,4 @@
-import { InlineNotice } from "../../../components/DesignPrimitives.js";
+import { cx, InlineNotice } from "../../../components/DesignPrimitives.js";
 import type { AuctionTournamentDetail } from "../types.js";
 import { BiddingProgressFooter } from "./BiddingProgressFooter.js";
 import { BiddingStats } from "./BiddingStats.js";
@@ -41,9 +41,15 @@ export function BiddingPanel({
 		onFinalizeBid,
 		onManualAssign,
 	});
+	const teamGridClass = cx(
+		"grid grid-cols-1 gap-3 items-stretch",
+		detail.teams.length === 2 || detail.teams.length === 4
+			? "md:grid-cols-2 auto-rows-fr"
+			: "lg:grid-cols-2",
+	);
 
 	return (
-		<div className="grid grid-cols-1 xl:grid-cols-[minmax(24rem,34rem)_minmax(0,1fr)] gap-4 items-start">
+		<div className="grid grid-cols-1 xl:grid-cols-[minmax(28rem,38rem)_minmax(0,1fr)] gap-4 items-start">
 			<aside className="space-y-4 min-w-0 xl:sticky xl:top-3">
 				<BiddingStats
 					recruitPoolSize={s.recruitPoolSize}
@@ -76,7 +82,7 @@ export function BiddingPanel({
 			</aside>
 
 			<div className="space-y-4 min-w-0">
-				<div className="grid grid-cols-1 lg:grid-cols-2 2xl:grid-cols-3 gap-3">
+				<div className={teamGridClass}>
 					{detail.teams.map((team) => (
 						<BiddingTeamCard
 							key={team.id}
