@@ -1,3 +1,4 @@
+import { PanelCard } from "../../components/DesignPrimitives.js";
 import { scoreByTeam } from "./seriesResultStats.js";
 import { type SeriesDetail, teamLabel } from "./types.js";
 
@@ -5,37 +6,36 @@ export function SeriesResultHero({ detail }: { detail: SeriesDetail }) {
 	const { team1Wins, team2Wins } = scoreByTeam(detail.games);
 
 	return (
-		<div
-			className={`card surface-base shadow-sm ${detail.series.winningTeam ? "border border-success" : ""}`}
+		<PanelCard
+			status={detail.series.winningTeam ? "success" : "neutral"}
+			bodyClassName="p-5 items-center text-center gap-2"
 		>
-			<div className="card-body p-5 items-center text-center gap-2">
-				{detail.series.winningTeam && (
-					<div className="text-3xl text-success leading-none" aria-hidden>
-						🏆
-					</div>
-				)}
-				<div className="flex items-end gap-4 tabular-nums">
-					<TeamScore
-						label="1팀"
-						wins={team1Wins}
-						won={detail.series.winningTeam === "TEAM_1"}
-						color="text-info"
-					/>
-					<div className="text-3xl opacity-30 leading-none pb-2">:</div>
-					<TeamScore
-						label="2팀"
-						wins={team2Wins}
-						won={detail.series.winningTeam === "TEAM_2"}
-						color="text-error"
-					/>
+			{detail.series.winningTeam && (
+				<div className="text-3xl text-success leading-none" aria-hidden>
+					🏆
 				</div>
-				{detail.series.winningTeam && (
-					<div className="text-sm font-bold text-success mt-1">
-						{teamLabel(detail.series.winningTeam)} 우승
-					</div>
-				)}
+			)}
+			<div className="flex items-end gap-4 tabular-nums">
+				<TeamScore
+					label="1팀"
+					wins={team1Wins}
+					won={detail.series.winningTeam === "TEAM_1"}
+					color="text-info"
+				/>
+				<div className="text-3xl opacity-30 leading-none pb-2">:</div>
+				<TeamScore
+					label="2팀"
+					wins={team2Wins}
+					won={detail.series.winningTeam === "TEAM_2"}
+					color="text-error"
+				/>
 			</div>
-		</div>
+			{detail.series.winningTeam && (
+				<div className="text-sm font-bold text-success mt-1">
+					{teamLabel(detail.series.winningTeam)} 우승
+				</div>
+			)}
+		</PanelCard>
 	);
 }
 

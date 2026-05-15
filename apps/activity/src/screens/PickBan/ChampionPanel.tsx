@@ -1,4 +1,5 @@
 import type { RefObject } from "react";
+import { InlineNotice, PanelCard } from "../../components/DesignPrimitives.js";
 import { markRender } from "../../debug/renderMetrics.js";
 import { BlockedChampionGrid } from "./ChampionPanel/BlockedChampionGrid.js";
 import { ChampionFilterTabs } from "./ChampionPanel/ChampionFilterTabs.js";
@@ -40,47 +41,48 @@ export function ChampionPanel({
 }) {
 	markRender("PickBan.ChampionPanel");
 	return (
-		<div className="card surface-base shadow-sm lg:sticky lg:top-2 lg:max-h-[calc(100vh-1rem)] lg:overflow-y-auto">
-			<div className="card-body p-4 gap-3">
-				<ChampionSearchHeader
-					searchRef={searchRef}
-					search={search}
-					onSearchChange={onSearchChange}
-					onClearSearch={onClearSearch}
-					availableCount={mains.length + usable.length}
-					blockedCount={blocked.length}
-				/>
-				<ChampionFilterTabs
-					activePlayer={activePlayer}
-					mainsCount={mains.length}
-					filterMode={filterMode}
-					onFilterModeChange={onFilterModeChange}
-				/>
+		<PanelCard
+			className="lg:sticky lg:top-2 lg:max-h-[calc(100vh-1rem)] lg:overflow-y-auto"
+			bodyClassName="p-4 gap-3"
+		>
+			<ChampionSearchHeader
+				searchRef={searchRef}
+				search={search}
+				onSearchChange={onSearchChange}
+				onClearSearch={onClearSearch}
+				availableCount={mains.length + usable.length}
+				blockedCount={blocked.length}
+			/>
+			<ChampionFilterTabs
+				activePlayer={activePlayer}
+				mainsCount={mains.length}
+				filterMode={filterMode}
+				onFilterModeChange={onFilterModeChange}
+			/>
 
-				{fearlessUsedIds.size > 0 && (
-					<div className="text-xs text-base-content/60">
-						🛡️ Hard Fearless — 이전 게임에서 사용된 {fearlessUsedIds.size}개 챔프 자동 비활성화
-					</div>
-				)}
+			{fearlessUsedIds.size > 0 && (
+				<InlineNotice tone="info" className="py-2">
+					🛡️ Hard Fearless — 이전 게임에서 사용된 {fearlessUsedIds.size}개 챔프 자동 비활성화
+				</InlineNotice>
+			)}
 
-				<MainChampionGrid
-					activePlayer={activePlayer}
-					activeSlot={activeSlot}
-					mains={mains}
-					previousPicks={previousPicks}
-					onCommitChampion={onCommitChampion}
-				/>
-				<UsableChampionGrid
-					filterMode={filterMode}
-					search={search}
-					activeSlot={activeSlot}
-					mainsCount={mains.length}
-					usable={usable}
-					previousPicks={previousPicks}
-					onCommitChampion={onCommitChampion}
-				/>
-				<BlockedChampionGrid blocked={blocked} previousPicks={previousPicks} />
-			</div>
-		</div>
+			<MainChampionGrid
+				activePlayer={activePlayer}
+				activeSlot={activeSlot}
+				mains={mains}
+				previousPicks={previousPicks}
+				onCommitChampion={onCommitChampion}
+			/>
+			<UsableChampionGrid
+				filterMode={filterMode}
+				search={search}
+				activeSlot={activeSlot}
+				mainsCount={mains.length}
+				usable={usable}
+				previousPicks={previousPicks}
+				onCommitChampion={onCommitChampion}
+			/>
+			<BlockedChampionGrid blocked={blocked} previousPicks={previousPicks} />
+		</PanelCard>
 	);
 }

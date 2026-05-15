@@ -46,6 +46,7 @@ export interface UseEntryEditingStateResult {
 	submitting: boolean;
 	submitError: string | null;
 	submit: () => Promise<{ seriesId: number } | null>;
+	reopenRecruitment: () => Promise<boolean>;
 	// derived (detail 이 있을 때만 의미)
 	teamSize: number;
 	activeLanes: Lane[];
@@ -210,6 +211,17 @@ export function useEntryEditingState({
 	);
 	const clearCoinToss = useCallback(() => setCoinTossDecided(false), []);
 
+	const reopenRecruitment = useCallback(async (): Promise<boolean> => {
+		if (recruitmentId === null || !perms.canEdit) return false;
+		try {
+			await api(`/recruitments/${recruitmentId}/reopen`, { method: "POST" });
+			return true;
+		} catch (err) {
+			showToast(`모집 복귀 실패: ${err instanceof Error ? err.message : String(err)}`);
+			return false;
+		}
+	}, [recruitmentId, perms.canEdit]);
+
 	useEntryUndoShortcuts({
 		canEdit: perms.canEdit,
 		undo: history.undo,
@@ -226,6 +238,7 @@ export function useEntryEditingState({
 		submitting,
 		submitError,
 		submit,
+		reopenRecruitment,
 		teamSize,
 		activeLanes,
 		unassigned,

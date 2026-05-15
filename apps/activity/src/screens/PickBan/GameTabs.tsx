@@ -1,3 +1,4 @@
+import { StatusBadge } from "../../components/DesignPrimitives.js";
 import type { SeriesDetail } from "./types.js";
 
 export function GameTabs({
@@ -39,13 +40,13 @@ export function GameTabs({
 					>
 						<span className="font-medium">Game {n}</span>
 						{recorded && game && (
-							<span
-								className={`ml-1.5 badge badge-xs ${
-									game.winningTeam === "TEAM_1" ? "badge-info" : "badge-error"
-								}`}
+							<StatusBadge
+								tone={game.winningTeam === "TEAM_1" ? "info" : "error"}
+								size="xs"
+								className="ml-1.5"
 							>
 								{game.winningTeam === "TEAM_1" ? "1팀 W" : "2팀 W"}
-							</span>
+							</StatusBadge>
 						)}
 						{!recorded && isCurrent && enabled && (
 							<span

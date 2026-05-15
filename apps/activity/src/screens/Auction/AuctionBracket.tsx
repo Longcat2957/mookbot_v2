@@ -1,6 +1,7 @@
 // 경매내전 토너먼트 매치 진행 — BRACKET_SETUP / IN_GAME / COMPLETED.
 
 import { useEffect } from "react";
+import { InlineNotice } from "../../components/DesignPrimitives.js";
 import { usePerms } from "../../state/perms.js";
 import { AuctionBracketGrid, SingleMatchList } from "./AuctionBracket/AuctionBracketGrid.js";
 import { AuctionBracketHeader } from "./AuctionBracket/AuctionBracketHeader.js";
@@ -21,9 +22,9 @@ export function AuctionBracket({
 		if (s.detail?.tournament.status === "COMPLETED") onCompleted();
 	}, [s.detail?.tournament.status, onCompleted]);
 
-	if (!tournamentId) return <div className="alert alert-warning">토너먼트 ID 없음</div>;
-	if (s.error) return <div className="alert alert-error">{s.error}</div>;
-	if (!s.detail) return <div className="alert alert-info">로딩 중…</div>;
+	if (!tournamentId) return <InlineNotice tone="warning">토너먼트 ID 없음</InlineNotice>;
+	if (s.error) return <InlineNotice tone="error">{s.error}</InlineNotice>;
+	if (!s.detail) return <InlineNotice tone="info">로딩 중…</InlineNotice>;
 
 	const matches = s.detail.matches;
 	const semis = matches.filter((m) => m.round === "SEMI");

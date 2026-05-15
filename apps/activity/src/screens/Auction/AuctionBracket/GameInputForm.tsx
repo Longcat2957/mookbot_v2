@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { api } from "../../../api/rest.js";
+import { InlineNotice, SectionHeader } from "../../../components/DesignPrimitives.js";
 import { useChampionCatalog } from "../../../features/champions/useChampionCatalog.js";
 import { ChampPickerModal } from "../ChampPickerModal.js";
 import type { AuctionMatch, AuctionTournamentDetail } from "../types.js";
@@ -105,10 +106,10 @@ export function GameInputForm({
 	return (
 		<>
 			<div className="space-y-3 xl:border-l xl:border-base-300 xl:pl-4">
-				<div className="flex items-center justify-between gap-2 flex-wrap">
-					<h4 className="font-bold text-sm">Game {nextGameNumber} 입력</h4>
-					<div className="text-xs text-base-content/50">라인 자유 배치</div>
-				</div>
+				<SectionHeader
+					title={<span className="text-sm">Game {nextGameNumber} 입력</span>}
+					actions={<div className="text-xs text-base-content/50">라인 자유 배치</div>}
+				/>
 				<div className="grid grid-cols-1 2xl:grid-cols-[13rem_minmax(0,1fr)] gap-3 items-start">
 					<div className="surface-quiet-soft rounded-md p-2.5 space-y-2">
 						<GameSideControls
@@ -140,7 +141,7 @@ export function GameInputForm({
 						/>
 					</div>
 				</div>
-				{error && <div className="alert alert-error alert-sm">{error}</div>}
+				{error && <InlineNotice tone="error">{error}</InlineNotice>}
 				<button
 					type="button"
 					className="btn btn-sm btn-primary w-full"

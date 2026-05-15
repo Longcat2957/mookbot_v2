@@ -1,5 +1,6 @@
 import type { FormEvent } from "react";
 import { useState } from "react";
+import { InlineNotice, PanelCard, SectionHeader } from "../../components/DesignPrimitives.js";
 import { LINK_FORM_INITIAL, type LinkFormState } from "./types.js";
 
 interface Props {
@@ -25,13 +26,17 @@ export function LinkAccountForm({ onLink }: Props) {
 	};
 
 	return (
-		<form onSubmit={handleSubmit} className="card surface-base shadow-sm">
-			<div className="card-body p-3 gap-2">
-				<h3 className="card-title text-base">새 계정 추가</h3>
-				<p className="text-xs text-base-content/60">
-					<code className="bg-base-300 px-1 rounded">GameName#TagLine</code> 형식으로 입력하세요. 라이엇
-					서버에서 검증합니다.
-				</p>
+		<form onSubmit={handleSubmit}>
+			<PanelCard bodyClassName="p-3 gap-2">
+				<SectionHeader
+					title={<span className="text-base">새 계정 추가</span>}
+					description={
+						<span>
+							<code className="bg-base-300 px-1 rounded">GameName#TagLine</code> 형식으로 입력하세요.
+							라이엇 서버에서 검증합니다.
+						</span>
+					}
+				/>
 				<div className="join">
 					<input
 						type="text"
@@ -56,12 +61,8 @@ export function LinkAccountForm({ onLink }: Props) {
 						)}
 					</button>
 				</div>
-				{linkForm.error && (
-					<div className="alert alert-error text-xs">
-						<span>{linkForm.error}</span>
-					</div>
-				)}
-			</div>
+				{linkForm.error && <InlineNotice tone="error">{linkForm.error}</InlineNotice>}
+			</PanelCard>
 		</form>
 	);
 }

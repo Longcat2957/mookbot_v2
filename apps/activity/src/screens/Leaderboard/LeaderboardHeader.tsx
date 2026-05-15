@@ -1,3 +1,4 @@
+import { SectionHeader, StatusBadge } from "../../components/DesignPrimitives.js";
 import { LEADERBOARD_TABS, type LeaderboardTab } from "./types.js";
 
 interface Props {
@@ -14,17 +15,17 @@ export function LeaderboardHeader({ tab, seasonId, onBack }: Props) {
 			: `${tabLabel} 라인 시즌 MMR 랭킹`;
 
 	return (
-		<div className="flex items-start justify-between gap-3 flex-wrap">
-			<div>
-				<h1 className="text-2xl font-bold">🏆 리더보드</h1>
-				<p className="text-sm text-base-content/70">
-					{description}
-					{seasonId ? ` · 시즌 ${seasonId}` : ""}
-				</p>
-			</div>
-			<button type="button" className="btn btn-ghost btn-sm" onClick={onBack}>
-				← 대시보드
-			</button>
-		</div>
+		<SectionHeader
+			title={<span className="text-2xl">🏆 리더보드</span>}
+			description={description}
+			actions={
+				<div className="flex items-center gap-2">
+					{seasonId && <StatusBadge tone="neutral">시즌 {seasonId}</StatusBadge>}
+					<button type="button" className="btn btn-ghost btn-sm" onClick={onBack}>
+						← 대시보드
+					</button>
+				</div>
+			}
+		/>
 	);
 }

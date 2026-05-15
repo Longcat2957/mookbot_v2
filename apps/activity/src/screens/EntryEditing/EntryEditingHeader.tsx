@@ -1,3 +1,5 @@
+import { ConfirmButton } from "../../components/ConfirmButton.js";
+import { SectionHeader, StatusBadge } from "../../components/DesignPrimitives.js";
 import { SaveStatusIndicator } from "../../components/SaveStatus.js";
 import type { UseEntryEditingStateResult } from "./useEntryEditingState.js";
 
@@ -5,10 +7,12 @@ export function EntryEditingHeader({
 	state,
 	canEdit,
 	onSubmit,
+	onReopened,
 }: {
 	state: UseEntryEditingStateResult;
 	canEdit: boolean;
 	onSubmit: () => Promise<void>;
+	onReopened: () => void;
 }) {
 	if (!state.detail) return null;
 
@@ -37,55 +41,76 @@ export function EntryEditingHeader({
 	);
 
 	return (
-		<header className="flex items-center justify-between flex-wrap gap-2">
-			<div>
-				<h2 className="text-xl font-bold flex items-center gap-3">
-					엔트리 수정
-					{canEdit && (
-						<SaveStatusIndicator
-							status={state.saveStatus}
-							savedAt={state.savedAt}
-							onRetry={state.retrySave}
-						/>
-					)}
-				</h2>
-				<p className="text-xs text-base-content/70">
-					모집 #{recruitment.id} · {state.teamSize}v{state.teamSize} · 후보 {participants.length}명
-					{" · "}
-					배정{" "}
-					<span className="font-bold tabular-nums">
-						{state.assignment.size}/{recruitment.targetCount}
+		<header>
+			<SectionHeader
+				title={
+					<span className="text-xl flex items-center gap-3">
+						엔트리 수정
+						{canEdit && (
+							<SaveStatusIndicator
+								status={state.saveStatus}
+								savedAt={state.savedAt}
+								onRetry={state.retrySave}
+							/>
+						)}
 					</span>
-				</p>
-			</div>
-			<div className="join">
-				<button
-					type="button"
-					className="btn btn-sm btn-ghost join-item"
-					onClick={state.refresh}
-					title="새로고침"
-					disabled={state.submitting}
-				>
-					↻
-				</button>
-				<button
-					type="button"
-					className="btn btn-sm btn-ghost join-item"
-					onClick={state.swapTeams}
-					title="1팀과 2팀의 좌/우 위치를 바꿉니다"
-					aria-label="1팀과 2팀 좌우 바꾸기"
-					disabled={state.submitting || !canEdit || state.assignment.size === 0}
-				>
-					↔ 좌/우 바꾸기
-				</button>
-				{submitTip ? (
-					<span className="tooltip tooltip-bottom join-item" data-tip={submitTip}>
-						{submitButton}
+				}
+				description={
+					<span>
+						모집 #{recruitment.id} · {state.teamSize}v{state.teamSize} · 후보 {participants.length}명
+						{" · "}
+						배정{" "}
+						<span className="font-bold tabular-nums">
+							{state.assignment.size}/{recruitment.targetCount}
+						</span>
 					</span>
-				) : (
-					submitButton
-				)}
-			</div>
+				}
+				actions={
+					<div className="flex flex-wrap items-center gap-2">
+						<StatusBadge tone={state.allFilled ? "success" : "warning"} variant="outline">
+							{state.assignment.size}/{recruitment.targetCount}
+						</StatusBadge>
+						<div className="join">
+							<button
+								type="button"
+								className="btn btn-sm btn-ghost join-item"
+								onClick={state.refresh}
+								title="새로고침"
+								disabled={state.submitting}
+							>
+								↻
+							</button>
+							<button
+								type="button"
+								className="btn btn-sm btn-ghost join-item"
+								onClick={state.swapTeams}
+								title="1팀과 2팀의 좌/우 위치를 바꿉니다"
+								aria-label="1팀과 2팀 좌우 바꾸기"
+								disabled={state.submitting || !canEdit || state.assignment.size === 0}
+							>
+								↔ 좌/우 바꾸기
+							</button>
+							{submitTip ? (
+								<span className="tooltip tooltip-bottom join-item" data-tip={submitTip}>
+									{submitButton}
+								</span>
+							) : (
+								submitButton
+							)}
+							{canEdit && (
+								<ConfirmButton
+									label="모집 상태로"
+									onConfirm={async () => {
+										if (await state.reopenRecruitment()) onReopened();
+									}}
+									variant="warning"
+									className="btn-sm join-item"
+								/>
+							)}
+						</div>
+					</div>
+				}
+			/>
 		</header>
 	);
 }

@@ -79,7 +79,11 @@ export function AppMain({
 				{nav.stage === "ENTRY_EDITING" && (
 					<ErrorBoundary key={`entry-${nav.recruitmentId}`} label="엔트리 수정" onReset={nav.goHome}>
 						<ScreenSuspense>
-							<EntryEditing recruitmentId={nav.recruitmentId} onSubmit={nav.enterSeries} />
+							<EntryEditing
+								recruitmentId={nav.recruitmentId}
+								onSubmit={nav.enterSeries}
+								onReopened={nav.goHome}
+							/>
 						</ScreenSuspense>
 					</ErrorBoundary>
 				)}
@@ -93,7 +97,12 @@ export function AppMain({
 				{nav.stage === "COMPLETED" && (
 					<ErrorBoundary key={`result-${nav.seriesId}`} label="시리즈 결과" onReset={nav.goHome}>
 						<ScreenSuspense>
-							<SeriesResult seriesId={nav.seriesId} onBack={nav.goHome} onSelectUser={nav.openProfile} />
+							<SeriesResult
+								seriesId={nav.seriesId}
+								onBack={nav.goHome}
+								onSelectUser={nav.openProfile}
+								onEditSeries={nav.editCompletedSeries}
+							/>
 						</ScreenSuspense>
 					</ErrorBoundary>
 				)}

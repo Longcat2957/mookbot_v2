@@ -1,4 +1,5 @@
 import { memo, useCallback } from "react";
+import { cx, StatusBadge } from "../../components/DesignPrimitives.js";
 import { markRender } from "../../debug/renderMetrics.js";
 import type { Champion, PickUsage } from "./types.js";
 
@@ -56,11 +57,13 @@ function ChampCellImpl({
 			disabled={disabled}
 			onClick={handleClick}
 			title={reason + usageTitle}
-			className={`relative rounded-md overflow-hidden transition flex flex-col items-center ${
+			className={cx(
+				"relative rounded-md overflow-hidden transition flex flex-col items-center",
 				disabled
 					? "opacity-40 grayscale cursor-not-allowed"
-					: "hover:ring-2 hover:ring-primary hover:scale-105"
-			} ${mainCount ? "ring-1 ring-warning/50" : ""}`}
+					: "hover:ring-2 hover:ring-primary hover:scale-105",
+				mainCount ? "ring-1 ring-warning/50" : "",
+			)}
 		>
 			<img
 				src={champ.iconUrl}
@@ -74,40 +77,48 @@ function ChampCellImpl({
 			/>
 			<span className="text-[10px] truncate w-full px-1 bg-base-300 text-center">{champ.name}</span>
 			{blocked === "fearless" && (
-				<span
-					className="absolute top-0.5 left-0.5 badge badge-error badge-xs"
+				<StatusBadge
+					tone="error"
+					size="xs"
+					className="absolute top-0.5 left-0.5"
 					role="img"
 					aria-label="Hard Fearless"
 				>
 					F
-				</span>
+				</StatusBadge>
 			)}
 			{blocked === "used" && (
-				<span
-					className="absolute top-0.5 left-0.5 badge badge-warning badge-xs"
+				<StatusBadge
+					tone="warning"
+					size="xs"
+					className="absolute top-0.5 left-0.5"
 					role="img"
 					aria-label="이번 게임 사용"
 				>
 					U
-				</span>
+				</StatusBadge>
 			)}
 			{mainCount !== undefined && mainCount > 0 && (
-				<span
-					className="absolute top-0.5 right-0.5 badge badge-warning badge-xs tabular-nums"
+				<StatusBadge
+					tone="warning"
+					size="xs"
+					className="absolute top-0.5 right-0.5 tabular-nums"
 					role="img"
 					aria-label={`${mainCount}회 플레이`}
 				>
 					{mainCount}
-				</span>
+				</StatusBadge>
 			)}
 			{previousUsage && previousUsage.length > 0 && (
-				<span
-					className="absolute bottom-5 right-0.5 badge badge-info badge-xs tabular-nums"
+				<StatusBadge
+					tone="info"
+					size="xs"
+					className="absolute bottom-5 right-0.5 tabular-nums"
 					role="img"
 					aria-label={`이전 게임 사용: ${previousUsage.map((u) => `G${u.gameNumber}`).join(", ")}`}
 				>
 					{previousUsage.map((u) => `G${u.gameNumber}`).join(",")}
-				</span>
+				</StatusBadge>
 			)}
 		</button>
 	);

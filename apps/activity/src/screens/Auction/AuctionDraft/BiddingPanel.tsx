@@ -1,3 +1,4 @@
+import { InlineNotice } from "../../../components/DesignPrimitives.js";
 import type { AuctionTournamentDetail } from "../types.js";
 import { BiddingProgressFooter } from "./BiddingProgressFooter.js";
 import { BiddingStats } from "./BiddingStats.js";
@@ -51,7 +52,7 @@ export function BiddingPanel({
 					unsoldCount={detail.unsold.length}
 					hasCurrentBidTarget={s.currentBidTarget !== null}
 				/>
-				{s.error && <div className="alert alert-error">{s.error}</div>}
+				{s.error && <InlineNotice tone="error">{s.error}</InlineNotice>}
 				<div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
 					{detail.teams.map((team) => (
 						<BiddingTeamCard

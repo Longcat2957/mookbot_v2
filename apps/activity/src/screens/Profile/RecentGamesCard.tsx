@@ -1,3 +1,4 @@
+import { PanelCard, SectionHeader, StatusBadge } from "../../components/DesignPrimitives.js";
 import type { RecentGame } from "./types.js";
 
 export function RecentGamesCard({
@@ -8,24 +9,18 @@ export function RecentGamesCard({
 	onSelectSeries: (seriesId: number) => void;
 }) {
 	return (
-		<div className="card surface-soft">
-			<div className="card-body p-3">
-				<h2 className="card-title text-base">🕒 최근 게임</h2>
-				{games.length === 0 ? (
-					<div className="text-sm text-base-content/50 py-2">최근 게임 기록이 없습니다.</div>
-				) : (
-					<ul className="space-y-1.5 max-h-[50vh] sm:max-h-[420px] overflow-y-auto pr-1">
-						{games.map((game) => (
-							<RecentGameItem
-								key={game.gameId}
-								game={game}
-								onClick={() => onSelectSeries(game.seriesId)}
-							/>
-						))}
-					</ul>
-				)}
-			</div>
-		</div>
+		<PanelCard surface="soft" bodyClassName="p-3">
+			<SectionHeader title={<span className="text-base">🕒 최근 게임</span>} />
+			{games.length === 0 ? (
+				<div className="text-sm text-base-content/50 py-2">최근 게임 기록이 없습니다.</div>
+			) : (
+				<ul className="space-y-1.5 max-h-[50vh] sm:max-h-[420px] overflow-y-auto pr-1">
+					{games.map((game) => (
+						<RecentGameItem key={game.gameId} game={game} onClick={() => onSelectSeries(game.seriesId)} />
+					))}
+				</ul>
+			)}
+		</PanelCard>
 	);
 }
 
@@ -53,9 +48,9 @@ function RecentGameItem({ game, onClick }: { game: RecentGame; onClick: () => vo
 				)}
 				<div className="flex-1 min-w-0 leading-tight">
 					<div className="flex items-center gap-1.5 text-xs">
-						<span className={`font-bold ${game.won ? "text-info" : "text-error"}`}>
+						<StatusBadge tone={game.won ? "info" : "error"} size="xs">
 							{game.won ? "W" : "L"}
-						</span>
+						</StatusBadge>
 						<span className="text-base-content/60">
 							시리즈 #{game.seriesId} · G{game.gameNumber}
 						</span>

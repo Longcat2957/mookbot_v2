@@ -1,3 +1,4 @@
+import { IconButton, SectionHeader, StatusBadge } from "../../../components/DesignPrimitives.js";
 import { AuctionSteps } from "../AuctionSteps.js";
 import type { TournamentStatus } from "../types.js";
 
@@ -27,18 +28,23 @@ export function AuctionBracketHeader({
 }) {
 	return (
 		<>
-			<header className="flex items-start justify-between flex-wrap gap-3">
-				<div className="space-y-1">
-					<h2 className="text-2xl font-bold">🎟️ 경매내전 #{tournamentId} 토너먼트</h2>
-					<p className="text-base text-base-content/70">
-						{format}인 · 현재 단계: <strong>{statusLabel(status)}</strong>
-					</p>
-				</div>
-				<div className="flex items-center gap-1">
-					<button type="button" className="btn btn-ghost btn-sm" onClick={onRefresh}>
-						↻
-					</button>
-				</div>
+			<header>
+				<SectionHeader
+					title={<span className="text-2xl">🎟️ 경매내전 #{tournamentId} 토너먼트</span>}
+					description={
+						<span>
+							{format}인 · 현재 단계: <strong>{statusLabel(status)}</strong>
+						</span>
+					}
+					actions={
+						<div className="flex items-center gap-1">
+							<StatusBadge tone="primary">{statusLabel(status)}</StatusBadge>
+							<IconButton label="새로고침" tooltip="새로고침" onClick={onRefresh}>
+								↻
+							</IconButton>
+						</div>
+					}
+				/>
 			</header>
 			<AuctionSteps status={status} />
 		</>

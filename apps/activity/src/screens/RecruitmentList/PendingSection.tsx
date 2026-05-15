@@ -1,3 +1,4 @@
+import { SectionHeader, StatusBadge } from "../../components/DesignPrimitives.js";
 import { EmptyState } from "../../components/EmptyState.js";
 import {
 	RecruitmentCard,
@@ -23,16 +24,22 @@ export function PendingSection({
 }) {
 	return (
 		<div className="space-y-2">
-			<div className="flex items-baseline justify-between flex-wrap gap-2">
-				<h2 className="text-lg font-bold flex items-baseline gap-2">
-					처리 대기
-					{!isLoading && pending.length > 0 && (
-						<span className="text-xs font-normal text-base-content/60">
-							{recruitments.length} 엔트리 · {series.length} 진행 중
-						</span>
-					)}
-				</h2>
-			</div>
+			<SectionHeader
+				title={<span className="text-lg">처리 대기</span>}
+				actions={
+					!isLoading &&
+					pending.length > 0 && (
+						<div className="flex flex-wrap gap-1.5">
+							<StatusBadge tone="warning" variant="outline">
+								{recruitments.length} 엔트리
+							</StatusBadge>
+							<StatusBadge tone="info" variant="outline">
+								{series.length} 진행 중
+							</StatusBadge>
+						</div>
+					)
+				}
+			/>
 			{isLoading ? (
 				<SkeletonGrid />
 			) : pending.length === 0 ? (

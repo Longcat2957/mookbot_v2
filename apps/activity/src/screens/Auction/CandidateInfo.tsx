@@ -1,6 +1,7 @@
 // 경매내전 BIDDING 매물 정보 — 라이엇 연동 + 내전 기록 두 섹션.
 // 데이터 fetch 는 부모 (BiddingPanel) 에서. 이 파일은 섹션 조립 전담.
 
+import { InlineNotice } from "../../components/DesignPrimitives.js";
 import { CandidateMookDetails } from "./CandidateMookDetails.js";
 import { CandidateRiotDetails } from "./CandidateRiotDetails.js";
 import type { AuctionCardData } from "./candidateInfoTypes.js";
@@ -15,7 +16,7 @@ export function CandidateRiotSection({
 	error: string | null;
 }) {
 	if (error) {
-		return <div className="alert alert-warning text-sm">라이엇 정보 로딩 실패 — {error}</div>;
+		return <InlineNotice tone="warning">라이엇 정보 로딩 실패 — {error}</InlineNotice>;
 	}
 	if (!data) {
 		return (

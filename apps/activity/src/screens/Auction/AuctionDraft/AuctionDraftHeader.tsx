@@ -1,4 +1,5 @@
 import { ConfirmButton } from "../../../components/ConfirmButton.js";
+import { IconButton, SectionHeader, StatusBadge } from "../../../components/DesignPrimitives.js";
 import type { TournamentStatus } from "../types.js";
 import { statusLabel } from "./statusLabel.js";
 
@@ -18,21 +19,26 @@ export function AuctionDraftHeader({
 	onRevertStage: (status: "CAPTAIN_PICK" | "POINT_ALLOC") => Promise<void>;
 }) {
 	return (
-		<header className="flex items-start justify-between flex-wrap gap-3">
-			<div className="space-y-1">
-				<h2 className="text-2xl font-bold">🎟️ 경매내전 #{tournamentId}</h2>
-				<p className="text-base text-base-content/70">
-					{format}인 · 현재 단계: <strong>{statusLabel(status)}</strong>
-				</p>
-			</div>
-			<div className="flex items-center gap-1">
-				<button type="button" className="btn btn-ghost btn-sm" onClick={onRefresh}>
-					↻
-				</button>
-				{canEdit && (status === "POINT_ALLOC" || status === "BIDDING") && (
-					<StageRevertMenu status={status} onRevertStage={onRevertStage} />
-				)}
-			</div>
+		<header>
+			<SectionHeader
+				title={<span className="text-2xl">🎟️ 경매내전 #{tournamentId}</span>}
+				description={
+					<span>
+						{format}인 · 현재 단계: <strong>{statusLabel(status)}</strong>
+					</span>
+				}
+				actions={
+					<div className="flex items-center gap-1">
+						<StatusBadge tone="primary">{statusLabel(status)}</StatusBadge>
+						<IconButton label="새로고침" tooltip="새로고침" onClick={onRefresh}>
+							↻
+						</IconButton>
+						{canEdit && (status === "POINT_ALLOC" || status === "BIDDING") && (
+							<StageRevertMenu status={status} onRevertStage={onRevertStage} />
+						)}
+					</div>
+				}
+			/>
 		</header>
 	);
 }

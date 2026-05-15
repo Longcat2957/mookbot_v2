@@ -1,4 +1,5 @@
 import { lazy, Suspense, useState } from "react";
+import { InlineNotice, StatusBadge } from "../components/DesignPrimitives.js";
 import { usePerms } from "../state/perms.js";
 import { LaneMmrCard } from "./Profile/LaneMmrCard.js";
 import { ProfileHeader } from "./Profile/ProfileHeader.js";
@@ -34,9 +35,7 @@ export function Profile({
 	if (error) {
 		return (
 			<section className="space-y-3">
-				<div className="alert alert-error">
-					<span>프로필을 불러오지 못했습니다: {error}</span>
-				</div>
+				<InlineNotice tone="error">프로필을 불러오지 못했습니다: {error}</InlineNotice>
 				<button type="button" className="btn btn-sm btn-outline" onClick={onBack}>
 					← 돌아가기
 				</button>
@@ -71,7 +70,11 @@ export function Profile({
 			>
 				<summary className="cursor-pointer text-sm font-medium px-3 py-2 select-none flex items-center gap-2">
 					📌 선호 챔프
-					{isMe && <span className="badge badge-ghost badge-xs">편집 가능</span>}
+					{isMe && (
+						<StatusBadge tone="neutral" variant="ghost" size="xs">
+							편집 가능
+						</StatusBadge>
+					)}
 				</summary>
 				<div className="px-3 pb-3 pt-1">
 					{shouldLoadPreferences && (

@@ -1,3 +1,4 @@
+import { StatusBadge } from "../../components/DesignPrimitives.js";
 import type { Account } from "./types.js";
 
 interface Props {
@@ -32,7 +33,7 @@ export function AccountCard({ account, busy, onSetMain, onRefresh, onUnlink }: P
 						<span>
 							{account.gameName}#{account.tagLine}
 						</span>
-						{account.isMain && <span className="badge badge-warning badge-sm">메인</span>}
+						{account.isMain && <StatusBadge tone="warning">메인</StatusBadge>}
 					</div>
 				</div>
 				<div className="flex flex-wrap gap-1.5">

@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { api } from "../../../api/rest.js";
+import { PanelCard } from "../../../components/DesignPrimitives.js";
 import { useStaleWhileRevalidate } from "../../../state/useStaleWhileRevalidate.js";
 import type { AuctionMatch, AuctionTournamentDetail } from "../types.js";
 import type { MatchDetail } from "./_shared.js";
@@ -46,56 +47,52 @@ export function MatchCard({
 	}, [games]);
 
 	const inProgress = !completed && games.length > 0;
-	const borderClass = completed
-		? "border-2 border-success"
-		: inProgress
-			? "border-2 border-warning"
-			: "border border-base-300";
 	const refresh = () => {
 		swr.refresh();
 		onTournamentRefresh();
 	};
 
 	return (
-		<div className={`card surface-base shadow ${borderClass}`}>
-			<div className="card-body p-4 gap-3">
-				<div className="grid grid-cols-1 xl:grid-cols-[minmax(18rem,24rem)_minmax(0,1fr)] gap-4 items-start">
-					<div className="space-y-3 min-w-0">
-						<MatchHeader
-							match={match}
-							inProgress={inProgress}
-							completed={completed}
-							winningTeam={winningTeam}
-							team1={t1}
-							team2={t2}
-						/>
-						<div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] gap-2 items-center">
-							<MatchTeamRow team={t1} teamSide="TEAM_1" completed={completed} winningTeam={winningTeam} />
-							<MatchScore t1Wins={t1Wins} t2Wins={t2Wins} winningTeam={winningTeam} />
-							<MatchTeamRow team={t2} teamSide="TEAM_2" completed={completed} winningTeam={winningTeam} />
-						</div>
-
-						{canEdit && !completed && (
-							<MatchActions
-								match={match}
-								gamesLength={games.length}
-								expanded={expanded}
-								onExpandedChange={setExpanded}
-								onRefresh={refresh}
-							/>
-						)}
-						<GameHistorySummary games={games} />
+		<PanelCard
+			status={completed ? "success" : inProgress ? "warning" : "neutral"}
+			bodyClassName="p-4 gap-3"
+		>
+			<div className="grid grid-cols-1 xl:grid-cols-[minmax(18rem,24rem)_minmax(0,1fr)] gap-4 items-start">
+				<div className="space-y-3 min-w-0">
+					<MatchHeader
+						match={match}
+						inProgress={inProgress}
+						completed={completed}
+						winningTeam={winningTeam}
+						team1={t1}
+						team2={t2}
+					/>
+					<div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] gap-2 items-center">
+						<MatchTeamRow team={t1} teamSide="TEAM_1" completed={completed} winningTeam={winningTeam} />
+						<MatchScore t1Wins={t1Wins} t2Wins={t2Wins} winningTeam={winningTeam} />
+						<MatchTeamRow team={t2} teamSide="TEAM_2" completed={completed} winningTeam={winningTeam} />
 					</div>
 
-					{expanded && t1 && t2 ? (
-						<GameInputForm match={match} team1={t1} team2={t2} games={games} onRecorded={swr.refresh} />
-					) : (
-						<div className="hidden xl:flex min-h-40 rounded-md border border-dashed border-base-content/15 items-center justify-center text-sm text-base-content/40">
-							{completed ? "매치 완료" : "Game 입력을 열면 이 영역에서 밴/픽을 기록합니다"}
-						</div>
+					{canEdit && !completed && (
+						<MatchActions
+							match={match}
+							gamesLength={games.length}
+							expanded={expanded}
+							onExpandedChange={setExpanded}
+							onRefresh={refresh}
+						/>
 					)}
+					<GameHistorySummary games={games} />
 				</div>
+
+				{expanded && t1 && t2 ? (
+					<GameInputForm match={match} team1={t1} team2={t2} games={games} onRecorded={swr.refresh} />
+				) : (
+					<div className="hidden xl:flex min-h-40 rounded-md border border-dashed border-base-content/15 items-center justify-center text-sm text-base-content/40">
+						{completed ? "매치 완료" : "Game 입력을 열면 이 영역에서 밴/픽을 기록합니다"}
+					</div>
+				)}
 			</div>
-		</div>
+		</PanelCard>
 	);
 }

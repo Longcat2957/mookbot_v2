@@ -1,3 +1,4 @@
+import { StatusBadge } from "../../components/DesignPrimitives.js";
 import { UserAvatar } from "../../components/UserAvatar.js";
 import { winrateTextClassDim } from "../../state/winrateColor.js";
 import type { LeaderRow } from "./types.js";
@@ -82,7 +83,9 @@ function LeaderboardRow({
 						<div className="truncate">
 							{row.displayName}
 							{isMe && (
-								<span className="badge badge-primary badge-xs align-middle ml-2 shrink-0">YOU</span>
+								<StatusBadge tone="primary" size="xs" className="align-middle ml-2 shrink-0">
+									YOU
+								</StatusBadge>
 							)}
 							{row.rolesPlayed !== undefined && (
 								<span className="text-xs text-base-content/50 shrink-0 ml-2">({row.rolesPlayed}라인)</span>

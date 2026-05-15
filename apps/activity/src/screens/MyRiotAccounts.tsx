@@ -1,3 +1,4 @@
+import { InlineNotice } from "../components/DesignPrimitives.js";
 import { AccountsList } from "./MyRiotAccounts/AccountsList.js";
 import { LinkAccountForm } from "./MyRiotAccounts/LinkAccountForm.js";
 import { MyRiotAccountsHeader } from "./MyRiotAccounts/MyRiotAccountsHeader.js";
@@ -12,12 +13,16 @@ export function MyRiotAccounts({ onBack }: { onBack: () => void }) {
 			<MyRiotAccountsHeader onBack={onBack} />
 
 			{error && (
-				<div className="alert alert-error text-sm">
-					<span>{error}</span>
-					<button type="button" className="btn btn-xs btn-ghost" onClick={() => void reload()}>
-						↻ 다시 시도
-					</button>
-				</div>
+				<InlineNotice
+					tone="error"
+					action={
+						<button type="button" className="btn btn-xs btn-ghost" onClick={() => void reload()}>
+							↻ 다시 시도
+						</button>
+					}
+				>
+					{error}
+				</InlineNotice>
 			)}
 
 			<AccountsList

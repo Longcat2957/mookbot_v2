@@ -1,3 +1,5 @@
+import { IconButton, InlineNotice } from "../../components/DesignPrimitives.js";
+
 export function ReadOnlyNotice({
 	dismissed,
 	seriesCompleted,
@@ -18,16 +20,15 @@ export function ReadOnlyNotice({
 	if (dismissed) return null;
 
 	return (
-		<div className="alert alert-warning">
-			<span>👁 관전 중 — 운영자가 픽/밴/결과를 입력하면 자동으로 갱신됩니다.</span>
-			<button
-				type="button"
-				className="btn btn-ghost btn-xs"
-				onClick={onDismiss}
-				aria-label="알림 닫기"
-			>
-				✕
-			</button>
-		</div>
+		<InlineNotice
+			tone="warning"
+			action={
+				<IconButton label="알림 닫기" className="btn-xs" onClick={onDismiss}>
+					✕
+				</IconButton>
+			}
+		>
+			👁 관전 중 — 운영자가 픽/밴/결과를 입력하면 자동으로 갱신됩니다.
+		</InlineNotice>
 	);
 }

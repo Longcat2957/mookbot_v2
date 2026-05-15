@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { cx, IconButton, StatusBadge } from "../../components/DesignPrimitives.js";
 import { UserAvatar } from "../../components/UserAvatar.js";
 import { useCoarsePointer } from "../../state/useCoarsePointer.js";
 import { LANE_LABEL, type Lane, type Participant, ROLE_LABEL } from "./types.js";
@@ -67,11 +68,15 @@ export function SlotRow({
 				const uid = e.dataTransfer.getData("text/plain");
 				if (uid) onDrop(uid);
 			}}
-			className={`flex items-center gap-2 rounded-md transition ${baseRing}`}
+			className={cx("flex items-center gap-2 rounded-md transition", baseRing)}
 		>
-			<span className="badge badge-neutral min-w-[3.5rem] justify-center shrink-0 text-sm font-bold">
+			<StatusBadge
+				tone="neutral"
+				variant="solid"
+				className="min-w-[3.5rem] justify-center shrink-0 text-sm font-bold"
+			>
 				{LANE_LABEL[lane]}
-			</span>
+			</StatusBadge>
 			{participant ? (
 				// biome-ignore lint/a11y/noStaticElementInteractions: draggable assigned participant chip.
 				<div
@@ -84,7 +89,10 @@ export function SlotRow({
 									e.dataTransfer.effectAllowed = "move";
 								}
 					}
-					className={`flex-1 min-w-0 bg-base-300 rounded-md px-2 py-1.5 ${coarse ? "cursor-pointer" : "cursor-grab active:cursor-grabbing"} hover:bg-base-content/10 transition flex items-center gap-1.5`}
+					className={cx(
+						"flex-1 min-w-0 bg-base-300 rounded-md px-2 py-1.5 hover:bg-base-content/10 transition flex items-center gap-1.5",
+						coarse ? "cursor-pointer" : "cursor-grab active:cursor-grabbing",
+					)}
 				>
 					<UserAvatar
 						discordId={participant.userId}
@@ -94,9 +102,9 @@ export function SlotRow({
 					/>
 					<span className="font-bold text-sm truncate flex-1">{participant.displayName}</span>
 					{participant.history.topRole && (
-						<span className="badge badge-outline badge-xs shrink-0">
+						<StatusBadge tone="neutral" variant="outline" size="xs" className="shrink-0">
 							{ROLE_LABEL[participant.history.topRole.role] ?? participant.history.topRole.role}
-						</span>
+						</StatusBadge>
 					)}
 				</div>
 			) : (
@@ -104,15 +112,15 @@ export function SlotRow({
 					— 비어있음 —
 				</div>
 			)}
-			<button
-				type="button"
-				className="btn btn-error btn-xs shrink-0"
+			<IconButton
+				label="슬롯 해제"
+				tooltip="슬롯 해제"
+				className="btn-xs btn-error shrink-0"
 				onClick={onClear}
 				disabled={!participant}
-				title="슬롯 해제"
 			>
 				✕
-			</button>
+			</IconButton>
 		</div>
 	);
 }

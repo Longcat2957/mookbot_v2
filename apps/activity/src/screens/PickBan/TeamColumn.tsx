@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import { PanelCard, StatusBadge } from "../../components/DesignPrimitives.js";
 import { markRender } from "../../debug/renderMetrics.js";
 import { SlotTile } from "./SlotTile.js";
 import {
@@ -38,69 +39,66 @@ export function TeamColumn({
 	}, [champions]);
 
 	const headerColor = side === "BLUE" ? "text-info" : "text-error";
-	const borderColor = side === "BLUE" ? "border-info" : "border-error";
 	const lanes = LANE_ORDER.slice(0, teamSize);
 
 	return (
-		<div className={`card surface-base shadow-sm border-l-4 ${borderColor}`}>
-			<div className="card-body p-3 gap-2">
-				<div className="flex items-center justify-between">
-					<h3 className={`card-title text-base ${headerColor}`}>{teamLabel}</h3>
-					<span className={`badge ${side === "BLUE" ? "badge-info" : "badge-error"}`}>{side}</span>
-				</div>
+		<PanelCard status={side === "BLUE" ? "info" : "error"} bodyClassName="p-3 gap-2">
+			<div className="flex items-center justify-between">
+				<h3 className={`card-title text-base ${headerColor}`}>{teamLabel}</h3>
+				<StatusBadge tone={side === "BLUE" ? "info" : "error"}>{side}</StatusBadge>
+			</div>
 
-				<div className="bg-warning/5 rounded-md p-2 -mx-1">
-					<div className="text-xs text-warning/80 mb-1 uppercase tracking-wide font-bold flex items-center gap-1">
-						<span>🚫</span> 밴 ({draft.bans[team].filter(Boolean).length}/{teamSize})
-					</div>
-					<div className="flex gap-1 flex-wrap">
-						{draft.bans[team].map((cid, i) => {
-							const lane = lanes[i] ?? `extra-${i + 1}`;
-							return (
-								<SlotTile
-									key={`${team}-ban-${lane}`}
-									size="md"
-									champion={cid !== null ? (champById.get(cid) ?? null) : null}
-									active={activeSlot?.kind === "ban" && activeSlot.team === team && activeSlot.idx === i}
-									onClick={() => onSlotClick(team, "ban", i)}
-									banned
-								/>
-							);
-						})}
-					</div>
+			<div className="bg-warning/5 rounded-md p-2 -mx-1">
+				<div className="text-xs text-warning/80 mb-1 uppercase tracking-wide font-bold flex items-center gap-1">
+					<span>🚫</span> 밴 ({draft.bans[team].filter(Boolean).length}/{teamSize})
 				</div>
-
-				<div className="bg-success/5 rounded-md p-2 -mx-1">
-					<div className="text-xs text-success/80 mb-1 uppercase tracking-wide font-bold flex items-center gap-1">
-						<span>⚔️</span> 픽 ({draft.picks[team].filter(Boolean).length}/{teamSize})
-					</div>
-					<div className="space-y-1">
-						{lanes.map((lane, i) => {
-							const cid = draft.picks[team][i] ?? null;
-							const player = lineup.get(`${team}_${lane}`) ?? "—";
-							return (
-								<div key={lane} className="flex items-center gap-2 bg-base-300/40 rounded-md p-1.5">
-									<SlotTile
-										size="lg"
-										champion={cid !== null ? (champById.get(cid) ?? null) : null}
-										active={activeSlot?.kind === "pick" && activeSlot.team === team && activeSlot.idx === i}
-										onClick={() => onSlotClick(team, "pick", i)}
-									/>
-									<div className="flex-1 min-w-0 leading-tight">
-										<div className="text-[10px] text-base-content/60">{LANE_LABEL[lane]}</div>
-										<div className="text-sm font-semibold truncate">{player}</div>
-										{cid !== null && (
-											<div className="text-xs text-base-content/70 truncate">
-												{champById.get(cid)?.name ?? ""}
-											</div>
-										)}
-									</div>
-								</div>
-							);
-						})}
-					</div>
+				<div className="flex gap-1 flex-wrap">
+					{draft.bans[team].map((cid, i) => {
+						const lane = lanes[i] ?? `extra-${i + 1}`;
+						return (
+							<SlotTile
+								key={`${team}-ban-${lane}`}
+								size="md"
+								champion={cid !== null ? (champById.get(cid) ?? null) : null}
+								active={activeSlot?.kind === "ban" && activeSlot.team === team && activeSlot.idx === i}
+								onClick={() => onSlotClick(team, "ban", i)}
+								banned
+							/>
+						);
+					})}
 				</div>
 			</div>
-		</div>
+
+			<div className="bg-success/5 rounded-md p-2 -mx-1">
+				<div className="text-xs text-success/80 mb-1 uppercase tracking-wide font-bold flex items-center gap-1">
+					<span>⚔️</span> 픽 ({draft.picks[team].filter(Boolean).length}/{teamSize})
+				</div>
+				<div className="space-y-1">
+					{lanes.map((lane, i) => {
+						const cid = draft.picks[team][i] ?? null;
+						const player = lineup.get(`${team}_${lane}`) ?? "—";
+						return (
+							<div key={lane} className="flex items-center gap-2 bg-base-300/40 rounded-md p-1.5">
+								<SlotTile
+									size="lg"
+									champion={cid !== null ? (champById.get(cid) ?? null) : null}
+									active={activeSlot?.kind === "pick" && activeSlot.team === team && activeSlot.idx === i}
+									onClick={() => onSlotClick(team, "pick", i)}
+								/>
+								<div className="flex-1 min-w-0 leading-tight">
+									<div className="text-[10px] text-base-content/60">{LANE_LABEL[lane]}</div>
+									<div className="text-sm font-semibold truncate">{player}</div>
+									{cid !== null && (
+										<div className="text-xs text-base-content/70 truncate">
+											{champById.get(cid)?.name ?? ""}
+										</div>
+									)}
+								</div>
+							</div>
+						);
+					})}
+				</div>
+			</div>
+		</PanelCard>
 	);
 }

@@ -1,3 +1,4 @@
+import { InlineNotice, PanelCard, SectionHeader } from "../../components/DesignPrimitives.js";
 import type { LineupParticipant } from "../../components/LineupPreview.js";
 import { usePerms } from "../../state/perms.js";
 import { DurationInput } from "./ResultPanel/DurationInput.js";
@@ -35,49 +36,45 @@ export function ResultPanel({
 	});
 
 	return (
-		<div className="card surface-base shadow-sm border-l-4 border-success">
-			<div className="card-body p-4 gap-3">
-				<div className="space-y-2">
-					<h3 className="card-title text-base">Game {gameDraft.gameNumber} 결과 입력</h3>
-					<ResultProgressSteps
-						team1SideSelected={gameDraft.team1Side !== null}
-						allBansFilled={state.allBansFilled}
-						allPicksFilled={state.allPicksFilled}
-						winnerSelected={state.winner !== null}
-					/>
-				</div>
-
-				<ResultWarnings allBansFilled={state.allBansFilled} allPicksFilled={state.allPicksFilled} />
-
-				<WinnerSelector
-					winner={state.winner}
-					onSelect={state.setWinner}
-					picks={gameDraft.picks}
-					lanes={state.lanes}
-					champById={state.champById}
-					disabled={!perms.canEdit}
+		<PanelCard status="success" bodyClassName="p-4 gap-3">
+			<div className="space-y-2">
+				<SectionHeader
+					title={<span className="text-base">Game {gameDraft.gameNumber} 결과 입력</span>}
 				/>
-
-				<DurationInput value={state.durationMin} onChange={state.setDurationMin} />
-
-				{state.error && (
-					<div className="alert alert-error">
-						<span>{state.error}</span>
-					</div>
-				)}
-
-				<SubmitResultButton
-					gameNumber={gameDraft.gameNumber}
-					ready={state.ready}
-					submitting={state.submitting}
-					canEdit={perms.canEdit}
+				<ResultProgressSteps
+					team1SideSelected={gameDraft.team1Side !== null}
 					allBansFilled={state.allBansFilled}
 					allPicksFilled={state.allPicksFilled}
-					team1SideSelected={gameDraft.team1Side !== null}
-					winner={state.winner}
-					onSubmit={state.submit}
+					winnerSelected={state.winner !== null}
 				/>
 			</div>
-		</div>
+
+			<ResultWarnings allBansFilled={state.allBansFilled} allPicksFilled={state.allPicksFilled} />
+
+			<WinnerSelector
+				winner={state.winner}
+				onSelect={state.setWinner}
+				picks={gameDraft.picks}
+				lanes={state.lanes}
+				champById={state.champById}
+				disabled={!perms.canEdit}
+			/>
+
+			<DurationInput value={state.durationMin} onChange={state.setDurationMin} />
+
+			{state.error && <InlineNotice tone="error">{state.error}</InlineNotice>}
+
+			<SubmitResultButton
+				gameNumber={gameDraft.gameNumber}
+				ready={state.ready}
+				submitting={state.submitting}
+				canEdit={perms.canEdit}
+				allBansFilled={state.allBansFilled}
+				allPicksFilled={state.allPicksFilled}
+				team1SideSelected={gameDraft.team1Side !== null}
+				winner={state.winner}
+				onSubmit={state.submit}
+			/>
+		</PanelCard>
 	);
 }

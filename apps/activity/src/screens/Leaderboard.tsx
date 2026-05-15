@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { InlineNotice } from "../components/DesignPrimitives.js";
 import { EmptyState } from "../components/EmptyState.js";
 import { usePerms } from "../state/perms.js";
 import { LeaderboardHeader } from "./Leaderboard/LeaderboardHeader.js";
@@ -25,9 +26,7 @@ export function Leaderboard({
 			<LeaderboardTabs activeTab={tab} onChange={setTab} />
 
 			{error ? (
-				<div className="alert alert-error">
-					<span>리더보드를 불러오지 못했습니다: {error}</span>
-				</div>
+				<InlineNotice tone="error">리더보드를 불러오지 못했습니다: {error}</InlineNotice>
 			) : !data ? (
 				<TableSkeleton />
 			) : data.rows.length === 0 ? (

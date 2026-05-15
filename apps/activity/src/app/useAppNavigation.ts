@@ -17,6 +17,7 @@ export interface AppNavigation {
 	openRecruitment: (id: number) => void;
 	openSeries: (id: number) => void;
 	openCompletedSeries: (id: number) => void;
+	editCompletedSeries: (id: number) => void;
 	openAuctionRecruitment: (id: number) => void;
 	openAuctionTournament: (id: number) => void;
 	enterSeries: (id: number) => void;
@@ -81,6 +82,11 @@ export function useAppNavigation(): AppNavigation {
 			setSeriesId(id);
 			setRecruitmentId(null);
 			setStage("COMPLETED");
+		},
+		editCompletedSeries: (id) => {
+			setSeriesId(id);
+			setRecruitmentId(null);
+			setStage("IN_GAME");
 		},
 		openAuctionRecruitment: (id) => {
 			setAuctionRecruitmentId(id);

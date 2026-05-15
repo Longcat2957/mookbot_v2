@@ -246,6 +246,32 @@ describe("PUT /api/series/:id/pickban (draft)", () => {
 		const body = get.json() as { pickbanDraft: typeof draft };
 		expect(body.pickbanDraft).toEqual(draft);
 	});
+
+	it("COMPLETED 시리즈도 draft 저장 허용 — 완료 게임 수정 준비", async () => {
+		const { app, db } = await buildTestApp({ canEdit: true });
+		const { seasonId } = seedRecruitment(db);
+		const sid = (
+			db
+				.prepare(
+					"INSERT INTO series (season_id, created_by, status, winning_team) VALUES (?, ?, 'COMPLETED', 'TEAM_1') RETURNING id",
+				)
+				.get(seasonId, OP) as { id: number }
+		).id;
+
+		const draft = { games: [{ gameNumber: 1, team1Side: "RED" }], currentGame: 1 };
+		const put = await app.inject({
+			method: "PUT",
+			url: `/api/series/${sid}/pickban`,
+			cookies: { sid: signSid(app, OP) },
+			payload: draft,
+		});
+		expect(put.statusCode).toBe(200);
+
+		const raw = db.prepare("SELECT v FROM guild_kv WHERE k = ?").get(`pickban:${sid}`) as {
+			v: string;
+		};
+		expect(JSON.parse(raw.v)).toEqual(draft);
+	});
 });
 
 describe("POST /api/series/:id/games (record + Bo3)", () => {
@@ -699,6 +725,60 @@ describe("GET /api/recruitments + /api/recruitments/:id", () => {
 		expect(body.participants).toHaveLength(1);
 		expect(body.participants[0]?.userId).toBe("u1");
 		expect(body.entryDraft).toBeNull();
+	});
+});
+
+describe("POST /api/recruitments/:id/reopen", () => {
+	it("CLOSED 모집 → OPEN + entry draft 삭제", async () => {
+		const { app, db } = await buildTestApp({ canEdit: true });
+		const { recruitmentId } = seedRecruitment(db, "CLOSED");
+		db
+			.prepare("INSERT INTO guild_kv (k, v, updated_by) VALUES (?, ?, ?)")
+			.run(`entry:${recruitmentId}`, JSON.stringify({ assignments: { u1: "TEAM_1_TOP" } }), OP);
+
+		const res = await app.inject({
+			method: "POST",
+			url: `/api/recruitments/${recruitmentId}/reopen`,
+			cookies: { sid: signSid(app, OP) },
+		});
+
+		expect(res.statusCode).toBe(200);
+		const rec = db
+			.prepare("SELECT status, converted_series_id FROM recruitments WHERE id = ?")
+			.get(recruitmentId) as { status: string; converted_series_id: number | null };
+		expect(rec).toEqual({ status: "OPEN", converted_series_id: null });
+		expect(
+			db.prepare("SELECT v FROM guild_kv WHERE k = ?").get(`entry:${recruitmentId}`),
+		).toBeUndefined();
+	});
+
+	it("zero-game CONVERTED 모집 → OPEN + 연결 시리즈 CANCELLED", async () => {
+		const { app, db } = await buildTestApp({ canEdit: true });
+		const { seasonId, recruitmentId } = seedRecruitment(db, "CONVERTED");
+		const sid = (
+			db
+				.prepare("INSERT INTO series (season_id, created_by) VALUES (?, ?) RETURNING id")
+				.get(seasonId, OP) as { id: number }
+		).id;
+		db
+			.prepare("UPDATE recruitments SET converted_series_id = ? WHERE id = ?")
+			.run(sid, recruitmentId);
+
+		const res = await app.inject({
+			method: "POST",
+			url: `/api/recruitments/${recruitmentId}/reopen`,
+			cookies: { sid: signSid(app, OP) },
+		});
+
+		expect(res.statusCode).toBe(200);
+		expect(
+			db
+				.prepare("SELECT status, converted_series_id FROM recruitments WHERE id = ?")
+				.get(recruitmentId),
+		).toEqual({ status: "OPEN", converted_series_id: null });
+		expect(
+			(db.prepare("SELECT status FROM series WHERE id = ?").get(sid) as { status: string }).status,
+		).toBe("CANCELLED");
 	});
 });
 

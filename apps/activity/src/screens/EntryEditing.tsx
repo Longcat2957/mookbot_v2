@@ -5,6 +5,7 @@
 // 이 파일은 layout + props wiring 만.
 
 import { useEffect, useState } from "react";
+import { InlineNotice } from "../components/DesignPrimitives.js";
 import { usePerms } from "../state/perms.js";
 import { useCoarsePointer } from "../state/useCoarsePointer.js";
 import { CandidatePool } from "./EntryEditing/CandidatePool.js";
@@ -19,9 +20,11 @@ import { useEntryEditingState } from "./EntryEditing/useEntryEditingState.js";
 export function EntryEditing({
 	recruitmentId,
 	onSubmit,
+	onReopened,
 }: {
 	recruitmentId: number | null;
 	onSubmit: (seriesId: number) => void;
+	onReopened: () => void;
 }) {
 	const perms = usePerms();
 	const s = useEntryEditingState({ recruitmentId });
@@ -37,17 +40,15 @@ export function EntryEditing({
 
 	if (recruitmentId === null) {
 		return (
-			<div className="alert alert-warning">
-				<span>모집을 먼저 선택해주세요. (좌측 상단 monkey 클릭 → 대시보드)</span>
-			</div>
+			<InlineNotice tone="warning">
+				모집을 먼저 선택해주세요. (좌측 상단 monkey 클릭 → 대시보드)
+			</InlineNotice>
 		);
 	}
 	if (s.error) {
 		return (
 			<div className="space-y-3">
-				<div className="alert alert-error">
-					<span>모집 정보를 불러오지 못했습니다: {s.error}</span>
-				</div>
+				<InlineNotice tone="error">모집 정보를 불러오지 못했습니다: {s.error}</InlineNotice>
 				<button type="button" className="btn btn-sm btn-outline" onClick={s.refresh}>
 					↻ 새로고침
 				</button>
@@ -65,7 +66,12 @@ export function EntryEditing({
 
 	return (
 		<section className="space-y-3">
-			<EntryEditingHeader state={s} canEdit={perms.canEdit} onSubmit={handleSubmit} />
+			<EntryEditingHeader
+				state={s}
+				canEdit={perms.canEdit}
+				onSubmit={handleSubmit}
+				onReopened={onReopened}
+			/>
 
 			{!perms.canEdit && !readOnlyDismissed && (
 				<EntryReadOnlyNotice
@@ -76,11 +82,7 @@ export function EntryEditing({
 				/>
 			)}
 
-			{s.submitError && (
-				<div className="alert alert-error">
-					<span>제출 실패: {s.submitError}</span>
-				</div>
-			)}
+			{s.submitError && <InlineNotice tone="error">제출 실패: {s.submitError}</InlineNotice>}
 
 			{perms.canEdit && <CoinTossPanel state={s} />}
 			<SelectedParticipantAlert state={s} />

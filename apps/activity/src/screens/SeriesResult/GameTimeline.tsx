@@ -1,3 +1,4 @@
+import { InlineNotice } from "../../components/DesignPrimitives.js";
 import type { LineupParticipant } from "../../components/LineupPreview.js";
 import { GameSummaryCard } from "./GameSummaryCard.js";
 import type { Champion, GameDetail } from "./types.js";
@@ -14,11 +15,7 @@ export function GameTimeline({
 	participants: LineupParticipant[];
 }) {
 	if (games.length === 0) {
-		return (
-			<div className="alert">
-				<span>기록된 게임이 없습니다.</span>
-			</div>
-		);
+		return <InlineNotice>기록된 게임이 없습니다.</InlineNotice>;
 	}
 
 	const sortedGames = games.slice().sort((a, b) => a.gameNumber - b.gameNumber);

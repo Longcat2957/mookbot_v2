@@ -324,7 +324,7 @@ export async function registerSeriesRoutes(app: FastifyInstance): Promise<void> 
 			if (!Number.isFinite(id)) return reply.code(400).send({ error: "invalid id" });
 			const s = await db.getSeries(id);
 			if (!s) return reply.code(404).send({ error: "not found" });
-			if (s.status !== "IN_PROGRESS") {
+			if (s.status !== "IN_PROGRESS" && s.status !== "COMPLETED") {
 				return reply.code(409).send({ error: `series status is ${s.status}` });
 			}
 
@@ -394,5 +394,59 @@ export async function registerSeriesRoutes(app: FastifyInstance): Promise<void> 
 			});
 		}
 		return { ok: true, recruitmentId: recRow?.id ?? null };
+	});
+
+	// 엔트리 수정 대기(CLOSED 또는 zero-game CONVERTED)를 다시 모집 가능(OPEN) 상태로 복원.
+	// CONVERTED 인 경우 연결된 zero-game 시리즈는 CANCELLED 로 보존하고 재모집을 열어준다.
+	app.post<{ Params: { id: string } }>("/api/recruitments/:id/reopen", async (req, reply) => {
+		const sid = await requireEditor(req, reply);
+		if (!sid) return;
+
+		const id = Number(req.params.id);
+		if (!Number.isFinite(id)) return reply.code(400).send({ error: "invalid id" });
+		const rec = await getRecruitment(id);
+		if (!rec) return reply.code(404).send({ error: "not found" });
+		if (rec.status === "OPEN") return { ok: true, recruitmentId: id };
+		if (rec.status === "CANCELLED") {
+			return reply.code(409).send({ error: "취소된 모집은 다시 열 수 없습니다." });
+		}
+
+		if (rec.converted_series_id !== null) {
+			const series = await db.getSeries(rec.converted_series_id);
+			if (!series) {
+				await db.setRecruitmentStatus(id, "OPEN");
+			} else {
+				const games = await db.listGamesInSeries(series.id);
+				if (games.length > 0) {
+					return reply.code(409).send({
+						error: `이미 ${games.length}개 게임이 기록된 시리즈는 모집으로 되돌릴 수 없습니다.`,
+					});
+				}
+				if (series.status !== "CANCELLED") await db.cancelSeries(series.id);
+				await db.setRecruitmentStatus(id, "OPEN");
+				await db.deleteKv(`pickban:${series.id}`);
+			}
+		} else {
+			await db.setRecruitmentStatus(id, "OPEN");
+		}
+		await db.deleteKv(`entry:${id}`);
+
+		await db.recordAudit({
+			operatorId: sid,
+			action: "recruitment.reopened",
+			targetType: "recruitment",
+			targetId: String(id),
+			payload: {
+				previousStatus: rec.status,
+				convertedSeriesId: rec.converted_series_id,
+			},
+		});
+
+		invalidate(`recruitment:${id}`);
+		invalidate("dashboard");
+		void notifyBotRecruitRefresh(id).catch((err) => {
+			req.log.warn({ err, recruitmentId: id }, "notifyBotRecruitRefresh failed");
+		});
+		return { ok: true, recruitmentId: id };
 	});
 }

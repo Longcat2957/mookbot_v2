@@ -3,6 +3,7 @@
 
 import { useEffect, useState } from "react";
 import { api } from "../../api/rest.js";
+import { InlineNotice } from "../../components/DesignPrimitives.js";
 import { usePerms } from "../../state/perms.js";
 import { AuctionDraftHeader } from "./AuctionDraft/AuctionDraftHeader.js";
 import { BiddingPanel } from "./AuctionDraft/BiddingPanel.js";
@@ -77,7 +78,7 @@ export function AuctionDraft({
 	// 토너먼트 진입 전 — 모집 정보 표시 + [경매 시작] 버튼
 	if (tournamentId === null) {
 		if (!recruitDetail) {
-			return <div className="alert alert-info">경매 모집 로딩 중…</div>;
+			return <InlineNotice tone="info">경매 모집 로딩 중…</InlineNotice>;
 		}
 		return (
 			<RecruitmentStartPanel
@@ -92,15 +93,19 @@ export function AuctionDraft({
 
 	if (s.error) {
 		return (
-			<div className="alert alert-error">
-				토너먼트 정보 로딩 실패: {s.error}{" "}
-				<button type="button" className="btn btn-xs btn-outline ml-2" onClick={s.refresh}>
-					↻
-				</button>
-			</div>
+			<InlineNotice
+				tone="error"
+				action={
+					<button type="button" className="btn btn-xs btn-outline" onClick={s.refresh}>
+						↻
+					</button>
+				}
+			>
+				토너먼트 정보 로딩 실패: {s.error}
+			</InlineNotice>
 		);
 	}
-	if (!s.detail) return <div className="alert alert-info">로딩 중…</div>;
+	if (!s.detail) return <InlineNotice tone="info">로딩 중…</InlineNotice>;
 
 	const status = s.detail.tournament.status;
 

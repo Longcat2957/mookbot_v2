@@ -1,3 +1,4 @@
+import { StatusBadge } from "../../components/DesignPrimitives.js";
 import { UserAvatar } from "../../components/UserAvatar.js";
 import type { ProfileResponse } from "./types.js";
 import { winrateToneClass } from "./types.js";
@@ -33,7 +34,7 @@ export function ProfileHeader({
 				<div className="min-w-0">
 					<h1 className="text-2xl font-bold flex items-center gap-2">
 						<span className="truncate">{data.user.displayName}</span>
-						{isMe && <span className="badge badge-primary badge-sm">YOU</span>}
+						{isMe && <StatusBadge tone="primary">YOU</StatusBadge>}
 					</h1>
 					<div className="text-sm text-base-content/70 flex items-center gap-2 flex-wrap mt-1">
 						<span>시즌 {data.season.id}</span>
@@ -49,13 +50,14 @@ export function ProfileHeader({
 					</div>
 					<div className="flex flex-wrap gap-1.5 mt-2 items-center">
 						{data.riotAccounts.map((account) => (
-							<span
+							<StatusBadge
 								key={`${account.gameName}#${account.tagLine}`}
-								className={`badge badge-sm ${account.isMain ? "badge-warning" : "badge-ghost"}`}
+								tone={account.isMain ? "warning" : "neutral"}
+								variant={account.isMain ? "soft" : "ghost"}
 							>
 								{account.isMain && "⭐ "}
 								{account.gameName}#{account.tagLine}
-							</span>
+							</StatusBadge>
 						))}
 						{isMe && onManageRiotAccounts && (
 							<button

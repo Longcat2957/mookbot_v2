@@ -1,3 +1,4 @@
+import { cx, StatusBadge } from "../../components/DesignPrimitives.js";
 import { UserAvatar } from "../../components/UserAvatar.js";
 import { useCoarsePointer } from "../../state/useCoarsePointer.js";
 import { ChampionTile } from "./ChampionTile.js";
@@ -44,13 +45,15 @@ export function ParticipantCard({
 					onTap();
 				}
 			}}
-			className={`bg-base-300 rounded-lg ${coarse ? "cursor-pointer" : "cursor-grab active:cursor-grabbing"} hover:bg-base-content/10 transition px-3 py-2 flex items-center gap-2 min-w-0 ${
+			className={cx(
+				"bg-base-300 rounded-lg hover:bg-base-content/10 transition px-3 py-2 flex items-center gap-2 min-w-0",
+				coarse ? "cursor-pointer" : "cursor-grab active:cursor-grabbing",
 				selected
 					? "ring-2 ring-primary bg-primary/10"
 					: recentlyChanged
 						? "ring-2 ring-info animate-pulse"
-						: ""
-			}`}
+						: "",
+			)}
 		>
 			{/* 좌: avatar */}
 			<UserAvatar
@@ -71,7 +74,9 @@ export function ParticipantCard({
 							{totalWr}%
 						</span>
 					) : (
-						<span className="badge badge-ghost badge-xs">신규</span>
+						<StatusBadge tone="neutral" variant="ghost" size="xs">
+							신규
+						</StatusBadge>
 					)}
 					{history.total.plays > 0 && (
 						<span className="text-[10px] opacity-50 tabular-nums">
@@ -83,17 +88,17 @@ export function ParticipantCard({
 					{roles.length > 0 && (
 						<>
 							{roles.map((r) => (
-								<span key={r} className="badge badge-primary badge-xs">
+								<StatusBadge key={r} tone="primary" variant="solid" size="xs">
 									{ROLE_LABEL[r] ?? r}
-								</span>
+								</StatusBadge>
 							))}
 							<span className="opacity-30 mx-0.5">|</span>
 						</>
 					)}
 					{history.topRole && history.topRole.plays > 0 && (
-						<span className="badge badge-outline badge-xs">
+						<StatusBadge tone="neutral" variant="outline" size="xs">
 							주 {ROLE_LABEL[history.topRole.role] ?? history.topRole.role}
-						</span>
+						</StatusBadge>
 					)}
 					{history.total.plays === 0 && (
 						<span className="text-[10px] text-base-content/50 italic">전적 없음</span>

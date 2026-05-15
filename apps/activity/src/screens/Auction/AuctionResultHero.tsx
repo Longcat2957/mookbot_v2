@@ -1,3 +1,4 @@
+import { PanelCard } from "../../components/DesignPrimitives.js";
 import { UserAvatar } from "../../components/UserAvatar.js";
 import type { MatchSeriesDetail } from "./resultTypes.js";
 import type { AuctionTournamentDetail } from "./types.js";
@@ -13,37 +14,37 @@ export function AuctionResultHero({
 	if (!championTeam) return null;
 
 	return (
-		<div className="card bg-success/10 border-2 border-success shadow-lg">
-			<div className="card-body p-6 gap-3 text-center">
-				<div className="text-6xl select-none">🏆</div>
-				<div className="text-2xl font-bold">
-					우승 · 팀{championTeam.teamIndex} {championTeam.captainName}
-				</div>
-				{finalScoreText && <div className="text-base text-base-content/60">{finalScoreText}</div>}
-				<div className="flex items-end justify-center gap-3 flex-wrap pt-2">
-					{championTeam.members.map((m) => (
-						<div key={m.userId} className="flex flex-col items-center gap-1.5">
-							<div
-								className={
-									m.userId === championTeam.captainUserId ? "ring-2 ring-warning rounded-full" : ""
-								}
-							>
-								<UserAvatar
-									discordId={m.userId}
-									displayName={m.displayName}
-									imageUrl={m.profileIconUrl}
-									size="lg"
-								/>
-							</div>
-							<div className="text-sm font-medium max-w-[6rem] truncate">
-								{m.displayName}
-								{m.userId === championTeam.captainUserId && " 👑"}
-							</div>
-						</div>
-					))}
-				</div>
+		<PanelCard
+			status="success"
+			className="bg-success/10 shadow-lg"
+			bodyClassName="p-6 gap-3 text-center"
+		>
+			<div className="text-6xl select-none">🏆</div>
+			<div className="text-2xl font-bold">
+				우승 · 팀{championTeam.teamIndex} {championTeam.captainName}
 			</div>
-		</div>
+			{finalScoreText && <div className="text-base text-base-content/60">{finalScoreText}</div>}
+			<div className="flex items-end justify-center gap-3 flex-wrap pt-2">
+				{championTeam.members.map((m) => (
+					<div key={m.userId} className="flex flex-col items-center gap-1.5">
+						<div
+							className={m.userId === championTeam.captainUserId ? "ring-2 ring-warning rounded-full" : ""}
+						>
+							<UserAvatar
+								discordId={m.userId}
+								displayName={m.displayName}
+								imageUrl={m.profileIconUrl}
+								size="lg"
+							/>
+						</div>
+						<div className="text-sm font-medium max-w-[6rem] truncate">
+							{m.displayName}
+							{m.userId === championTeam.captainUserId && " 👑"}
+						</div>
+					</div>
+				))}
+			</div>
+		</PanelCard>
 	);
 }
 

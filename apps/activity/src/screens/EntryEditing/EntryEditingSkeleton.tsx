@@ -1,3 +1,5 @@
+import { PanelCard } from "../../components/DesignPrimitives.js";
+
 export function EntryEditingSkeleton() {
 	return (
 		<section className="space-y-3">
@@ -10,26 +12,22 @@ export function EntryEditingSkeleton() {
 			</div>
 			<div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
 				{[0, 1].map((i) => (
-					<div key={i} className="card surface-base shadow-sm">
-						<div className="card-body p-4 gap-3">
-							<div className="skeleton h-6 w-16" />
-							{[0, 1, 2, 3, 4].map((j) => (
-								<div key={j} className="skeleton h-12 w-full" />
-							))}
-						</div>
-					</div>
+					<PanelCard key={i} bodyClassName="p-4 gap-3">
+						<div className="skeleton h-6 w-16" />
+						{[0, 1, 2, 3, 4].map((j) => (
+							<div key={j} className="skeleton h-12 w-full" />
+						))}
+					</PanelCard>
 				))}
 			</div>
-			<div className="card surface-base shadow-sm">
-				<div className="card-body p-4 space-y-3">
-					<div className="skeleton h-5 w-32" />
-					<div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-						{[0, 1, 2, 3].map((i) => (
-							<div key={i} className="skeleton h-32 w-full" />
-						))}
-					</div>
+			<PanelCard bodyClassName="p-4 space-y-3">
+				<div className="skeleton h-5 w-32" />
+				<div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+					{[0, 1, 2, 3].map((i) => (
+						<div key={i} className="skeleton h-32 w-full" />
+					))}
 				</div>
-			</div>
+			</PanelCard>
 		</section>
 	);
 }

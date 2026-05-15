@@ -1,4 +1,5 @@
 import type { RefObject } from "react";
+import { IconButton, StatusBadge } from "../../../components/DesignPrimitives.js";
 
 export function ChampionSearchHeader({
 	searchRef,
@@ -26,20 +27,25 @@ export function ChampionSearchHeader({
 					onChange={(e) => onSearchChange(e.target.value)}
 					className="input input-bordered join-item flex-1"
 				/>
-				<button
-					type="button"
-					className="btn btn-ghost join-item"
+				<IconButton
+					label="검색 초기화"
+					tooltip="검색 초기화 (Esc)"
+					className="join-item rounded-l-none"
 					onClick={onClearSearch}
 					disabled={!search}
-					title="검색 초기화 (Esc)"
-					aria-label="검색 초기화"
 				>
 					✕
-				</button>
+				</IconButton>
 			</div>
-			<div className="text-xs text-base-content/60">
-				{availableCount} 사용 가능
-				{blockedCount > 0 && ` · ${blockedCount} 사용 불가`}
+			<div className="flex items-center gap-1.5">
+				<StatusBadge tone="success" variant="outline">
+					{availableCount} 사용 가능
+				</StatusBadge>
+				{blockedCount > 0 && (
+					<StatusBadge tone="warning" variant="outline">
+						{blockedCount} 사용 불가
+					</StatusBadge>
+				)}
 			</div>
 		</div>
 	);

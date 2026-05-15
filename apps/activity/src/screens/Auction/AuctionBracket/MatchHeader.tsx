@@ -1,3 +1,4 @@
+import { StatusBadge } from "../../../components/DesignPrimitives.js";
 import { type AuctionMatch, type AuctionTournamentDetail, roundLabel } from "../types.js";
 
 export function MatchHeader({
@@ -19,17 +20,19 @@ export function MatchHeader({
 		<div className="flex items-center justify-between flex-wrap gap-2">
 			<div className="flex items-center gap-2">
 				<span className="text-base font-bold">{roundLabel(match.round, match.bracketIndex)}</span>
-				<span className="badge badge-ghost">{match.format}</span>
+				<StatusBadge tone="neutral" variant="ghost">
+					{match.format}
+				</StatusBadge>
 				{inProgress && (
-					<span className="badge badge-warning gap-1.5">
+					<StatusBadge tone="warning" className="gap-1.5">
 						<span className="inline-block size-2 rounded-full bg-warning-content animate-pulse" />
 						진행 중
-					</span>
+					</StatusBadge>
 				)}
 				{completed && (
-					<span className="badge badge-success">
+					<StatusBadge tone="success">
 						🏆 팀{winningTeam === "TEAM_1" ? team1?.teamIndex : team2?.teamIndex} 승
-					</span>
+					</StatusBadge>
 				)}
 			</div>
 		</div>

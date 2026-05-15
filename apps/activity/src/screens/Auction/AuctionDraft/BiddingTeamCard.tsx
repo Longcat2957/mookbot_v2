@@ -1,3 +1,4 @@
+import { cx, PanelCard, StatusBadge } from "../../../components/DesignPrimitives.js";
 import type { AuctionTournamentDetail } from "../types.js";
 import { BiddingTeamBidControls } from "./BiddingTeamBidControls.js";
 import { BiddingTeamFillMeter } from "./BiddingTeamFillMeter.js";
@@ -35,32 +36,34 @@ export function BiddingTeamCard({
 		sharedIntent !== undefined && localValue.trim() !== String(sharedIntent);
 
 	return (
-		<div
-			className={`card surface-base shadow-sm transition ${isBidding && !full ? "ring-2 ring-primary/40" : ""}`}
+		<PanelCard
+			className={cx("transition", isBidding && !full ? "ring-2 ring-primary/40" : "")}
+			bodyClassName="p-4 gap-2"
 		>
-			<div className="card-body p-4 gap-2">
-				<BiddingTeamHeader team={team} pointPct={pointPct} />
-				<BiddingTeamFillMeter memberCount={team.members.length} fillPct={fillPct} />
-				<BiddingTeamBidControls
-					team={team}
-					isBidding={isBidding}
-					canEdit={canEdit}
-					submitting={submitting}
-					full={full}
-					sharedIntent={sharedIntent}
-					localValue={localValue}
-					onBidInput={onBidInput}
-					onFinalize={onFinalize}
-					onManualAssign={onManualAssign}
-				/>
-				{isBidding && canEdit && sharedDiffersFromLocal && (
-					<div className="text-[11px] text-base-content/60 flex items-center gap-1.5 px-1">
-						<span className="inline-block size-1.5 rounded-full bg-info animate-pulse" aria-hidden />
-						다른 화면 입력: <span className="font-bold tabular-nums text-info">{sharedIntent}p</span>
-					</div>
-				)}
-				<BiddingTeamMemberList team={team} canEdit={canEdit} onRevertBid={onRevertBid} />
-			</div>
-		</div>
+			<BiddingTeamHeader team={team} pointPct={pointPct} />
+			<BiddingTeamFillMeter memberCount={team.members.length} fillPct={fillPct} />
+			<BiddingTeamBidControls
+				team={team}
+				isBidding={isBidding}
+				canEdit={canEdit}
+				submitting={submitting}
+				full={full}
+				sharedIntent={sharedIntent}
+				localValue={localValue}
+				onBidInput={onBidInput}
+				onFinalize={onFinalize}
+				onManualAssign={onManualAssign}
+			/>
+			{isBidding && canEdit && sharedDiffersFromLocal && (
+				<div className="text-[11px] text-base-content/60 flex items-center gap-1.5 px-1">
+					<span className="inline-block size-1.5 rounded-full bg-info animate-pulse" aria-hidden />
+					다른 화면 입력:
+					<StatusBadge tone="info" size="xs" className="tabular-nums">
+						{sharedIntent}p
+					</StatusBadge>
+				</div>
+			)}
+			<BiddingTeamMemberList team={team} canEdit={canEdit} onRevertBid={onRevertBid} />
+		</PanelCard>
 	);
 }

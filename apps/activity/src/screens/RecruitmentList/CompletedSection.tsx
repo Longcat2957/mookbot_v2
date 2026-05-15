@@ -1,3 +1,4 @@
+import { SectionHeader, StatusBadge } from "../../components/DesignPrimitives.js";
 import { EmptyState } from "../../components/EmptyState.js";
 import { CompletedSeriesCard, SkeletonGrid } from "../../features/dashboard/DashboardCards.js";
 import type { CompletedSeries } from "../../features/dashboard/types.js";
@@ -21,12 +22,19 @@ export function CompletedSection({
 }) {
 	return (
 		<details className="space-y-2" open>
-			<summary className="cursor-pointer text-lg font-bold list-none flex items-center gap-2 select-none">
-				<span className="text-base-content/40 text-sm">▼</span>
-				지난 내전
-				{!isLoading && completedTotal > 0 && (
-					<span className="text-xs font-normal text-base-content/50 ml-1">({completedTotal})</span>
-				)}
+			<summary className="cursor-pointer list-none select-none">
+				<SectionHeader
+					title={
+						<span className="text-lg inline-flex items-center gap-2">
+							<span className="text-base-content/40 text-sm">▼</span>
+							지난 내전
+						</span>
+					}
+					actions={
+						!isLoading &&
+						completedTotal > 0 && <StatusBadge tone="neutral">{completedTotal}개</StatusBadge>
+					}
+				/>
 			</summary>
 			<div className="pt-2 space-y-3">
 				{isLoading ? (

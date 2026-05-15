@@ -1,3 +1,4 @@
+import { StatusBadge } from "../../components/DesignPrimitives.js";
 import type { LineupParticipant } from "../../components/LineupPreview.js";
 import { GameTeamPanel } from "./GameTeamPanel.js";
 import { type Champion, type GameDetail, type Team, teamLabel } from "./types.js";
@@ -30,9 +31,9 @@ export function GameSummaryCard({
 			<summary className="collapse-title min-h-0 py-3 px-4 flex items-center justify-between gap-2 flex-wrap">
 				<div className="flex items-center gap-2">
 					<span className="font-bold text-base">Game {game.gameNumber}</span>
-					<span className="badge badge-success badge-sm">
+					<StatusBadge tone="success">
 						{teamLabel(game.winningTeam)} 승 ({winnerSide})
-					</span>
+					</StatusBadge>
 				</div>
 				<div className="text-xs text-base-content/60 flex items-center gap-2">
 					{duration && <span>⏱ {duration}</span>}

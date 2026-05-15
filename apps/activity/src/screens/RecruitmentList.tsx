@@ -1,3 +1,4 @@
+import { InlineNotice } from "../components/DesignPrimitives.js";
 import { MeHero } from "../components/MeHero.js";
 import { WelcomeCard } from "../components/WelcomeCard.js";
 import { useDashboardData } from "../features/dashboard/useDashboardData.js";
@@ -46,9 +47,7 @@ export function RecruitmentList({
 		return (
 			<section className="space-y-4">
 				<DashboardHeader onRefresh={refresh} />
-				<div className="alert alert-error">
-					<span>목록을 불러오지 못했습니다: {error}</span>
-				</div>
+				<InlineNotice tone="error">목록을 불러오지 못했습니다: {error}</InlineNotice>
 			</section>
 		);
 	}
