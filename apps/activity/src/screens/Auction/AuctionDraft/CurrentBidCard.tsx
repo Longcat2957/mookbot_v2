@@ -31,9 +31,9 @@ export function CurrentBidCard({
 }) {
 	return (
 		<div className="card surface-base border-l-4 border-primary shadow">
-			<div className="card-body p-5 gap-3">
+			<div className="card-body p-4 gap-3">
 				<div className="flex items-center justify-between flex-wrap gap-2">
-					<h3 className="text-lg font-bold flex items-center gap-2">
+					<h3 className="text-base font-bold flex items-center gap-2">
 						📦 현재 매물
 						{currentBidTarget && (
 							<span className="inline-block size-2.5 rounded-full bg-success animate-pulse" aria-hidden />
@@ -54,7 +54,7 @@ export function CurrentBidCard({
 						{canEdit && (
 							<button
 								type="button"
-								className="btn btn-primary"
+								className="btn btn-primary btn-sm"
 								onClick={onDraw}
 								disabled={allPlaced || currentBidTarget !== null}
 								title={
@@ -104,7 +104,7 @@ function CurrentCandidate({
 }) {
 	return (
 		<>
-			<div className="flex items-center gap-4 py-2">
+			<div className="flex items-center gap-3 py-1">
 				<UserAvatar
 					discordId={currentBidTarget.userId}
 					displayName={currentBidTarget.displayName}
@@ -112,20 +112,25 @@ function CurrentCandidate({
 					imageUrl={candidateRiotIcon ?? currentBidTarget.profileIconUrl}
 				/>
 				<div className="flex-1 min-w-0">
-					<div className="text-3xl font-bold truncate">{currentBidTarget.displayName}</div>
+					<div className="text-2xl font-bold truncate">{currentBidTarget.displayName}</div>
 					<div className="text-sm text-base-content/60">매물 진행 중 · 보이스에서 입찰 협의</div>
 				</div>
 			</div>
 
-			<div className="divider my-0 text-xs text-base-content/60">🎮 라이엇 연동 (솔로랭크)</div>
-			<CandidateRiotSection
-				key={`riot-${currentBidTarget.userId}`}
-				data={candidateData}
-				error={candidateError}
-			/>
-
-			<div className="divider my-0 text-xs text-base-content/60">⚔️ 내전 기록</div>
-			<CandidateMookSection key={`mook-${currentBidTarget.userId}`} data={candidateData} />
+			<div className="grid grid-cols-1 2xl:grid-cols-2 gap-3">
+				<section className="space-y-2 min-w-0">
+					<div className="text-xs font-bold text-base-content/60">🎮 라이엇 연동</div>
+					<CandidateRiotSection
+						key={`riot-${currentBidTarget.userId}`}
+						data={candidateData}
+						error={candidateError}
+					/>
+				</section>
+				<section className="space-y-2 min-w-0">
+					<div className="text-xs font-bold text-base-content/60">⚔️ 내전 기록</div>
+					<CandidateMookSection key={`mook-${currentBidTarget.userId}`} data={candidateData} />
+				</section>
+			</div>
 		</>
 	);
 }

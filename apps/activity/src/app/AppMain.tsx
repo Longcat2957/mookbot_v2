@@ -40,6 +40,14 @@ export function AppMain({
 	nav: AppNavigation;
 	onOpenHelp: () => void;
 }) {
+	const isAuctionStage =
+		nav.stage === "AUCTION_DRAFT" ||
+		nav.stage === "AUCTION_BRACKET" ||
+		nav.stage === "AUCTION_RESULT";
+	const mainClass = isAuctionStage
+		? "max-w-none mx-0 p-1.5 sm:p-2 lg:p-2 w-full flex-1"
+		: "max-w-screen-xl mx-auto p-3 lg:p-4 w-full flex-1";
+
 	return (
 		<>
 			{(nav.stage === "ENTRY_EDITING" || nav.stage === "IN_GAME" || nav.stage === "COMPLETED") && (
@@ -50,7 +58,7 @@ export function AppMain({
 				</div>
 			)}
 
-			<main className="max-w-screen-xl mx-auto p-3 lg:p-4 w-full flex-1">
+			<main className={mainClass}>
 				{nav.stage === "LIST" && (
 					<ErrorBoundary key="list" label="대시보드" onReset={nav.goHome}>
 						<ScreenSuspense>

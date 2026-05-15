@@ -42,52 +42,57 @@ export function BiddingPanel({
 	});
 
 	return (
-		<div className="space-y-4">
-			<BiddingStats
-				recruitPoolSize={s.recruitPoolSize}
-				captainCount={s.captainCount}
-				totalPlaced={s.totalPlaced}
-				unsoldCount={detail.unsold.length}
-				hasCurrentBidTarget={s.currentBidTarget !== null}
-			/>
-			<CurrentBidCard
-				currentBidTarget={s.currentBidTarget}
-				canEdit={canEdit}
-				allPlaced={s.allPlaced}
-				submitting={s.submitting}
-				candidateData={s.candidateData}
-				candidateError={s.candidateError}
-				candidateRiotIcon={s.candidateRiotIcon}
-				onDraw={s.draw}
-				onCancelDraw={s.cancelDraw}
-			/>
-			{s.error && <div className="alert alert-error">{s.error}</div>}
-			<div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-				{detail.teams.map((team) => (
-					<BiddingTeamCard
-						key={team.id}
-						team={team}
-						isBidding={s.currentBidTarget !== null}
-						canEdit={canEdit}
-						submitting={s.submitting}
-						sharedIntent={s.intentByTeam.get(team.id)}
-						localValue={s.bidPoints[team.id] ?? ""}
-						onBidInput={s.handleBidInput}
-						onFinalize={s.finalize}
-						onManualAssign={s.manualAssign}
-						onRevertBid={onRevertBid}
-					/>
-				))}
+		<div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_minmax(26rem,40rem)] gap-4 items-start">
+			<div className="space-y-4 min-w-0">
+				<BiddingStats
+					recruitPoolSize={s.recruitPoolSize}
+					captainCount={s.captainCount}
+					totalPlaced={s.totalPlaced}
+					unsoldCount={detail.unsold.length}
+					hasCurrentBidTarget={s.currentBidTarget !== null}
+				/>
+				{s.error && <div className="alert alert-error">{s.error}</div>}
+				<div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+					{detail.teams.map((team) => (
+						<BiddingTeamCard
+							key={team.id}
+							team={team}
+							isBidding={s.currentBidTarget !== null}
+							canEdit={canEdit}
+							submitting={s.submitting}
+							sharedIntent={s.intentByTeam.get(team.id)}
+							localValue={s.bidPoints[team.id] ?? ""}
+							onBidInput={s.handleBidInput}
+							onFinalize={s.finalize}
+							onManualAssign={s.manualAssign}
+							onRevertBid={onRevertBid}
+						/>
+					))}
+				</div>
 			</div>
-			<UnsoldList unsold={detail.unsold} />
-			<BiddingProgressFooter
-				canEdit={canEdit}
-				allPlaced={s.allPlaced}
-				submitting={s.submitting}
-				totalPlaced={s.totalPlaced}
-				expectedTotal={s.expectedTotal}
-				onStartBracket={onStartBracket}
-			/>
+
+			<aside className="space-y-4 min-w-0 xl:sticky xl:top-3">
+				<CurrentBidCard
+					currentBidTarget={s.currentBidTarget}
+					canEdit={canEdit}
+					allPlaced={s.allPlaced}
+					submitting={s.submitting}
+					candidateData={s.candidateData}
+					candidateError={s.candidateError}
+					candidateRiotIcon={s.candidateRiotIcon}
+					onDraw={s.draw}
+					onCancelDraw={s.cancelDraw}
+				/>
+				<UnsoldList unsold={detail.unsold} />
+				<BiddingProgressFooter
+					canEdit={canEdit}
+					allPlaced={s.allPlaced}
+					submitting={s.submitting}
+					totalPlaced={s.totalPlaced}
+					expectedTotal={s.expectedTotal}
+					onStartBracket={onStartBracket}
+				/>
+			</aside>
 		</div>
 	);
 }

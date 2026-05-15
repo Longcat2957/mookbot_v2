@@ -104,33 +104,42 @@ export function GameInputForm({
 
 	return (
 		<>
-			<div className="space-y-2 border-t border-base-300 pt-2">
-				<h4 className="font-bold text-sm">Game {nextGameNumber} 입력 (라인 자유 배치)</h4>
-				<GameSideControls
-					team1Side={team1Side}
-					winningTeam={winningTeam}
-					team1Index={team1.teamIndex}
-					team2Index={team2.teamIndex}
-					onTeam1SideChange={setTeam1Side}
-					onWinningTeamChange={setWinningTeam}
-				/>
-				<BanInputGrid
-					bans={bans}
-					champById={champById}
-					team1Index={team1.teamIndex}
-					team2Index={team2.teamIndex}
-					onOpenPicker={setPicker}
-					onRemoveBan={removeBan}
-				/>
-				<PickInputGrid
-					assign={assign}
-					picks={picks}
-					champById={champById}
-					team1={team1}
-					team2={team2}
-					onAssign={updateAssign}
-					onOpenPicker={setPicker}
-				/>
+			<div className="space-y-3 xl:border-l xl:border-base-300 xl:pl-4">
+				<div className="flex items-center justify-between gap-2 flex-wrap">
+					<h4 className="font-bold text-sm">Game {nextGameNumber} 입력</h4>
+					<div className="text-xs text-base-content/50">라인 자유 배치</div>
+				</div>
+				<div className="grid grid-cols-1 2xl:grid-cols-[13rem_minmax(0,1fr)] gap-3 items-start">
+					<div className="surface-quiet-soft rounded-md p-2.5 space-y-2">
+						<GameSideControls
+							team1Side={team1Side}
+							winningTeam={winningTeam}
+							team1Index={team1.teamIndex}
+							team2Index={team2.teamIndex}
+							onTeam1SideChange={setTeam1Side}
+							onWinningTeamChange={setWinningTeam}
+						/>
+					</div>
+					<div className="grid grid-cols-1 2xl:grid-cols-[minmax(14rem,0.75fr)_minmax(0,1.25fr)] gap-3">
+						<BanInputGrid
+							bans={bans}
+							champById={champById}
+							team1Index={team1.teamIndex}
+							team2Index={team2.teamIndex}
+							onOpenPicker={setPicker}
+							onRemoveBan={removeBan}
+						/>
+						<PickInputGrid
+							assign={assign}
+							picks={picks}
+							champById={champById}
+							team1={team1}
+							team2={team2}
+							onAssign={updateAssign}
+							onOpenPicker={setPicker}
+						/>
+					</div>
+				</div>
 				{error && <div className="alert alert-error alert-sm">{error}</div>}
 				<button
 					type="button"
