@@ -87,13 +87,16 @@ export function useAuctionState(tournamentId: number | null): UseAuctionStateRes
 	}, [tournamentId, swr]);
 
 	const draw = useCallback(async () => {
-		return api<{
+		const result = await api<{
 			userId: string | null;
 			displayName: string | null;
 			remainingCount: number;
 			done: boolean;
 		}>(`/auction-tournaments/${tournamentId}/draw`, { method: "POST" });
-	}, [tournamentId]);
+		// 본인은 WS origin-suppress 로 broadcast 무시됨 — 강제 refresh 로 새 매물 sync.
+		swr.refresh();
+		return result;
+	}, [tournamentId, swr]);
 
 	const finalizeBid = useCallback(
 		async (input: { targetUserId: string; teamId: number; points: number }) => {
