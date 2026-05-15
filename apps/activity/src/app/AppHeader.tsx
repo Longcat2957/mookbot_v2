@@ -31,10 +31,10 @@ export function AppHeader({
 				<div className="navbar-start gap-3 px-4 min-w-0">
 					<button
 						type="button"
-						className="text-xl font-bold tracking-tight hover:text-primary cursor-pointer shrink-0 flex items-baseline gap-1.5"
+						className="text-xl hover:text-primary cursor-pointer shrink-0 flex items-baseline gap-1.5"
 						onClick={nav.goHome}
 					>
-						<span>monkey</span>
+						<span className="logo-monkey">monkey</span>
 						<span
 							className="text-[10px] font-normal text-base-content/40 tabular-nums"
 							title={`Activity 버전 ${__APP_VERSION__}`}

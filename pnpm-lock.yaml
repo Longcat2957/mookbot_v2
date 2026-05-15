@@ -23,6 +23,9 @@ importers:
       '@discord/embedded-app-sdk':
         specifier: ^2.4.1
         version: 2.4.1
+      '@fontsource/exo-2':
+        specifier: ^5.2.8
+        version: 5.2.8
       react:
         specifier: ^19.2.5
         version: 19.2.5
@@ -525,6 +528,9 @@ packages:
 
   '@fastify/websocket@11.2.0':
     resolution: {integrity: sha512-3HrDPbAG1CzUCqnslgJxppvzaAZffieOVbLp1DAy1huCSynUWPifSvfdEDUR8HlJLp3sp1A36uOM2tJogADS8w==}
+
+  '@fontsource/exo-2@5.2.8':
+    resolution: {integrity: sha512-cOZuiqW+gKg2SJAjymCicup0A8qto4M/lpyGahal3twMeLCRma8x/okFCdLYlTvYeQesF7d3WLKi+N04iPb40A==}
 
   '@ioredis/as-callback@3.0.0':
     resolution: {integrity: sha512-Kqv1rZ3WbgOrS+hgzJ5xG5WQuhvzzSTRYvNeyPMLOAM78MHSnuKI20JeJGbpuAt//LCuP0vsexZcorqW7kWhJg==}
@@ -2146,6 +2152,8 @@ snapshots:
     transitivePeerDependencies:
       - bufferutil
       - utf-8-validate
+
+  '@fontsource/exo-2@5.2.8': {}
 
   '@ioredis/as-callback@3.0.0': {}
 

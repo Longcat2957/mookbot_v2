@@ -7,6 +7,19 @@ import {
 
 type RiotAccount = AuctionCardData["riotAccounts"][number];
 
+const TIER_EMBLEM_SRC: Record<string, string> = {
+	CHALLENGER: "/riot/ranked-emblems/challenger.webp",
+	GRANDMASTER: "/riot/ranked-emblems/grandmaster.webp",
+	MASTER: "/riot/ranked-emblems/master.webp",
+	DIAMOND: "/riot/ranked-emblems/diamond.webp",
+	EMERALD: "/riot/ranked-emblems/emerald.webp",
+	PLATINUM: "/riot/ranked-emblems/platinum.webp",
+	GOLD: "/riot/ranked-emblems/gold.webp",
+	SILVER: "/riot/ranked-emblems/silver.webp",
+	BRONZE: "/riot/ranked-emblems/bronze.webp",
+	IRON: "/riot/ranked-emblems/iron.webp",
+};
+
 export function CandidateRiotDetails({ account }: { account: RiotAccount }) {
 	return (
 		<div className="space-y-3">
@@ -27,16 +40,17 @@ function RiotRankCard({ account }: { account: RiotAccount }) {
 
 	const ranked = account.bestRanked;
 	const winrate = ((ranked.wins / Math.max(1, ranked.wins + ranked.losses)) * 100).toFixed(0);
+	const emblemSrc = TIER_EMBLEM_SRC[ranked.tier];
 
 	return (
 		<div className="flex items-center gap-3 surface-quiet-soft rounded-md p-2.5">
-			{account.profileIconUrl && (
+			{emblemSrc && (
 				<img
-					src={account.profileIconUrl}
-					alt=""
-					width={48}
-					height={48}
-					className="size-12 rounded-md ring-1 ring-base-content/10"
+					src={emblemSrc}
+					alt={`${ranked.tier} 티어 엠블럼`}
+					width={64}
+					height={64}
+					className="size-14 shrink-0 object-contain drop-shadow"
 					draggable={false}
 					loading="lazy"
 					decoding="async"

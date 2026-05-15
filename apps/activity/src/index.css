@@ -46,6 +46,12 @@ body,
  * --tw-* 변수 직접 안 만지고 @apply 만 사용 — daisyUI theme 변경에 자연 따라감.
  */
 @layer components {
+	.logo-monkey {
+		font-family: "Exo 2", var(--font-sans);
+		font-weight: 500;
+		letter-spacing: 0;
+	}
+
 	.surface-base {
 		@apply bg-base-200;
 	}

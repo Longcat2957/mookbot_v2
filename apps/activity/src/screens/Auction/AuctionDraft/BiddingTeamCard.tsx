@@ -30,7 +30,6 @@ export function BiddingTeamCard({
 }) {
 	const pointPct =
 		team.initialPoints > 0 ? Math.round((team.currentPoints / team.initialPoints) * 100) : 0;
-	const fillPct = Math.round((team.members.length / 5) * 100);
 	const full = team.members.length >= 5;
 	const sharedDiffersFromLocal =
 		sharedIntent !== undefined && localValue.trim() !== String(sharedIntent);
@@ -41,7 +40,7 @@ export function BiddingTeamCard({
 			bodyClassName="p-4 gap-2"
 		>
 			<BiddingTeamHeader team={team} pointPct={pointPct} />
-			<BiddingTeamFillMeter memberCount={team.members.length} fillPct={fillPct} />
+			<BiddingTeamFillMeter memberCount={team.members.length} />
 			<BiddingTeamBidControls
 				team={team}
 				isBidding={isBidding}

@@ -43,8 +43,8 @@ export function BiddingPanel({
 	});
 
 	return (
-		<div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_minmax(26rem,40rem)] gap-4 items-start">
-			<div className="space-y-4 min-w-0">
+		<div className="grid grid-cols-1 xl:grid-cols-[minmax(24rem,34rem)_minmax(0,1fr)] gap-4 items-start">
+			<aside className="space-y-4 min-w-0 xl:sticky xl:top-3">
 				<BiddingStats
 					recruitPoolSize={s.recruitPoolSize}
 					captainCount={s.captainCount}
@@ -53,26 +53,6 @@ export function BiddingPanel({
 					hasCurrentBidTarget={s.currentBidTarget !== null}
 				/>
 				{s.error && <InlineNotice tone="error">{s.error}</InlineNotice>}
-				<div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-					{detail.teams.map((team) => (
-						<BiddingTeamCard
-							key={team.id}
-							team={team}
-							isBidding={s.currentBidTarget !== null}
-							canEdit={canEdit}
-							submitting={s.submitting}
-							sharedIntent={s.intentByTeam.get(team.id)}
-							localValue={s.bidPoints[team.id] ?? ""}
-							onBidInput={s.handleBidInput}
-							onFinalize={s.finalize}
-							onManualAssign={s.manualAssign}
-							onRevertBid={onRevertBid}
-						/>
-					))}
-				</div>
-			</div>
-
-			<aside className="space-y-4 min-w-0 xl:sticky xl:top-3">
 				<CurrentBidCard
 					currentBidTarget={s.currentBidTarget}
 					canEdit={canEdit}
@@ -94,6 +74,26 @@ export function BiddingPanel({
 					onStartBracket={onStartBracket}
 				/>
 			</aside>
+
+			<div className="space-y-4 min-w-0">
+				<div className="grid grid-cols-1 lg:grid-cols-2 2xl:grid-cols-3 gap-3">
+					{detail.teams.map((team) => (
+						<BiddingTeamCard
+							key={team.id}
+							team={team}
+							isBidding={s.currentBidTarget !== null}
+							canEdit={canEdit}
+							submitting={s.submitting}
+							sharedIntent={s.intentByTeam.get(team.id)}
+							localValue={s.bidPoints[team.id] ?? ""}
+							onBidInput={s.handleBidInput}
+							onFinalize={s.finalize}
+							onManualAssign={s.manualAssign}
+							onRevertBid={onRevertBid}
+						/>
+					))}
+				</div>
+			</div>
 		</div>
 	);
 }
