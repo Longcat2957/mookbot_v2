@@ -4,13 +4,146 @@
  */
 
 /* ============================================================
+ * Console frame
+ * ============================================================ */
+
+.mg-console {
+	position: relative;
+	isolation: isolate;
+}
+
+.mg-console::before {
+	content: "";
+	position: absolute;
+	inset: -12px;
+	z-index: -1;
+	pointer-events: none;
+	background-image:
+		linear-gradient(color-mix(in oklch, var(--color-primary), transparent 92%) 1px, transparent 1px),
+		linear-gradient(90deg, color-mix(in oklch, var(--color-secondary), transparent 94%) 1px, transparent 1px);
+	background-size: 28px 28px;
+	mask-image: linear-gradient(to bottom, black 0%, transparent 72%);
+	opacity: 0.55;
+}
+
+.mg-tool-tab {
+	min-width: 0;
+	height: 4.75rem;
+	border-radius: 0.5rem;
+	display: flex;
+	align-items: center;
+	justify-content: flex-start;
+	gap: 0.75rem;
+	padding: 0 0.875rem;
+	border: 1px solid var(--color-base-300);
+	transition:
+		background-color 160ms ease,
+		border-color 160ms ease,
+		transform 160ms ease;
+}
+
+.mg-tool-tab:hover {
+	transform: translateY(-1px);
+}
+
+.mg-tool-tab-active {
+	background: color-mix(in oklch, var(--color-primary), var(--color-base-100) 8%);
+	color: var(--color-primary-content);
+	border-color: color-mix(in oklch, var(--color-primary), white 12%);
+}
+
+.mg-tool-tab-idle {
+	background: color-mix(in oklch, var(--color-base-200), var(--color-base-100) 30%);
+	color: var(--color-base-content);
+}
+
+.mg-tool-tab-idle:hover {
+	background: var(--color-base-300);
+}
+
+.mg-tool-icon {
+	width: 2.25rem;
+	height: 2.25rem;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	border-radius: 0.375rem;
+	background: color-mix(in oklch, currentColor, transparent 88%);
+	font-size: 0.78rem;
+	font-weight: 800;
+	font-variant-numeric: tabular-nums;
+	flex-shrink: 0;
+}
+
+.mg-tool-frame {
+	overflow: hidden;
+}
+
+.mg-play-surface {
+	position: relative;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	gap: 1rem;
+	min-width: 0;
+	border-radius: 0.5rem;
+	border: 1px solid var(--color-base-300);
+	background:
+		linear-gradient(135deg, color-mix(in oklch, var(--color-base-300), transparent 60%), transparent 34%),
+		repeating-linear-gradient(
+			90deg,
+			color-mix(in oklch, var(--color-base-content), transparent 96%) 0 1px,
+			transparent 1px 18px
+		),
+		var(--color-base-100);
+	padding: 1rem;
+	box-shadow: inset 0 1px 0 color-mix(in oklch, white, transparent 88%);
+}
+
+.mg-play-surface-scroll {
+	align-items: stretch;
+	justify-content: flex-start;
+	overflow: hidden;
+}
+
+.mg-control-panel {
+	display: flex;
+	flex-direction: column;
+	gap: 1rem;
+	border-radius: 0.5rem;
+	border: 1px solid var(--color-base-300);
+	background: color-mix(in oklch, var(--color-base-100), transparent 8%);
+	padding: 1rem;
+	box-shadow: inset 0 1px 0 color-mix(in oklch, white, transparent 90%);
+}
+
+.mg-side-score {
+	align-self: stretch;
+	min-width: 4.5rem;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	border-radius: 0.5rem;
+	border: 1px solid color-mix(in oklch, currentColor, transparent 65%);
+	background: color-mix(in oklch, currentColor, transparent 91%);
+}
+
+.mg-side-score > span {
+	writing-mode: vertical-rl;
+	text-orientation: mixed;
+	font-weight: 800;
+	font-size: 0.875rem;
+	font-variant-numeric: tabular-nums;
+}
+
+/* ============================================================
  * Coin
  * ============================================================ */
 
 .mg-coin-stage {
 	perspective: 1200px;
-	width: clamp(160px, 36vw, 240px);
-	height: clamp(160px, 36vw, 240px);
+	width: clamp(190px, 32vw, 280px);
+	height: clamp(190px, 32vw, 280px);
 	position: relative;
 	display: flex;
 	align-items: center;
@@ -57,16 +190,58 @@
 	align-items: center;
 	justify-content: center;
 	font-weight: 900;
-	font-size: clamp(3.5rem, 9vw, 5rem);
+	font-size: clamp(4rem, 9vw, 5.75rem);
 	color: white;
-	letter-spacing: 0.05em;
 	backface-visibility: hidden;
 	box-shadow:
-		inset 0 -12px 24px rgba(0, 0, 0, 0.35),
-		inset 0 12px 24px rgba(255, 255, 255, 0.2),
+		inset 0 0 0 7px color-mix(in oklch, white, transparent 80%),
+		inset 0 0 0 15px rgba(0, 0, 0, 0.18),
+		inset 0 -18px 34px rgba(0, 0, 0, 0.42),
+		inset 0 16px 28px rgba(255, 255, 255, 0.22),
 		0 18px 32px rgba(0, 0, 0, 0.35),
-		0 4px 8px rgba(0, 0, 0, 0.25);
-	border: 4px solid rgba(255, 255, 255, 0.15);
+		0 0 36px color-mix(in oklch, currentColor, transparent 76%);
+	border: 1px solid rgba(255, 255, 255, 0.28);
+	overflow: hidden;
+}
+
+.mg-coin-face::before,
+.mg-coin-face::after {
+	content: "";
+	position: absolute;
+	border-radius: inherit;
+	pointer-events: none;
+}
+
+.mg-coin-face::before {
+	inset: 18%;
+	border: 1px solid rgba(255, 255, 255, 0.34);
+	box-shadow:
+		inset 0 0 0 10px rgba(255, 255, 255, 0.06),
+		0 0 24px rgba(255, 255, 255, 0.18);
+}
+
+.mg-coin-face::after {
+	inset: 0;
+	background:
+		linear-gradient(115deg, transparent 0 35%, rgba(255, 255, 255, 0.2) 42%, transparent 50%),
+		radial-gradient(circle at 30% 25%, rgba(255, 255, 255, 0.42), transparent 34%);
+	mix-blend-mode: screen;
+}
+
+.mg-coin-mark {
+	position: relative;
+	z-index: 1;
+	width: 45%;
+	aspect-ratio: 1;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	border-radius: 9999px;
+	background: rgba(0, 0, 0, 0.2);
+	border: 1px solid rgba(255, 255, 255, 0.28);
+	text-shadow:
+		0 3px 10px rgba(0, 0, 0, 0.42),
+		0 0 18px rgba(255, 255, 255, 0.2);
 }
 
 .mg-coin-face-blue {
@@ -130,6 +305,15 @@
 	overflow-x: auto;
 	overflow-y: hidden;
 	perspective: 1400px;
+	border-radius: 0.5rem;
+	background:
+		radial-gradient(circle at 50% 0%, color-mix(in oklch, var(--color-primary), transparent 86%), transparent 34%),
+		linear-gradient(color-mix(in oklch, var(--color-base-content), transparent 96%) 1px, transparent 1px),
+		linear-gradient(90deg, color-mix(in oklch, var(--color-base-content), transparent 96%) 1px, transparent 1px),
+		color-mix(in oklch, var(--color-base-200), transparent 22%);
+	background-size: auto, 24px 24px, 24px 24px, auto;
+	padding: 0.75rem;
+	border: 1px solid var(--color-base-300);
 }
 
 .mg-ladder {
@@ -143,13 +327,14 @@
 /* 기둥 — 좌우 페이드 그라디언트 (linearGradient mg-post-gradient 사용) */
 .mg-ladder-post {
 	stroke: url(#mg-post-gradient);
-	stroke-width: 8;
+	stroke-width: 7;
 	stroke-linecap: round;
+	filter: drop-shadow(0 0 5px color-mix(in oklch, var(--color-base-content), transparent 82%));
 }
 
 .mg-ladder-rung {
-	stroke: color-mix(in oklch, var(--color-base-content), transparent 50%);
-	stroke-width: 5;
+	stroke: color-mix(in oklch, var(--color-primary), transparent 42%);
+	stroke-width: 4;
 	stroke-linecap: round;
 	/* 시작 전 결과 예측 차단 — 가로대는 클릭 후 dot 가 그 row 에 도달할 때 fade-in.
 	 * inline transition-delay 로 row 별 등장 타이밍 결정.
@@ -160,18 +345,20 @@
 
 .mg-ladder-rung.revealed {
 	opacity: 1;
+	filter: drop-shadow(0 0 7px color-mix(in oklch, var(--color-primary), transparent 56%));
 }
 
 /* 추적선 — class toggle 로 stroke-dashoffset transition */
 .mg-ladder-trace {
 	fill: none;
-	stroke-width: 4;
+	stroke-width: 7;
 	stroke-linecap: round;
 	stroke-linejoin: round;
 	stroke-dasharray: 100;
 	stroke-dashoffset: 100;
 	visibility: hidden;
 	transition: stroke-dashoffset 1800ms cubic-bezier(0.45, 0, 0.55, 1);
+	filter: drop-shadow(0 0 8px currentColor);
 }
 
 .mg-ladder-trace.active {
@@ -186,7 +373,9 @@
 	offset-distance: 0%;
 	visibility: hidden;
 	transition: offset-distance 1800ms cubic-bezier(0.45, 0, 0.55, 1);
-	filter: drop-shadow(0 0 6px currentColor);
+	stroke: white;
+	stroke-width: 2;
+	filter: drop-shadow(0 0 10px currentColor);
 }
 
 .mg-ladder-dot.active {
@@ -204,6 +393,14 @@
 	filter: brightness(1.25);
 }
 
+.mg-ladder-input-node {
+	stroke: color-mix(in oklch, white, transparent 10%);
+	stroke-width: 2;
+	filter:
+		drop-shadow(0 3px 6px rgba(0, 0, 0, 0.38))
+		drop-shadow(0 0 8px currentColor);
+}
+
 /* 키보드 포커스 — SVG 는 기본 outline 못 받아 box-shadow 흉내 안 됨.
  * 첫 child <circle> 의 stroke 로 표시. */
 .mg-ladder-input-btn:focus {
@@ -217,7 +414,7 @@
 .mg-ladder-input-btn[data-state="running"],
 .mg-ladder-input-btn[data-state="done"] {
 	cursor: default;
-	opacity: 0.55;
+	opacity: 0.72;
 }
 
 .mg-ladder-input-btn-text {
@@ -232,9 +429,10 @@
 
 /* 출력 핀 (highlight when 매핑 결정됨) */
 .mg-ladder-output-pin {
-	stroke: var(--color-base-100);
-	stroke-width: 2;
+	stroke: color-mix(in oklch, var(--color-base-content), transparent 35%);
+	stroke-width: 3;
 	transition: r 200ms;
+	filter: drop-shadow(0 0 4px rgba(0, 0, 0, 0.35));
 }
 
 /* ============================================================
@@ -244,8 +442,8 @@
 
 .mg-roulette-stage {
 	position: relative;
-	width: clamp(240px, 60vw, 360px);
-	height: clamp(240px, 60vw, 360px);
+	width: clamp(260px, 46vw, 430px);
+	height: clamp(260px, 46vw, 430px);
 	display: flex;
 	align-items: center;
 	justify-content: center;
@@ -254,31 +452,64 @@
 
 .mg-roulette {
 	position: relative;
-	width: 100%;
-	height: 100%;
+	width: 90%;
+	height: 90%;
 	border-radius: 50%;
 	transition: transform 4000ms cubic-bezier(0.15, 0.85, 0.3, 1);
 	will-change: transform;
 	box-shadow:
-		inset 0 0 0 4px rgba(255, 255, 255, 0.18),
-		inset 0 0 0 8px rgba(0, 0, 0, 0.25),
+		inset 0 0 0 2px rgba(255, 255, 255, 0.22),
+		inset 0 0 0 12px rgba(0, 0, 0, 0.26),
+		inset 0 0 34px rgba(0, 0, 0, 0.24),
 		0 16px 40px rgba(0, 0, 0, 0.4),
-		0 2px 4px rgba(0, 0, 0, 0.3);
+		0 0 32px color-mix(in oklch, var(--color-primary), transparent 84%);
+	border: 8px solid color-mix(in oklch, var(--color-base-content), transparent 82%);
+}
+
+.mg-roulette::after {
+	content: "";
+	position: absolute;
+	inset: 12%;
+	border-radius: inherit;
+	border: 1px solid rgba(255, 255, 255, 0.28);
+	box-shadow:
+		inset 0 0 0 10px rgba(0, 0, 0, 0.14),
+		0 0 24px rgba(255, 255, 255, 0.12);
+	pointer-events: none;
+}
+
+.mg-roulette-orbit {
+	position: absolute;
+	border-radius: 9999px;
+	pointer-events: none;
+}
+
+.mg-roulette-orbit-outer {
+	inset: 2%;
+	border: 1px solid color-mix(in oklch, var(--color-primary), transparent 48%);
+	box-shadow: 0 0 22px color-mix(in oklch, var(--color-primary), transparent 72%);
+}
+
+.mg-roulette-orbit-inner {
+	inset: 13%;
+	border: 1px dashed color-mix(in oklch, white, transparent 66%);
+	opacity: 0.75;
 }
 
 /* 12시 ▼ 포인터 */
 .mg-roulette-pointer {
 	position: absolute;
-	top: -6px;
+	top: 4px;
 	left: 50%;
 	transform: translateX(-50%);
 	z-index: 3;
-	width: 0;
-	height: 0;
-	border-left: 14px solid transparent;
-	border-right: 14px solid transparent;
-	border-top: 24px solid var(--color-warning);
-	filter: drop-shadow(0 3px 4px rgba(0, 0, 0, 0.5));
+	width: 34px;
+	height: 46px;
+	background: linear-gradient(180deg, color-mix(in oklch, var(--color-warning), white 24%), var(--color-warning));
+	clip-path: polygon(50% 100%, 0 18%, 100% 18%);
+	filter:
+		drop-shadow(0 4px 6px rgba(0, 0, 0, 0.55))
+		drop-shadow(0 0 10px color-mix(in oklch, var(--color-warning), transparent 35%));
 	pointer-events: none;
 }
 
@@ -287,19 +518,20 @@
 	position: absolute;
 	top: 50%;
 	left: 50%;
-	width: 36px;
-	height: 36px;
+	width: 58px;
+	height: 58px;
 	border-radius: 50%;
 	background: linear-gradient(
 		145deg,
-		color-mix(in oklch, var(--color-base-content), white 50%),
-		var(--color-base-content)
+		color-mix(in oklch, var(--color-base-content), white 62%),
+		color-mix(in oklch, var(--color-base-content), black 18%)
 	);
 	transform: translate(-50%, -50%);
 	box-shadow:
-		0 2px 6px rgba(0, 0, 0, 0.4),
-		inset 0 -2px 4px rgba(0, 0, 0, 0.3),
-		inset 0 2px 4px rgba(255, 255, 255, 0.4);
+		0 3px 10px rgba(0, 0, 0, 0.5),
+		0 0 18px rgba(255, 255, 255, 0.18),
+		inset 0 -4px 8px rgba(0, 0, 0, 0.35),
+		inset 0 4px 8px rgba(255, 255, 255, 0.42);
 	z-index: 2;
 }
 

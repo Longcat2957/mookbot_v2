@@ -15,26 +15,25 @@ export function RouletteControls({
 }) {
 	return (
 		<>
-			<div className="flex items-center gap-3 flex-wrap self-stretch">
+			<div className="space-y-2 self-stretch">
 				<label className="text-sm font-medium" htmlFor="roulette-count">
 					인원
 				</label>
-				<input
-					id="roulette-count"
-					type="range"
-					min={MIN_COUNT}
-					max={MAX_COUNT}
-					value={count}
-					onChange={(e) => onCountChange(Number(e.target.value))}
-					disabled={isLocked}
-					className="range range-sm range-primary max-w-xs flex-1 min-w-32"
-				/>
-				<span className="badge badge-neutral tabular-nums">{count}명</span>
+				<div className="flex items-center gap-3">
+					<input
+						id="roulette-count"
+						type="range"
+						min={MIN_COUNT}
+						max={MAX_COUNT}
+						value={count}
+						onChange={(e) => onCountChange(Number(e.target.value))}
+						disabled={isLocked}
+						className="range range-sm range-primary flex-1 min-w-0"
+					/>
+					<span className="badge badge-neutral tabular-nums shrink-0">{count}명</span>
+				</div>
 			</div>
-			<div
-				className="grid gap-1 self-stretch"
-				style={{ gridTemplateColumns: `repeat(${Math.min(count, 4)}, minmax(0, 1fr))` }}
-			>
+			<div className="grid grid-cols-2 gap-1.5 self-stretch">
 				{labels.map((label, index) => (
 					<input
 						// biome-ignore lint/suspicious/noArrayIndexKey: index is the stable roulette segment identity.

@@ -41,46 +41,74 @@ export function CoinFlip() {
 	}
 
 	return (
-		<div className="flex flex-col items-center justify-center py-6 gap-8">
-			<div className="mg-coin-stage">
-				{/* outer: bob (translateY only). inner: rotateY (inline). 분리해서 keyframe vs inline transform 충돌 회피. */}
-				<div className={`mg-coin-bob ${phase === "idle" ? "mg-coin-bob-active" : ""}`}>
-					<div className="mg-coin" style={{ transform: `rotateY(${rotation}deg)` }}>
-						<div className="mg-coin-face mg-coin-face-blue">B</div>
-						<div className="mg-coin-face mg-coin-face-red">R</div>
+		<div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_20rem] gap-4 min-h-[32rem]">
+			<div className="mg-play-surface min-h-[24rem]">
+				<div className="mg-side-score text-info">
+					<span>BLUE</span>
+				</div>
+				<div className="mg-coin-stage">
+					{/* outer: bob (translateY only). inner: rotateY (inline). 분리해서 keyframe vs inline transform 충돌 회피. */}
+					<div className={`mg-coin-bob ${phase === "idle" ? "mg-coin-bob-active" : ""}`}>
+						<div className="mg-coin" style={{ transform: `rotateY(${rotation}deg)` }}>
+							<div className="mg-coin-face mg-coin-face-blue">
+								<span className="mg-coin-mark">B</span>
+							</div>
+							<div className="mg-coin-face mg-coin-face-red">
+								<span className="mg-coin-mark">R</span>
+							</div>
+						</div>
+					</div>
+					<div className={`mg-coin-shadow ${phase === "flipping" ? "mg-coin-shadow-flipping" : ""}`} />
+				</div>
+				<div className="mg-side-score text-error">
+					<span>RED</span>
+				</div>
+			</div>
+
+			<div className="mg-control-panel">
+				<div className="min-h-[4rem] flex items-center" aria-live="polite">
+					{phase === "settled" && side && (
+						<div className="space-y-1">
+							<div className="text-xs text-base-content/50">결과</div>
+							<div
+								className={`text-2xl sm:text-3xl font-bold ${side === "BLUE" ? "text-info" : "text-error"}`}
+							>
+								{side} 진영
+							</div>
+						</div>
+					)}
+					{phase === "flipping" && (
+						<div className="text-base-content/50 text-sm tracking-wider">던지는 중…</div>
+					)}
+					{phase === "idle" && <div className="text-base-content/40 text-sm">대기 중</div>}
+				</div>
+
+				<div className="grid grid-cols-2 gap-2">
+					<div className="rounded-md bg-info/10 border border-info/20 p-3 text-info">
+						<div className="text-xs opacity-70">SIDE</div>
+						<div className="font-bold">BLUE</div>
+					</div>
+					<div className="rounded-md bg-error/10 border border-error/20 p-3 text-error">
+						<div className="text-xs opacity-70">SIDE</div>
+						<div className="font-bold">RED</div>
 					</div>
 				</div>
-				<div className={`mg-coin-shadow ${phase === "flipping" ? "mg-coin-shadow-flipping" : ""}`} />
-			</div>
 
-			<div className="min-h-[3.5rem] flex items-center" aria-live="polite">
-				{phase === "settled" && side && (
-					<div
-						className={`text-2xl sm:text-3xl font-bold ${side === "BLUE" ? "text-info" : "text-error"}`}
+				<div className="grid grid-cols-1 gap-2">
+					<button
+						type="button"
+						className="btn btn-primary btn-lg"
+						onClick={flip}
+						disabled={phase === "flipping"}
 					>
-						{side === "BLUE" ? "🟦 BLUE 진영" : "🟥 RED 진영"}
-					</div>
-				)}
-				{phase === "flipping" && (
-					<div className="text-base-content/50 text-sm tracking-wider">던지는 중…</div>
-				)}
-				{phase === "idle" && <div className="text-base-content/40 text-sm">버튼을 눌러 시작</div>}
-			</div>
-
-			<div className="flex gap-2">
-				<button
-					type="button"
-					className="btn btn-primary btn-lg gap-2"
-					onClick={flip}
-					disabled={phase === "flipping"}
-				>
-					🪙 {phase === "settled" ? "다시 던지기" : "던지기"}
-				</button>
-				{phase === "settled" && (
-					<button type="button" className="btn btn-ghost btn-lg" onClick={reset}>
-						초기화
+						{phase === "settled" ? "다시 던지기" : "던지기"}
 					</button>
-				)}
+					{phase === "settled" && (
+						<button type="button" className="btn btn-ghost btn-lg" onClick={reset}>
+							초기화
+						</button>
+					)}
+				</div>
 			</div>
 		</div>
 	);

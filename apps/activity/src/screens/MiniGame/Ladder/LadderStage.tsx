@@ -126,7 +126,13 @@ export function LadderStage({
 							onClick={() => !disabled && onStartInput(i)}
 							onKeyDown={(e) => onKeyDown(e, i, disabled)}
 						>
-							<circle cx={geom.x(i)} cy={geom.topY - 22} r={15} fill={color} />
+							<circle
+								className="mg-ladder-input-node"
+								cx={geom.x(i)}
+								cy={geom.topY - 22}
+								r={17}
+								fill={color}
+							/>
 							<text x={geom.x(i)} y={geom.topY - 22} className="mg-ladder-input-btn-text">
 								{i + 1}
 							</text>
@@ -144,7 +150,7 @@ export function LadderStage({
 							key={`dot-${rungsKey}-${i}`}
 							cx={0}
 							cy={0}
-							r={9}
+							r={10}
 							fill={color}
 							className={`mg-ladder-dot ${active ? "active" : ""}`}
 							style={{ offsetPath: `path("${pathD}")`, color } as CSSProperties}

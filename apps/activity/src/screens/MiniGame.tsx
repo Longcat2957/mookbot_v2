@@ -5,71 +5,66 @@
 // 결과를 어디 기록하지 않으므로 운영자가 보고 수동으로 적용.
 
 import { useState } from "react";
+import { cx, PanelCard } from "../components/DesignPrimitives.js";
 import { CoinFlip } from "./MiniGame/CoinFlip.js";
 import { Ladder } from "./MiniGame/Ladder.js";
 import { Roulette } from "./MiniGame/Roulette.js";
 import "./MiniGame/styles.css";
 
 type Tool = "coin" | "ladder" | "roulette";
+type ToolMeta = { id: Tool; label: string; icon: string; tone: string };
+
+const TOOLS = [
+	{ id: "coin", label: "동전", icon: "B/R", tone: "BLUE · RED" },
+	{ id: "ladder", label: "사다리", icon: "↧", tone: "MATCH" },
+	{ id: "roulette", label: "원판", icon: "◌", tone: "PICK" },
+] satisfies readonly [ToolMeta, ToolMeta, ToolMeta];
 
 export function MiniGame({ onBack }: { onBack: () => void }) {
 	const [tool, setTool] = useState<Tool>("coin");
+	const activeTool = TOOLS.find((item) => item.id === tool) ?? TOOLS[0];
 
 	return (
-		<section className="space-y-4">
-			<div className="flex items-start justify-between gap-3 flex-wrap">
-				<div>
-					<h1 className="text-2xl font-bold">🎲 도구</h1>
-					<p className="text-sm text-base-content/70">
-						랜덤 뽑기 — 1경기 BLUE/RED 진영 결정, 즉석 팀 분배 등 시리즈 외 보조용.
-					</p>
-				</div>
-				<button type="button" className="btn btn-ghost btn-sm" onClick={onBack}>
-					← 대시보드
-				</button>
-			</div>
-
-			<div role="tablist" className="tabs tabs-bordered">
-				<button
-					type="button"
-					role="tab"
-					className={`tab ${tool === "coin" ? "tab-active" : ""}`}
-					onClick={() => setTool("coin")}
-					aria-selected={tool === "coin"}
-				>
-					🪙 동전 던지기
-				</button>
-				<button
-					type="button"
-					role="tab"
-					className={`tab ${tool === "ladder" ? "tab-active" : ""}`}
-					onClick={() => setTool("ladder")}
-					aria-selected={tool === "ladder"}
-				>
-					🪜 사다리타기
-				</button>
-				<button
-					type="button"
-					role="tab"
-					className={`tab ${tool === "roulette" ? "tab-active" : ""}`}
-					onClick={() => setTool("roulette")}
-					aria-selected={tool === "roulette"}
-				>
-					🎡 원판 돌리기
-				</button>
-			</div>
-
-			<div className="card surface-soft">
-				<div className="card-body p-4 sm:p-6">
-					{tool === "coin" && <CoinFlip />}
-					{tool === "ladder" && <Ladder />}
-					{tool === "roulette" && <Roulette />}
+		<section className="mg-console space-y-4 min-w-0">
+			<div className="surface-base border border-base-300 rounded-lg p-4 sm:p-5">
+				<div className="flex items-center justify-between gap-3 flex-wrap">
+					<div className="min-w-0">
+						<div className="text-xs font-semibold text-primary tracking-wide">TOOLBOX</div>
+						<h1 className="text-2xl sm:text-3xl font-bold leading-tight truncate">{activeTool.label}</h1>
+					</div>
+					<button type="button" className="btn btn-ghost btn-sm gap-1.5" onClick={onBack}>
+						<span aria-hidden>←</span>
+						대시보드
+					</button>
 				</div>
 			</div>
 
-			<p className="text-xs text-base-content/50 text-center">
-				결과는 자동 기록되지 않습니다 — 보조 도구일 뿐, 시리즈 데이터에 반영하려면 운영자가 별도 처리.
-			</p>
+			<div role="tablist" className="grid grid-cols-3 gap-2 sm:gap-3">
+				{TOOLS.map(({ id, label, icon, tone }) => (
+					<button
+						key={id}
+						type="button"
+						role="tab"
+						className={cx("mg-tool-tab", tool === id ? "mg-tool-tab-active" : "mg-tool-tab-idle")}
+						onClick={() => setTool(id)}
+						aria-selected={tool === id}
+					>
+						<span className="mg-tool-icon" aria-hidden>
+							{icon}
+						</span>
+						<span className="min-w-0 text-left">
+							<span className="block truncate font-bold">{label}</span>
+							<span className="block truncate text-[10px] opacity-65">{tone}</span>
+						</span>
+					</button>
+				))}
+			</div>
+
+			<PanelCard surface="soft" className="mg-tool-frame" bodyClassName="p-3 sm:p-4 min-h-[36rem]">
+				{tool === "coin" && <CoinFlip />}
+				{tool === "ladder" && <Ladder />}
+				{tool === "roulette" && <Roulette />}
+			</PanelCard>
 		</section>
 	);
 }

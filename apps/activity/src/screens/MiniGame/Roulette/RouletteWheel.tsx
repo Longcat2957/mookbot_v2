@@ -9,11 +9,13 @@ export function RouletteWheel({
 	conicGradient: string;
 	rotation: number;
 }) {
-	const labelRadius = "calc(clamp(240px, 60vw, 360px) / 2 * 0.65)";
+	const labelRadius = "calc(clamp(260px, 46vw, 430px) / 2 * 0.65)";
 
 	return (
 		<div className="mg-roulette-stage">
 			<div className="mg-roulette-pointer" aria-hidden />
+			<div className="mg-roulette-orbit mg-roulette-orbit-outer" aria-hidden />
+			<div className="mg-roulette-orbit mg-roulette-orbit-inner" aria-hidden />
 			<div
 				className="mg-roulette"
 				style={{ background: conicGradient, transform: `rotate(${rotation}deg)` }}

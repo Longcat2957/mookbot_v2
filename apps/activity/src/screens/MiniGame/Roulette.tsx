@@ -1,5 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
-import { defaultLabel, type Phase, SPIN_DURATION_MS } from "./Roulette/constants.js";
+import {
+	defaultLabel,
+	type Phase,
+	SEGMENT_COLORS,
+	SPIN_DURATION_MS,
+} from "./Roulette/constants.js";
 import { RouletteControls } from "./Roulette/RouletteControls.js";
 import { RouletteResult } from "./Roulette/RouletteResult.js";
 import { RouletteWheel } from "./Roulette/RouletteWheel.js";
@@ -44,38 +49,55 @@ export function Roulette() {
 	const isLocked = phase === "spinning";
 
 	return (
-		<div className="flex flex-col items-center gap-4 py-2">
-			<RouletteControls
-				count={count}
-				labels={labels}
-				isLocked={isLocked}
-				onCountChange={setCount}
-				onLabelChange={(index, value) =>
-					setLabels((prev) => prev.map((label, current) => (current === index ? value : label)))
-				}
-			/>
-			<RouletteWheel
-				labels={labels}
-				segmentSize={segmentSize}
-				conicGradient={conicGradient}
-				rotation={rotation}
-			/>
-			<RouletteResult phase={phase} resultIdx={resultIdx} labels={labels} />
+		<div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_22rem] gap-4 min-h-[32rem]">
+			<div className="mg-play-surface min-h-[24rem]">
+				<RouletteWheel
+					labels={labels}
+					segmentSize={segmentSize}
+					conicGradient={conicGradient}
+					rotation={rotation}
+				/>
+			</div>
 
-			<div className="flex gap-2">
-				<button
-					type="button"
-					className="btn btn-primary btn-lg gap-2"
-					onClick={spin}
-					disabled={isLocked}
-				>
-					🎡 {phase === "settled" ? "다시 돌리기" : "돌리기"}
-				</button>
-				{phase === "settled" && (
-					<button type="button" className="btn btn-ghost btn-lg" onClick={reset}>
-						초기화
+			<div className="mg-control-panel min-w-0">
+				<RouletteControls
+					count={count}
+					labels={labels}
+					isLocked={isLocked}
+					onCountChange={setCount}
+					onLabelChange={(index, value) =>
+						setLabels((prev) => prev.map((label, current) => (current === index ? value : label)))
+					}
+				/>
+				<RouletteResult phase={phase} resultIdx={resultIdx} labels={labels} />
+
+				<div className="grid grid-cols-2 gap-1.5">
+					{labels.map((label, index) => (
+						<div
+							// biome-ignore lint/suspicious/noArrayIndexKey: index is the stable roulette segment identity.
+							key={`candidate-${index}`}
+							className="flex items-center gap-2 rounded-md bg-base-100/60 border border-base-300 px-2 py-1.5 min-w-0"
+						>
+							<span
+								className="size-2.5 rounded-full shrink-0"
+								style={{ background: SEGMENT_COLORS[index % SEGMENT_COLORS.length] }}
+								aria-hidden
+							/>
+							<span className="truncate text-xs font-medium">{label}</span>
+						</div>
+					))}
+				</div>
+
+				<div className="grid grid-cols-1 gap-2">
+					<button type="button" className="btn btn-primary btn-lg" onClick={spin} disabled={isLocked}>
+						{phase === "settled" ? "다시 돌리기" : "돌리기"}
 					</button>
-				)}
+					{phase === "settled" && (
+						<button type="button" className="btn btn-ghost btn-lg" onClick={reset}>
+							초기화
+						</button>
+					)}
+				</div>
 			</div>
 		</div>
 	);
