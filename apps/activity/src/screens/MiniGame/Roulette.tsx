@@ -56,6 +56,7 @@ export function Roulette() {
 					segmentSize={segmentSize}
 					conicGradient={conicGradient}
 					rotation={rotation}
+					phase={phase}
 				/>
 			</div>
 

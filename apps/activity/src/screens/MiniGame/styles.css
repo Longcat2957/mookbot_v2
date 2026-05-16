@@ -150,6 +150,46 @@
 	justify-content: center;
 }
 
+.mg-coin-stage::before,
+.mg-coin-stage::after {
+	content: "";
+	position: absolute;
+	inset: 5%;
+	border-radius: 9999px;
+	pointer-events: none;
+	opacity: 0;
+}
+
+.mg-coin-stage::before {
+	background: radial-gradient(circle, color-mix(in oklch, var(--color-primary), transparent 68%), transparent 64%);
+	filter: blur(18px);
+	transform: scale(0.84);
+}
+
+.mg-coin-stage::after {
+	inset: 13%;
+	border: 1px solid color-mix(in oklch, white, transparent 72%);
+	box-shadow: 0 0 32px color-mix(in oklch, var(--color-warning), transparent 72%);
+}
+
+.mg-coin-stage-flipping::before {
+	opacity: 1;
+	animation: mg-coin-aura 0.62s ease-in-out infinite alternate !important;
+}
+
+.mg-coin-stage-flipping::after {
+	opacity: 0.9;
+	animation: mg-coin-ring 0.46s linear infinite !important;
+}
+
+.mg-coin-stage-settled::before {
+	opacity: 0.75;
+	transform: scale(1);
+	transition:
+		opacity 320ms ease,
+		transform 320ms ease;
+}
+
 /* outer wrapper — bob animation 만 (translateY).
  * 내부 .mg-coin 의 inline rotateY 와 충돌 안 하도록 분리.
  */
@@ -159,7 +199,7 @@
 }
 
 .mg-coin-bob-active {
-	animation: mg-coin-bob-pulse 3.5s ease-in-out infinite;
+	animation: mg-coin-bob-pulse 3.5s ease-in-out infinite !important;
 }
 
 @keyframes mg-coin-bob-pulse {
@@ -178,8 +218,33 @@
 	position: relative;
 	transform-style: preserve-3d;
 	/* 항상-on transition. phase 별 toggle 시 첫 번째 변화에 transition 안 걸리는 edge case 회피. */
-	transition: transform 2400ms cubic-bezier(0.2, 0.8, 0.2, 1);
+	transition: transform 2400ms cubic-bezier(0.2, 0.8, 0.2, 1) !important;
 	will-change: transform;
+}
+
+.mg-coin-flipping {
+	filter: drop-shadow(0 18px 28px rgba(0, 0, 0, 0.34))
+		drop-shadow(0 0 22px color-mix(in oklch, var(--color-warning), transparent 60%));
+}
+
+@keyframes mg-coin-aura {
+	from {
+		transform: scale(0.86);
+		filter: blur(20px);
+	}
+	to {
+		transform: scale(1.08);
+		filter: blur(28px);
+	}
+}
+
+@keyframes mg-coin-ring {
+	from {
+		transform: rotateZ(0deg) scale(0.94);
+	}
+	to {
+		transform: rotateZ(360deg) scale(1.02);
+	}
 }
 
 .mg-coin-face {
@@ -280,7 +345,7 @@
 }
 
 .mg-coin-shadow-flipping {
-	animation: mg-coin-shadow-pulse 0.6s ease-in-out infinite alternate;
+	animation: mg-coin-shadow-pulse 0.6s ease-in-out infinite alternate !important;
 }
 
 @keyframes mg-coin-shadow-pulse {
@@ -340,12 +405,13 @@
 	 * inline transition-delay 로 row 별 등장 타이밍 결정.
 	 */
 	opacity: 0;
-	transition: opacity 280ms ease-out;
+	transition: opacity 280ms ease-out !important;
 }
 
 .mg-ladder-rung.revealed {
 	opacity: 1;
 	filter: drop-shadow(0 0 7px color-mix(in oklch, var(--color-primary), transparent 56%));
+	animation: mg-ladder-rung-flash 520ms ease-out !important;
 }
 
 /* 추적선 — class toggle 로 stroke-dashoffset transition */
@@ -357,13 +423,14 @@
 	stroke-dasharray: 100;
 	stroke-dashoffset: 100;
 	visibility: hidden;
-	transition: stroke-dashoffset 1800ms cubic-bezier(0.45, 0, 0.55, 1);
+	transition: stroke-dashoffset 1800ms cubic-bezier(0.45, 0, 0.55, 1) !important;
 	filter: drop-shadow(0 0 8px currentColor);
 }
 
 .mg-ladder-trace.active {
 	visibility: visible;
 	stroke-dashoffset: 0;
+	animation: mg-ladder-trace-glow 1.8s ease-in-out !important;
 }
 
 /* 이동 dot — CSS offset-path 로 path 위 위치 보간.
@@ -372,7 +439,7 @@
 .mg-ladder-dot {
 	offset-distance: 0%;
 	visibility: hidden;
-	transition: offset-distance 1800ms cubic-bezier(0.45, 0, 0.55, 1);
+	transition: offset-distance 1800ms cubic-bezier(0.45, 0, 0.55, 1) !important;
 	stroke: white;
 	stroke-width: 2;
 	filter: drop-shadow(0 0 10px currentColor);
@@ -381,6 +448,41 @@
 .mg-ladder-dot.active {
 	visibility: visible;
 	offset-distance: 100%;
+	animation: mg-ladder-dot-pulse 620ms ease-in-out infinite alternate !important;
+}
+
+@keyframes mg-ladder-rung-flash {
+	0% {
+		stroke-width: 7;
+		filter: drop-shadow(0 0 15px color-mix(in oklch, var(--color-warning), transparent 35%));
+	}
+	100% {
+		stroke-width: 4;
+		filter: drop-shadow(0 0 7px color-mix(in oklch, var(--color-primary), transparent 56%));
+	}
+}
+
+@keyframes mg-ladder-trace-glow {
+	0% {
+		filter: drop-shadow(0 0 5px currentColor);
+	}
+	45% {
+		filter: drop-shadow(0 0 16px currentColor);
+	}
+	100% {
+		filter: drop-shadow(0 0 8px currentColor);
+	}
+}
+
+@keyframes mg-ladder-dot-pulse {
+	from {
+		r: 9;
+		filter: drop-shadow(0 0 8px currentColor);
+	}
+	to {
+		r: 12;
+		filter: drop-shadow(0 0 16px currentColor);
+	}
 }
 
 /* 입력 버튼 (top circles) */
@@ -455,7 +557,7 @@
 	width: 90%;
 	height: 90%;
 	border-radius: 50%;
-	transition: transform 4000ms cubic-bezier(0.15, 0.85, 0.3, 1);
+	transition: transform 4000ms cubic-bezier(0.15, 0.85, 0.3, 1) !important;
 	will-change: transform;
 	box-shadow:
 		inset 0 0 0 2px rgba(255, 255, 255, 0.22),
@@ -464,6 +566,14 @@
 		0 16px 40px rgba(0, 0, 0, 0.4),
 		0 0 32px color-mix(in oklch, var(--color-primary), transparent 84%);
 	border: 8px solid color-mix(in oklch, var(--color-base-content), transparent 82%);
+}
+
+.mg-roulette-spinning {
+	filter: saturate(1.16) drop-shadow(0 0 18px color-mix(in oklch, var(--color-primary), transparent 58%));
+}
+
+.mg-roulette-settled {
+	animation: mg-roulette-settle 520ms cubic-bezier(0.18, 0.9, 0.25, 1) !important;
 }
 
 .mg-roulette::after {
@@ -488,12 +598,14 @@
 	inset: 2%;
 	border: 1px solid color-mix(in oklch, var(--color-primary), transparent 48%);
 	box-shadow: 0 0 22px color-mix(in oklch, var(--color-primary), transparent 72%);
+	animation: mg-roulette-orbit-drift 14s linear infinite !important;
 }
 
 .mg-roulette-orbit-inner {
 	inset: 13%;
 	border: 1px dashed color-mix(in oklch, white, transparent 66%);
 	opacity: 0.75;
+	animation: mg-roulette-orbit-drift 9s linear infinite reverse !important;
 }
 
 /* 12시 ▼ 포인터 */
@@ -511,6 +623,7 @@
 		drop-shadow(0 4px 6px rgba(0, 0, 0, 0.55))
 		drop-shadow(0 0 10px color-mix(in oklch, var(--color-warning), transparent 35%));
 	pointer-events: none;
+	animation: mg-roulette-pointer-idle 1.8s ease-in-out infinite !important;
 }
 
 /* 중앙 hub */
@@ -535,6 +648,55 @@
 	z-index: 2;
 }
 
+.mg-roulette-spinning .mg-roulette-hub {
+	animation: mg-roulette-hub-pulse 520ms ease-in-out infinite alternate !important;
+}
+
+@keyframes mg-roulette-orbit-drift {
+	from {
+		transform: rotate(0deg);
+	}
+	to {
+		transform: rotate(360deg);
+	}
+}
+
+@keyframes mg-roulette-pointer-idle {
+	0%,
+	100% {
+		transform: translateX(-50%) translateY(0);
+	}
+	50% {
+		transform: translateX(-50%) translateY(3px);
+	}
+}
+
+@keyframes mg-roulette-hub-pulse {
+	from {
+		box-shadow:
+			0 3px 10px rgba(0, 0, 0, 0.5),
+			0 0 18px rgba(255, 255, 255, 0.18),
+			inset 0 -4px 8px rgba(0, 0, 0, 0.35),
+			inset 0 4px 8px rgba(255, 255, 255, 0.42);
+	}
+	to {
+		box-shadow:
+			0 3px 10px rgba(0, 0, 0, 0.5),
+			0 0 30px color-mix(in oklch, var(--color-warning), transparent 42%),
+			inset 0 -4px 8px rgba(0, 0, 0, 0.35),
+			inset 0 4px 8px rgba(255, 255, 255, 0.52);
+	}
+}
+
+@keyframes mg-roulette-settle {
+	0% {
+		filter: saturate(1.2) brightness(1.06);
+	}
+	100% {
+		filter: saturate(1) brightness(1);
+	}
+}
+
 /* 라벨 — radial 위치 + 휠과 함께 회전 */
 .mg-roulette-label {
 	position: absolute;
@@ -549,33 +711,4 @@
 	pointer-events: none;
 	white-space: nowrap;
 	user-select: none;
-}
-
-/* ============================================================
- * prefers-reduced-motion — 전정 장애/멀미 민감 사용자 보호.
- * 결과는 즉시 보여주되 모든 연속 애니메이션 / 장시간 transition 제거.
- * ============================================================ */
-@media (prefers-reduced-motion: reduce) {
-	.mg-coin-bob-active {
-		animation: none;
-	}
-	.mg-coin {
-		transition: none;
-	}
-	.mg-coin-shadow-flipping {
-		animation: none;
-	}
-	.mg-ladder-rung {
-		opacity: 1;
-		transition: none;
-	}
-	.mg-ladder-trace {
-		transition: none;
-	}
-	.mg-ladder-dot {
-		transition: none;
-	}
-	.mg-roulette {
-		transition: none;
-	}
 }

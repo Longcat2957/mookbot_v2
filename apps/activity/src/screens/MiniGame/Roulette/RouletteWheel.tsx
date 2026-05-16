@@ -3,11 +3,13 @@ export function RouletteWheel({
 	segmentSize,
 	conicGradient,
 	rotation,
+	phase,
 }: {
 	labels: string[];
 	segmentSize: number;
 	conicGradient: string;
 	rotation: number;
+	phase: "idle" | "spinning" | "settled";
 }) {
 	const labelRadius = "calc(clamp(260px, 46vw, 430px) / 2 * 0.65)";
 
@@ -17,7 +19,7 @@ export function RouletteWheel({
 			<div className="mg-roulette-orbit mg-roulette-orbit-outer" aria-hidden />
 			<div className="mg-roulette-orbit mg-roulette-orbit-inner" aria-hidden />
 			<div
-				className="mg-roulette"
+				className={`mg-roulette ${phase === "spinning" ? "mg-roulette-spinning" : ""} ${phase === "settled" ? "mg-roulette-settled" : ""}`}
 				style={{ background: conicGradient, transform: `rotate(${rotation}deg)` }}
 			>
 				{labels.map((label, index) => {

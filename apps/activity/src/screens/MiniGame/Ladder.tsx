@@ -26,16 +26,6 @@ export function Ladder() {
 						onChange={ladder.setInputLabels}
 					/>
 				</div>
-				<div className="space-y-2">
-					<div className="text-xs font-semibold text-base-content/60">출력</div>
-					<LadderLabelGrid
-						disabled={ladder.isLocked}
-						items={ladder.outputs}
-						labels={ladder.outputLabels}
-						kind="output"
-						onChange={ladder.setOutputLabels}
-					/>
-				</div>
 				<LadderActions allDone={ladder.allDone} onReset={ladder.reset} onStartAll={ladder.startAll} />
 			</div>
 			<div className="mg-play-surface mg-play-surface-scroll space-y-3 min-w-0">
@@ -51,6 +41,16 @@ export function Ladder() {
 					rungsKey={ladder.rungsKey}
 					onStartInput={ladder.startInput}
 				/>
+				<div className="space-y-2">
+					<div className="text-xs font-semibold text-base-content/60">출력</div>
+					<LadderLabelGrid
+						disabled={ladder.isLocked}
+						items={ladder.outputs}
+						labels={ladder.outputLabels}
+						kind="output"
+						onChange={ladder.setOutputLabels}
+					/>
+				</div>
 				<LadderResults
 					anyDone={ladder.anyDone}
 					inputLabels={ladder.inputLabels}
