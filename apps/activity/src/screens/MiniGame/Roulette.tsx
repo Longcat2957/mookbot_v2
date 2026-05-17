@@ -49,8 +49,8 @@ export function Roulette() {
 	const isLocked = phase === "spinning";
 
 	return (
-		<div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_22rem] gap-4 min-h-[32rem]">
-			<div className="mg-play-surface min-h-[24rem]">
+		<div className="mg-game-layout mg-game-layout-controls-right">
+			<div className="mg-play-surface mg-roulette-play">
 				<RouletteWheel
 					labels={labels}
 					segmentSize={segmentSize}
@@ -72,7 +72,7 @@ export function Roulette() {
 				/>
 				<RouletteResult phase={phase} resultIdx={resultIdx} labels={labels} />
 
-				<div className="grid grid-cols-2 gap-1.5">
+				<div className="mg-chip-grid">
 					{labels.map((label, index) => (
 						<div
 							// biome-ignore lint/suspicious/noArrayIndexKey: index is the stable roulette segment identity.

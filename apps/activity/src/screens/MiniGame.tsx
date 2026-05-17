@@ -25,8 +25,8 @@ export function MiniGame({ onBack }: { onBack: () => void }) {
 	const activeTool = TOOLS.find((item) => item.id === tool) ?? TOOLS[0];
 
 	return (
-		<section className="mg-console space-y-4 min-w-0">
-			<div className="surface-base border border-base-300 rounded-lg p-4 sm:p-5">
+		<section className="mg-console min-w-0">
+			<div className="mg-console-header surface-base border border-base-300 rounded-lg">
 				<div className="flex items-center justify-between gap-3 flex-wrap">
 					<div className="min-w-0">
 						<div className="text-xs font-semibold text-primary tracking-wide">TOOLBOX</div>
@@ -60,7 +60,7 @@ export function MiniGame({ onBack }: { onBack: () => void }) {
 				))}
 			</div>
 
-			<PanelCard surface="soft" className="mg-tool-frame" bodyClassName="p-3 sm:p-4 min-h-[36rem]">
+			<PanelCard surface="soft" className="mg-tool-frame" bodyClassName="mg-tool-body">
 				{tool === "coin" && <CoinFlip />}
 				{tool === "ladder" && <Ladder />}
 				{tool === "roulette" && <Roulette />}

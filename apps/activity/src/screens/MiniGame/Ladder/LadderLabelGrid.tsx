@@ -1,10 +1,12 @@
 export function LadderLabelGrid({
+	alignColumns = false,
 	disabled,
 	items,
 	labels,
 	kind,
 	onChange,
 }: {
+	alignColumns?: boolean;
 	disabled: boolean;
 	items: number[];
 	labels: string[];
@@ -13,8 +15,8 @@ export function LadderLabelGrid({
 }) {
 	return (
 		<div
-			className="grid gap-1"
-			style={{ gridTemplateColumns: `repeat(${items.length}, minmax(0, 1fr))` }}
+			className={alignColumns ? "mg-label-grid mg-label-grid-fixed" : "mg-label-grid"}
+			style={alignColumns ? { gridTemplateColumns: `repeat(${items.length}, minmax(0, 1fr))` } : undefined}
 		>
 			{items.map((item) => (
 				<input

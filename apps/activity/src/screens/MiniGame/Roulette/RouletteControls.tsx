@@ -33,7 +33,7 @@ export function RouletteControls({
 					<span className="badge badge-neutral tabular-nums shrink-0">{count}명</span>
 				</div>
 			</div>
-			<div className="grid grid-cols-2 gap-1.5 self-stretch">
+			<div className="mg-label-grid self-stretch">
 				{labels.map((label, index) => (
 					<input
 						// biome-ignore lint/suspicious/noArrayIndexKey: index is the stable roulette segment identity.

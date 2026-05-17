@@ -1,58 +1,91 @@
 // 동전 던지기 — BLUE / RED 2면.
-// 결과는 던지기 직전에 결정 → target rotation 으로 환산해 자연스러운 정지.
-//
-// 버그 수정 (v0.2.15):
-//   - bob 효과는 outer wrapper 의 translateY only 로 분리. 내부 .mg-coin 의 inline rotateY 와 충돌 X.
-//   - .mg-coin 의 transition: transform 은 styles.css 에서 항상-on. phase 별 toggle 안 함 →
-//     첫 번째 변화에 transition 안 걸리는 CSS edge case 회피.
+// 동전은 랜덤 난류 회전 → 결과 착지의 2단계로 움직인다.
+// 결과 텍스트는 착지 완료 후에만 공개한다.
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 type Side = "BLUE" | "RED";
-type Phase = "idle" | "flipping" | "settled";
+type Phase = "idle" | "flipping" | "settling" | "settled";
 
-const FLIPS_MIN = 5;
-const FLIPS_MAX = 8;
-const FLIP_DURATION_MS = 2400;
+const CHAOS_DURATION_MS = 900;
+const SETTLE_DURATION_MS = 1500;
+const FLIP_DURATION_MS = CHAOS_DURATION_MS + SETTLE_DURATION_MS;
+
+function randomInt(min: number, max: number) {
+	return min + Math.floor(Math.random() * (max - min + 1));
+}
+
+function normalizedDegrees(value: number) {
+	return ((value % 360) + 360) % 360;
+}
 
 export function CoinFlip() {
 	const [phase, setPhase] = useState<Phase>("idle");
 	const [side, setSide] = useState<Side | null>(null);
 	const [rotation, setRotation] = useState(0);
+	const timersRef = useRef<number[]>([]);
+
+	const isBusy = phase === "flipping" || phase === "settling";
+
+	function clearTimers() {
+		for (const id of timersRef.current) window.clearTimeout(id);
+		timersRef.current = [];
+	}
+
+	useEffect(() => {
+		return () => {
+			for (const id of timersRef.current) window.clearTimeout(id);
+			timersRef.current = [];
+		};
+	}, []);
 
 	function flip() {
-		if (phase === "flipping") return;
+		if (isBusy) return;
 		const result: Side = Math.random() < 0.5 ? "BLUE" : "RED";
-		const flips = FLIPS_MIN + Math.floor(Math.random() * (FLIPS_MAX - FLIPS_MIN + 1));
-		// 누적 회전: 매번 0~360 사이 보정값을 더해서 항상 앞으로만 회전 (역회전 X)
-		const currentResidual = ((rotation % 360) + 360) % 360;
-		const targetResidual = result === "RED" ? 180 : 0;
-		const delta = flips * 360 + ((targetResidual - currentResidual + 360) % 360);
+		const chaosResidual = 35 + Math.random() * 290;
+		const currentResidual = normalizedDegrees(rotation);
+		const chaosDelta = randomInt(3, 5) * 360 + normalizedDegrees(chaosResidual - currentResidual);
 
-		setRotation((prev) => prev + delta);
-		setSide(result);
+		clearTimers();
+		setSide(null);
+		setRotation((prev) => prev + chaosDelta);
 		setPhase("flipping");
-		window.setTimeout(() => setPhase("settled"), FLIP_DURATION_MS);
+
+		timersRef.current.push(
+			window.setTimeout(() => {
+				setPhase("settling");
+				setRotation((prev) => {
+					const targetResidual = result === "RED" ? 180 : 0;
+					const residual = normalizedDegrees(prev);
+					return prev + randomInt(2, 4) * 360 + normalizedDegrees(targetResidual - residual);
+				});
+			}, CHAOS_DURATION_MS),
+			window.setTimeout(() => {
+				setSide(result);
+				setPhase("settled");
+			}, FLIP_DURATION_MS),
+		);
 	}
 
 	function reset() {
+		clearTimers();
 		setPhase("idle");
 		setSide(null);
 	}
 
 	return (
-		<div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_20rem] gap-4 min-h-[32rem]">
-			<div className="mg-play-surface min-h-[24rem]">
+		<div className="mg-game-layout mg-game-layout-controls-right">
+			<div className="mg-play-surface mg-coin-play">
 				<div className="mg-side-score text-info">
 					<span>BLUE</span>
 				</div>
 				<div
-					className={`mg-coin-stage ${phase === "flipping" ? "mg-coin-stage-flipping" : ""} ${phase === "settled" ? "mg-coin-stage-settled" : ""}`}
+					className={`mg-coin-stage ${isBusy ? "mg-coin-stage-flipping" : ""} ${phase === "settled" ? "mg-coin-stage-settled" : ""}`}
 				>
 					{/* outer: bob (translateY only). inner: rotateY (inline). 분리해서 keyframe vs inline transform 충돌 회피. */}
 					<div className={`mg-coin-bob ${phase === "idle" ? "mg-coin-bob-active" : ""}`}>
 						<div
-							className={`mg-coin ${phase === "flipping" ? "mg-coin-flipping" : ""} ${phase === "settled" ? "mg-coin-settled" : ""}`}
+							className={`mg-coin ${phase === "flipping" ? "mg-coin-flipping" : ""} ${phase === "settling" ? "mg-coin-settling" : ""}`}
 							style={{ transform: `rotateY(${rotation}deg)` }}
 						>
 							<div className="mg-coin-face mg-coin-face-blue">
@@ -63,7 +96,7 @@ export function CoinFlip() {
 							</div>
 						</div>
 					</div>
-					<div className={`mg-coin-shadow ${phase === "flipping" ? "mg-coin-shadow-flipping" : ""}`} />
+					<div className={`mg-coin-shadow ${isBusy ? "mg-coin-shadow-flipping" : ""}`} />
 				</div>
 				<div className="mg-side-score text-error">
 					<span>RED</span>
@@ -71,7 +104,7 @@ export function CoinFlip() {
 			</div>
 
 			<div className="mg-control-panel">
-				<div className="min-h-[4rem] flex items-center" aria-live="polite">
+				<div className="mg-result-panel" aria-live="polite">
 					{phase === "settled" && side && (
 						<div className="space-y-1">
 							<div className="text-xs text-base-content/50">결과</div>
@@ -82,30 +115,23 @@ export function CoinFlip() {
 							</div>
 						</div>
 					)}
-					{phase === "flipping" && (
-						<div className="text-base-content/50 text-sm tracking-wider">던지는 중…</div>
-					)}
+					{isBusy && <div className="text-base-content/50 text-sm tracking-wider">던지는 중…</div>}
 					{phase === "idle" && <div className="text-base-content/40 text-sm">대기 중</div>}
 				</div>
 
 				<div className="grid grid-cols-2 gap-2">
-					<div className="rounded-md bg-info/10 border border-info/20 p-3 text-info">
+					<div className="mg-side-card bg-info/10 border-info/20 text-info">
 						<div className="text-xs opacity-70">SIDE</div>
 						<div className="font-bold">BLUE</div>
 					</div>
-					<div className="rounded-md bg-error/10 border border-error/20 p-3 text-error">
+					<div className="mg-side-card bg-error/10 border-error/20 text-error">
 						<div className="text-xs opacity-70">SIDE</div>
 						<div className="font-bold">RED</div>
 					</div>
 				</div>
 
 				<div className="grid grid-cols-1 gap-2">
-					<button
-						type="button"
-						className="btn btn-primary btn-lg"
-						onClick={flip}
-						disabled={phase === "flipping"}
-					>
+					<button type="button" className="btn btn-primary btn-lg" onClick={flip} disabled={isBusy}>
 						{phase === "settled" ? "다시 던지기" : "던지기"}
 					</button>
 					{phase === "settled" && (

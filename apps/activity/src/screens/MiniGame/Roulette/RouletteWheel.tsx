@@ -11,7 +11,7 @@ export function RouletteWheel({
 	rotation: number;
 	phase: "idle" | "spinning" | "settled";
 }) {
-	const labelRadius = "calc(clamp(260px, 46vw, 430px) / 2 * 0.65)";
+	const labelRadius = "calc(var(--mg-roulette-size) / 3.05)";
 
 	return (
 		<div className="mg-roulette-stage">
