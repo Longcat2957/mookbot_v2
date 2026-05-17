@@ -1,3 +1,4 @@
+import { MiniGameSection } from "../shared.js";
 import { MAX_COUNT, MIN_COUNT } from "./constants.js";
 
 export function LadderControls({
@@ -10,13 +11,14 @@ export function LadderControls({
 	onCountChange: (count: number) => void;
 }) {
 	return (
-		<div className="space-y-2">
-			<label className="text-sm font-medium" htmlFor="ladder-count">
-				인원
-			</label>
+		<MiniGameSection
+			title="인원"
+			trailing={<span className="badge badge-neutral tabular-nums shrink-0">{count}명</span>}
+		>
 			<div className="flex items-center gap-3">
 				<input
 					id="ladder-count"
+					aria-label="사다리 인원"
 					type="range"
 					min={MIN_COUNT}
 					max={MAX_COUNT}
@@ -25,8 +27,7 @@ export function LadderControls({
 					disabled={isLocked}
 					className="range range-sm range-primary flex-1 min-w-0"
 				/>
-				<span className="badge badge-neutral tabular-nums shrink-0">{count}명</span>
 			</div>
-		</div>
+		</MiniGameSection>
 	);
 }

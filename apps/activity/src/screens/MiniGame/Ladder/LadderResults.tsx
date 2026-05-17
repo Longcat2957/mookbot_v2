@@ -17,22 +17,19 @@ export function LadderResults({
 	results: number[];
 }) {
 	return (
-		<div className="min-h-[2.25rem]">
+		<div className="mg-ladder-results" aria-live="polite">
 			{anyDone && (
-				<div className="rounded-lg border border-base-300 bg-base-100/80 p-3">
-					<div className="text-xs text-base-content/60 mb-2 font-semibold">결과</div>
-					<div className="grid grid-cols-1 md:grid-cols-2 gap-1.5 text-sm">
+				<div>
+					<div className="mg-section-title mb-2">결과</div>
+					<div className="mg-ladder-result-grid">
 						{inputs.map((i) => {
 							if (inputStates[i] !== "done") return null;
 							const out = results[i];
 							if (out === undefined) return null;
 							return (
-								<div
-									key={`res-${i}`}
-									className="flex items-center gap-2 rounded-md bg-base-200/60 px-2 py-1.5 min-w-0"
-								>
+								<div key={`res-${i}`} className="mg-ladder-result-card">
 									<span
-										className="inline-block w-3 h-3 rounded-full"
+										className="inline-block w-3 h-3 rounded-full shrink-0"
 										style={{ background: TRACE_COLORS[i % TRACE_COLORS.length] }}
 									/>
 									<span className="font-medium truncate">{inputLabels[i]}</span>

@@ -7,6 +7,7 @@ export function LadderStage({
 	inputLabels,
 	inputs,
 	inputStates,
+	outputLabels,
 	outputs,
 	pathsByInput,
 	rungDelays,
@@ -18,6 +19,7 @@ export function LadderStage({
 	inputLabels: string[];
 	inputs: number[];
 	inputStates: Record<number, InputState>;
+	outputLabels: string[];
 	outputs: number[];
 	pathsByInput: Map<number, string>;
 	rungDelays: Map<number, number>;
@@ -35,6 +37,16 @@ export function LadderStage({
 
 	return (
 		<div className="mg-ladder-stage">
+			<div
+				className="mg-ladder-label-row mg-ladder-label-row-top"
+				style={{ gridTemplateColumns: `repeat(${inputs.length}, minmax(0, 1fr))` }}
+			>
+				{inputs.map((i) => (
+					<div key={`top-label-${i}`} className="mg-ladder-label-chip">
+						<span>{inputLabels[i] ?? i + 1}</span>
+					</div>
+				))}
+			</div>
 			<svg
 				viewBox={`0 0 ${geom.W} ${geom.H + 30}`}
 				width={geom.W}
@@ -158,6 +170,16 @@ export function LadderStage({
 					);
 				})}
 			</svg>
+			<div
+				className="mg-ladder-label-row mg-ladder-label-row-bottom"
+				style={{ gridTemplateColumns: `repeat(${outputs.length}, minmax(0, 1fr))` }}
+			>
+				{outputs.map((i) => (
+					<div key={`bottom-label-${i}`} className="mg-ladder-label-chip mg-ladder-output-label-chip">
+						<span>{outputLabels[i] ?? i + 1}</span>
+					</div>
+				))}
+			</div>
 		</div>
 	);
 }

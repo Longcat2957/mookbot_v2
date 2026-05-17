@@ -12,6 +12,7 @@ export function RouletteWheel({
 	phase: "idle" | "spinning" | "settled";
 }) {
 	const labelRadius = "calc(var(--mg-roulette-size) / 3.05)";
+	const showLabels = labels.length <= 6;
 
 	return (
 		<div className="mg-roulette-stage">
@@ -22,21 +23,22 @@ export function RouletteWheel({
 				className={`mg-roulette ${phase === "spinning" ? "mg-roulette-spinning" : ""} ${phase === "settled" ? "mg-roulette-settled" : ""}`}
 				style={{ background: conicGradient, transform: `rotate(${rotation}deg)` }}
 			>
-				{labels.map((label, index) => {
-					const angle = (index + 0.5) * segmentSize;
-					return (
-						<div
-							// biome-ignore lint/suspicious/noArrayIndexKey: index is the stable roulette segment identity.
-							key={`label-${index}`}
-							className="mg-roulette-label"
-							style={{
-								transform: `translate(-50%, -50%) rotate(${angle}deg) translateY(calc(-1 * ${labelRadius}))`,
-							}}
-						>
-							<span style={{ display: "inline-block", transform: `rotate(${-angle}deg)` }}>{label}</span>
-						</div>
-					);
-				})}
+				{showLabels &&
+					labels.map((label, index) => {
+						const angle = (index + 0.5) * segmentSize;
+						return (
+							<div
+								// biome-ignore lint/suspicious/noArrayIndexKey: index is the stable roulette segment identity.
+								key={`label-${index}`}
+								className="mg-roulette-label"
+								style={{
+									transform: `translate(-50%, -50%) rotate(${angle}deg) translateY(calc(-1 * ${labelRadius}))`,
+								}}
+							>
+								<span style={{ display: "inline-block", transform: `rotate(${-angle}deg)` }}>{label}</span>
+							</div>
+						);
+					})}
 				<div className="mg-roulette-hub" />
 			</div>
 		</div>

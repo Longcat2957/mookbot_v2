@@ -32,6 +32,29 @@
 
 .mg-console-header {
 	padding: 0.875rem 1rem;
+	background:
+		linear-gradient(135deg, color-mix(in oklch, var(--mg-accent, var(--color-primary)), transparent 88%), transparent 44%),
+		var(--color-base-100);
+	box-shadow: inset 0 1px 0 color-mix(in oklch, white, transparent 88%);
+}
+
+.mg-console-eyebrow {
+	font-size: 0.72rem;
+	font-weight: 800;
+	letter-spacing: 0;
+	color: var(--mg-accent, var(--color-primary));
+}
+
+.mg-accent-coin {
+	--mg-accent: var(--color-info);
+}
+
+.mg-accent-ladder {
+	--mg-accent: var(--color-success);
+}
+
+.mg-accent-roulette {
+	--mg-accent: var(--color-secondary);
 }
 
 .mg-tool-tab {
@@ -44,6 +67,7 @@
 	gap: 0.75rem;
 	padding: 0 0.875rem;
 	border: 1px solid var(--color-base-300);
+	background: color-mix(in oklch, var(--color-base-200), var(--color-base-100) 30%);
 	transition:
 		background-color 160ms ease,
 		border-color 160ms ease,
@@ -55,9 +79,12 @@
 }
 
 .mg-tool-tab-active {
-	background: color-mix(in oklch, var(--color-primary), var(--color-base-100) 8%);
-	color: var(--color-primary-content);
-	border-color: color-mix(in oklch, var(--color-primary), white 12%);
+	background:
+		linear-gradient(135deg, color-mix(in oklch, var(--mg-accent), transparent 70%), transparent 62%),
+		color-mix(in oklch, var(--color-base-100), var(--mg-accent) 8%);
+	color: var(--color-base-content);
+	border-color: color-mix(in oklch, var(--mg-accent), white 16%);
+	box-shadow: inset 0 0 0 1px color-mix(in oklch, var(--mg-accent), transparent 65%);
 }
 
 .mg-tool-tab-idle {
@@ -81,6 +108,18 @@
 	font-weight: 800;
 	font-variant-numeric: tabular-nums;
 	flex-shrink: 0;
+	color: var(--mg-accent, currentColor);
+}
+
+.mg-tool-description {
+	display: block;
+	margin-top: 0.125rem;
+	font-size: 0.68rem;
+	line-height: 1.1;
+	color: color-mix(in oklch, var(--color-base-content), transparent 40%);
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
 }
 
 .mg-tool-frame {
@@ -93,7 +132,7 @@
 	min-width: 0;
 }
 
-.mg-game-layout {
+.mg-layout {
 	display: grid;
 	grid-template-columns: minmax(0, 1fr);
 	gap: 0.75rem;
@@ -102,31 +141,22 @@
 }
 
 @container (min-width: 860px) {
-	.mg-game-layout-controls-right {
+	.mg-layout-controls-right {
 		grid-template-columns: minmax(0, 1fr) minmax(17rem, 20rem);
 	}
 
-	.mg-game-layout-controls-left {
+	.mg-layout-controls-left {
 		grid-template-columns: minmax(17rem, 20rem) minmax(0, 1fr);
 	}
 }
 
-@container (min-width: 920px) {
-	.mg-tool-body {
-		padding: 1rem;
-	}
-
-	.mg-game-layout {
-		gap: 1rem;
-	}
-}
-
-.mg-play-surface {
+.mg-stage {
 	position: relative;
 	display: flex;
+	flex-direction: column;
 	align-items: center;
 	justify-content: center;
-	gap: 1rem;
+	gap: 0.75rem;
 	min-width: 0;
 	min-height: clamp(16rem, 42cqi, 27rem);
 	border-radius: 0.5rem;
@@ -144,16 +174,24 @@
 	overflow: clip;
 }
 
-.mg-play-surface-scroll {
+.mg-stage-scroll {
 	align-items: stretch;
 	justify-content: flex-start;
 	overflow-x: auto;
 	overflow-y: clip;
-	flex-direction: column;
 	scrollbar-width: thin;
 }
 
-.mg-control-panel {
+.mg-stage-header {
+	align-self: stretch;
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 0.75rem;
+	min-width: 0;
+}
+
+.mg-controls {
 	display: flex;
 	flex-direction: column;
 	gap: 0.875rem;
@@ -165,10 +203,52 @@
 	box-shadow: inset 0 1px 0 color-mix(in oklch, white, transparent 90%);
 }
 
-.mg-result-panel {
-	min-height: 3.25rem;
+.mg-section {
+	display: flex;
+	flex-direction: column;
+	gap: 0.5rem;
+	min-width: 0;
+}
+
+.mg-section-title {
 	display: flex;
 	align-items: center;
+	justify-content: space-between;
+	gap: 0.5rem;
+	min-width: 0;
+	font-size: 0.72rem;
+	font-weight: 800;
+	color: color-mix(in oklch, var(--color-base-content), transparent 38%);
+	text-transform: uppercase;
+	letter-spacing: 0;
+}
+
+.mg-status-card {
+	min-height: 4rem;
+	display: flex;
+	align-items: center;
+	min-width: 0;
+	border-radius: 0.5rem;
+	border: 1px solid var(--color-base-300);
+	background: color-mix(in oklch, var(--color-base-100), transparent 12%);
+	padding: 0.75rem;
+}
+
+.mg-action-bar {
+	display: grid;
+	grid-template-columns: minmax(0, 1fr);
+	gap: 0.5rem;
+	margin-top: auto;
+}
+
+@container (min-width: 920px) {
+	.mg-tool-body {
+		padding: 1rem;
+	}
+
+	.mg-layout {
+		gap: 1rem;
+	}
 }
 
 .mg-side-card {
@@ -184,36 +264,6 @@
 	grid-template-columns: repeat(auto-fit, minmax(min(4.75rem, 100%), 1fr));
 	gap: 0.375rem;
 	min-width: 0;
-}
-
-.mg-label-grid-fixed {
-	grid-auto-columns: minmax(0, 1fr);
-}
-
-.mg-chip-grid {
-	display: grid;
-	grid-template-columns: repeat(auto-fit, minmax(min(8rem, 100%), 1fr));
-	gap: 0.375rem;
-	min-width: 0;
-}
-
-.mg-side-score {
-	align-self: stretch;
-	min-width: clamp(3.25rem, 8cqi, 4.5rem);
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	border-radius: 0.5rem;
-	border: 1px solid color-mix(in oklch, currentColor, transparent 65%);
-	background: color-mix(in oklch, currentColor, transparent 91%);
-}
-
-.mg-side-score > span {
-	writing-mode: vertical-rl;
-	text-orientation: mixed;
-	font-weight: 800;
-	font-size: 0.875rem;
-	font-variant-numeric: tabular-nums;
 }
 
 @media (max-width: 520px) {
@@ -236,29 +286,80 @@
 		height: 1.875rem;
 	}
 
-	.mg-play-surface {
+	.mg-stage {
 		padding: 0.75rem;
 		gap: 0.625rem;
 		min-height: 15.5rem;
 	}
 
-	.mg-side-score {
-		min-width: 2.5rem;
-	}
-
-	.mg-side-score > span {
-		font-size: 0.75rem;
-	}
-
-	.mg-control-panel {
+	.mg-controls {
 		padding: 0.75rem;
 		gap: 0.75rem;
+	}
+
+	.mg-tool-description {
+		display: none;
 	}
 }
 
 /* ============================================================
  * Coin
  * ============================================================ */
+
+.mg-coin-play {
+	min-height: clamp(17rem, 44cqi, 28rem);
+}
+
+.mg-coin-arena {
+	width: 100%;
+	display: grid;
+	grid-template-columns: minmax(4.5rem, 0.32fr) minmax(9.5rem, 17.5rem) minmax(4.5rem, 0.32fr);
+	align-items: center;
+	justify-content: center;
+	gap: clamp(0.5rem, 3cqi, 1rem);
+}
+
+.mg-coin-side-pill {
+	min-width: 0;
+	min-height: clamp(8rem, 24cqi, 15rem);
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	gap: 0.35rem;
+	border-radius: 0.5rem;
+	border: 1px solid color-mix(in oklch, currentColor, transparent 68%);
+	background:
+		linear-gradient(180deg, color-mix(in oklch, currentColor, transparent 88%), transparent 78%),
+		color-mix(in oklch, var(--color-base-100), transparent 8%);
+	box-shadow: inset 0 1px 0 color-mix(in oklch, white, transparent 88%);
+}
+
+.mg-coin-side-pill > span {
+	font-size: 0.75rem;
+	font-weight: 800;
+	color: currentColor;
+}
+
+.mg-coin-side-pill > strong {
+	width: 2rem;
+	aspect-ratio: 1;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	border-radius: 9999px;
+	background: color-mix(in oklch, currentColor, transparent 82%);
+	color: currentColor;
+	font-weight: 900;
+}
+
+.mg-coin-side-blue {
+	color: var(--color-info);
+}
+
+.mg-coin-side-red {
+	color: var(--color-error);
+}
 
 .mg-coin-stage {
 	perspective: 1200px;
@@ -485,6 +586,23 @@
 	}
 }
 
+@container (max-width: 560px) {
+	.mg-coin-arena {
+		grid-template-columns: minmax(0, 1fr);
+		grid-template-rows: auto auto auto;
+	}
+
+	.mg-coin-side-pill {
+		min-height: 3.25rem;
+		flex-direction: row;
+	}
+
+	.mg-coin-stage {
+		justify-self: center;
+		width: clamp(10rem, 66cqi, 15rem);
+	}
+}
+
 /* ============================================================
  * Ladder
  * 핵심: dot 위치는 CSS offset-path 로 — JS rAF 없이 GPU 보간.
@@ -511,6 +629,41 @@
 	min-width: min(42rem, calc(4.5rem * var(--mg-ladder-count, 2)));
 }
 
+.mg-ladder-play {
+	min-height: clamp(18rem, 46cqi, 30rem);
+}
+
+.mg-ladder-label-row {
+	display: grid;
+	gap: 0.375rem;
+	width: 100%;
+}
+
+.mg-ladder-label-chip {
+	min-width: 0;
+	border-radius: 0.375rem;
+	border: 1px solid var(--color-base-300);
+	background: color-mix(in oklch, var(--color-base-100), transparent 16%);
+	padding: 0.375rem 0.45rem;
+	text-align: center;
+	font-size: 0.75rem;
+	font-weight: 700;
+	color: color-mix(in oklch, var(--color-base-content), transparent 16%);
+}
+
+.mg-ladder-label-chip > span {
+	display: block;
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.mg-ladder-output-label-chip {
+	color: var(--color-base-content);
+	background: color-mix(in oklch, var(--color-primary), transparent 90%);
+}
+
 .mg-ladder {
 	display: block;
 	margin: 0 auto;
@@ -519,6 +672,37 @@
 	transform: rotateX(6deg);
 	transform-origin: 50% 0%;
 	filter: drop-shadow(0 16px 14px rgba(0, 0, 0, 0.22));
+}
+
+.mg-ladder-results {
+	width: 100%;
+	min-width: min(42rem, calc(4.5rem * var(--mg-ladder-count, 2)));
+	min-height: 2.25rem;
+	border-radius: 0.5rem;
+	border: 1px solid var(--color-base-300);
+	background: color-mix(in oklch, var(--color-base-100), transparent 18%);
+	padding: 0.75rem;
+}
+
+.mg-ladder-results:empty {
+	display: none;
+}
+
+.mg-ladder-result-grid {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(min(12rem, 100%), 1fr));
+	gap: 0.375rem;
+	font-size: 0.875rem;
+}
+
+.mg-ladder-result-card {
+	display: flex;
+	align-items: center;
+	gap: 0.5rem;
+	min-width: 0;
+	border-radius: 0.375rem;
+	background: color-mix(in oklch, var(--color-base-200), transparent 28%);
+	padding: 0.45rem 0.55rem;
 }
 
 /* 기둥 — 좌우 페이드 그라디언트 (linearGradient mg-post-gradient 사용) */
@@ -674,6 +858,19 @@
  * 핵심: conic-gradient 로 segment 색칠, transform: rotate 로 회전.
  * ============================================================ */
 
+.mg-roulette-play {
+	min-height: clamp(18rem, 48cqi, 30rem);
+}
+
+.mg-roulette-arena {
+	width: 100%;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	gap: 0.75rem;
+}
+
 .mg-roulette-stage {
 	position: relative;
 	--mg-roulette-size: min(100%, clamp(15rem, 48cqi, 27rem));
@@ -683,6 +880,24 @@
 	align-items: center;
 	justify-content: center;
 	margin: 0;
+}
+
+.mg-roulette-result-banner {
+	max-width: min(24rem, 100%);
+	min-height: 2.25rem;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	border-radius: 9999px;
+	border: 1px solid color-mix(in oklch, var(--color-primary), transparent 62%);
+	background: color-mix(in oklch, var(--color-base-100), transparent 8%);
+	padding: 0.35rem 0.9rem;
+	font-size: 0.85rem;
+	font-weight: 800;
+	color: var(--color-base-content);
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
 }
 
 .mg-roulette {
@@ -835,6 +1050,7 @@
 	position: absolute;
 	top: 50%;
 	left: 50%;
+	max-width: 5.25rem;
 	font-weight: 700;
 	font-size: 13px;
 	color: white;
@@ -844,4 +1060,70 @@
 	pointer-events: none;
 	white-space: nowrap;
 	user-select: none;
+}
+
+.mg-roulette-label > span {
+	display: inline-block;
+	max-width: 5.25rem;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	vertical-align: top;
+}
+
+.mg-candidate-list {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(min(8rem, 100%), 1fr));
+	gap: 0.375rem;
+	min-width: 0;
+	max-height: 9.5rem;
+	overflow-y: auto;
+	padding-right: 0.125rem;
+	scrollbar-width: thin;
+}
+
+.mg-candidate-chip {
+	display: flex;
+	align-items: center;
+	gap: 0.5rem;
+	min-width: 0;
+	border-radius: 0.375rem;
+	border: 1px solid var(--color-base-300);
+	background: color-mix(in oklch, var(--color-base-100), transparent 28%);
+	padding: 0.375rem 0.5rem;
+}
+
+/* ============================================================
+ * Motion accessibility
+ * ============================================================ */
+
+@media (prefers-reduced-motion: reduce) {
+	.mg-tool-tab,
+	.mg-coin,
+	.mg-coin-stage::before,
+	.mg-coin-stage::after,
+	.mg-ladder-rung,
+	.mg-ladder-trace,
+	.mg-ladder-dot,
+	.mg-ladder-output-pin,
+	.mg-roulette {
+		transition-duration: 1ms !important;
+	}
+
+	.mg-tool-tab:hover {
+		transform: none;
+	}
+
+	.mg-coin-bob-active,
+	.mg-coin-stage-flipping::before,
+	.mg-coin-stage-flipping::after,
+	.mg-coin-shadow-flipping,
+	.mg-ladder-rung.revealed,
+	.mg-ladder-trace.active,
+	.mg-ladder-dot.active,
+	.mg-roulette-orbit,
+	.mg-roulette-pointer,
+	.mg-roulette-spinning .mg-roulette-hub,
+	.mg-roulette-settled {
+		animation: none !important;
+	}
 }

@@ -1,14 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
-import {
-	defaultLabel,
-	type Phase,
-	SEGMENT_COLORS,
-	SPIN_DURATION_MS,
-} from "./Roulette/constants.js";
+import { defaultLabel, type Phase, SPIN_DURATION_MS } from "./Roulette/constants.js";
 import { RouletteControls } from "./Roulette/RouletteControls.js";
 import { RouletteResult } from "./Roulette/RouletteResult.js";
 import { RouletteWheel } from "./Roulette/RouletteWheel.js";
 import { buildConicGradient, nextSpinRotation, randomResult } from "./Roulette/rouletteLogic.js";
+import { MiniGameActionBar, MiniGameControls, MiniGameLayout, MiniGameStage } from "./shared.js";
 
 export function Roulette() {
 	const [count, setCount] = useState(2);
@@ -47,20 +43,28 @@ export function Roulette() {
 	}
 
 	const isLocked = phase === "spinning";
+	const resultLabel = resultIdx === null ? "" : labels[resultIdx];
 
 	return (
-		<div className="mg-game-layout mg-game-layout-controls-right">
-			<div className="mg-play-surface mg-roulette-play">
-				<RouletteWheel
-					labels={labels}
-					segmentSize={segmentSize}
-					conicGradient={conicGradient}
-					rotation={rotation}
-					phase={phase}
-				/>
-			</div>
+		<MiniGameLayout controls="right">
+			<MiniGameStage className="mg-roulette-play">
+				<div className="mg-roulette-arena">
+					<RouletteWheel
+						labels={labels}
+						segmentSize={segmentSize}
+						conicGradient={conicGradient}
+						rotation={rotation}
+						phase={phase}
+					/>
+					{phase !== "idle" && (
+						<div className="mg-roulette-result-banner" aria-hidden>
+							{phase === "spinning" ? "회전 중" : resultLabel}
+						</div>
+					)}
+				</div>
+			</MiniGameStage>
 
-			<div className="mg-control-panel min-w-0">
+			<MiniGameControls>
 				<RouletteControls
 					count={count}
 					labels={labels}
@@ -72,24 +76,7 @@ export function Roulette() {
 				/>
 				<RouletteResult phase={phase} resultIdx={resultIdx} labels={labels} />
 
-				<div className="mg-chip-grid">
-					{labels.map((label, index) => (
-						<div
-							// biome-ignore lint/suspicious/noArrayIndexKey: index is the stable roulette segment identity.
-							key={`candidate-${index}`}
-							className="flex items-center gap-2 rounded-md bg-base-100/60 border border-base-300 px-2 py-1.5 min-w-0"
-						>
-							<span
-								className="size-2.5 rounded-full shrink-0"
-								style={{ background: SEGMENT_COLORS[index % SEGMENT_COLORS.length] }}
-								aria-hidden
-							/>
-							<span className="truncate text-xs font-medium">{label}</span>
-						</div>
-					))}
-				</div>
-
-				<div className="grid grid-cols-1 gap-2">
+				<MiniGameActionBar>
 					<button type="button" className="btn btn-primary btn-lg" onClick={spin} disabled={isLocked}>
 						{phase === "settled" ? "다시 돌리기" : "돌리기"}
 					</button>
@@ -98,8 +85,8 @@ export function Roulette() {
 							초기화
 						</button>
 					)}
-				</div>
-			</div>
-		</div>
+				</MiniGameActionBar>
+			</MiniGameControls>
+		</MiniGameLayout>
 	);
 }

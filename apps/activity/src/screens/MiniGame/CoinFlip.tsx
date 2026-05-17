@@ -3,6 +3,14 @@
 // 결과 텍스트는 착지 완료 후에만 공개한다.
 
 import { useEffect, useRef, useState } from "react";
+import {
+	MiniGameActionBar,
+	MiniGameControls,
+	MiniGameLayout,
+	MiniGameSection,
+	MiniGameStage,
+	MiniGameStatusCard,
+} from "./shared.js";
 
 type Side = "BLUE" | "RED";
 type Phase = "idle" | "flipping" | "settling" | "settled";
@@ -74,37 +82,41 @@ export function CoinFlip() {
 	}
 
 	return (
-		<div className="mg-game-layout mg-game-layout-controls-right">
-			<div className="mg-play-surface mg-coin-play">
-				<div className="mg-side-score text-info">
-					<span>BLUE</span>
-				</div>
-				<div
-					className={`mg-coin-stage ${isBusy ? "mg-coin-stage-flipping" : ""} ${phase === "settled" ? "mg-coin-stage-settled" : ""}`}
-				>
-					{/* outer: bob (translateY only). inner: rotateY (inline). 분리해서 keyframe vs inline transform 충돌 회피. */}
-					<div className={`mg-coin-bob ${phase === "idle" ? "mg-coin-bob-active" : ""}`}>
-						<div
-							className={`mg-coin ${phase === "flipping" ? "mg-coin-flipping" : ""} ${phase === "settling" ? "mg-coin-settling" : ""}`}
-							style={{ transform: `rotateY(${rotation}deg)` }}
-						>
-							<div className="mg-coin-face mg-coin-face-blue">
-								<span className="mg-coin-mark">B</span>
-							</div>
-							<div className="mg-coin-face mg-coin-face-red">
-								<span className="mg-coin-mark">R</span>
+		<MiniGameLayout controls="right">
+			<MiniGameStage className="mg-coin-play">
+				<div className="mg-coin-arena">
+					<div className="mg-coin-side-pill mg-coin-side-blue">
+						<span>BLUE</span>
+						<strong>B</strong>
+					</div>
+					<div
+						className={`mg-coin-stage ${isBusy ? "mg-coin-stage-flipping" : ""} ${phase === "settled" ? "mg-coin-stage-settled" : ""}`}
+					>
+						{/* outer: bob (translateY only). inner: rotateY (inline). 분리해서 keyframe vs inline transform 충돌 회피. */}
+						<div className={`mg-coin-bob ${phase === "idle" ? "mg-coin-bob-active" : ""}`}>
+							<div
+								className={`mg-coin ${phase === "flipping" ? "mg-coin-flipping" : ""} ${phase === "settling" ? "mg-coin-settling" : ""}`}
+								style={{ transform: `rotateY(${rotation}deg)` }}
+							>
+								<div className="mg-coin-face mg-coin-face-blue">
+									<span className="mg-coin-mark">B</span>
+								</div>
+								<div className="mg-coin-face mg-coin-face-red">
+									<span className="mg-coin-mark">R</span>
+								</div>
 							</div>
 						</div>
+						<div className={`mg-coin-shadow ${isBusy ? "mg-coin-shadow-flipping" : ""}`} />
 					</div>
-					<div className={`mg-coin-shadow ${isBusy ? "mg-coin-shadow-flipping" : ""}`} />
+					<div className="mg-coin-side-pill mg-coin-side-red">
+						<span>RED</span>
+						<strong>R</strong>
+					</div>
 				</div>
-				<div className="mg-side-score text-error">
-					<span>RED</span>
-				</div>
-			</div>
+			</MiniGameStage>
 
-			<div className="mg-control-panel">
-				<div className="mg-result-panel" aria-live="polite">
+			<MiniGameControls>
+				<MiniGameStatusCard>
 					{phase === "settled" && side && (
 						<div className="space-y-1">
 							<div className="text-xs text-base-content/50">결과</div>
@@ -115,22 +127,24 @@ export function CoinFlip() {
 							</div>
 						</div>
 					)}
-					{isBusy && <div className="text-base-content/50 text-sm tracking-wider">던지는 중…</div>}
+					{isBusy && <div className="text-base-content/50 text-sm tracking-wider">던지는 중...</div>}
 					{phase === "idle" && <div className="text-base-content/40 text-sm">대기 중</div>}
-				</div>
+				</MiniGameStatusCard>
 
-				<div className="grid grid-cols-2 gap-2">
-					<div className="mg-side-card bg-info/10 border-info/20 text-info">
-						<div className="text-xs opacity-70">SIDE</div>
-						<div className="font-bold">BLUE</div>
+				<MiniGameSection title="진영">
+					<div className="grid grid-cols-2 gap-2">
+						<div className="mg-side-card bg-info/10 border-info/20 text-info">
+							<div className="text-xs opacity-70">SIDE</div>
+							<div className="font-bold">BLUE</div>
+						</div>
+						<div className="mg-side-card bg-error/10 border-error/20 text-error">
+							<div className="text-xs opacity-70">SIDE</div>
+							<div className="font-bold">RED</div>
+						</div>
 					</div>
-					<div className="mg-side-card bg-error/10 border-error/20 text-error">
-						<div className="text-xs opacity-70">SIDE</div>
-						<div className="font-bold">RED</div>
-					</div>
-				</div>
+				</MiniGameSection>
 
-				<div className="grid grid-cols-1 gap-2">
+				<MiniGameActionBar>
 					<button type="button" className="btn btn-primary btn-lg" onClick={flip} disabled={isBusy}>
 						{phase === "settled" ? "다시 던지기" : "던지기"}
 					</button>
@@ -139,8 +153,8 @@ export function CoinFlip() {
 							초기화
 						</button>
 					)}
-				</div>
-			</div>
-		</div>
+				</MiniGameActionBar>
+			</MiniGameControls>
+		</MiniGameLayout>
 	);
 }

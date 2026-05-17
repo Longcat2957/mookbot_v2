@@ -1,3 +1,5 @@
+import { MiniGameActionBar } from "../shared.js";
+
 export function LadderActions({
 	allDone,
 	onReset,
@@ -8,18 +10,18 @@ export function LadderActions({
 	onStartAll: () => void;
 }) {
 	return (
-		<div className="flex justify-center gap-2 flex-wrap">
+		<MiniGameActionBar>
 			<button
 				type="button"
 				className="btn btn-primary btn-lg gap-2"
 				onClick={onStartAll}
 				disabled={allDone}
 			>
-				🪜 전체 결과 보기
+				전체 결과 보기
 			</button>
 			<button type="button" className="btn btn-ghost btn-lg" onClick={onReset}>
 				재시작
 			</button>
-		</div>
+		</MiniGameActionBar>
 	);
 }

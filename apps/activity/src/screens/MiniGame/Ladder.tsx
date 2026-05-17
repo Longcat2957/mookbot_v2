@@ -1,24 +1,24 @@
+import type { CSSProperties } from "react";
 import { LadderActions } from "./Ladder/LadderActions.js";
 import { LadderControls } from "./Ladder/LadderControls.js";
 import { LadderLabelGrid } from "./Ladder/LadderLabelGrid.js";
 import { LadderResults } from "./Ladder/LadderResults.js";
 import { LadderStage } from "./Ladder/LadderStage.js";
 import { useLadderState } from "./Ladder/useLadderState.js";
-import type { CSSProperties } from "react";
+import { MiniGameControls, MiniGameLayout, MiniGameSection, MiniGameStage } from "./shared.js";
 
 export function Ladder() {
 	const ladder = useLadderState();
 
 	return (
-		<div className="mg-game-layout mg-game-layout-controls-left">
-			<div className="mg-control-panel">
+		<MiniGameLayout controls="left">
+			<MiniGameControls>
 				<LadderControls
 					count={ladder.count}
 					isLocked={ladder.isLocked}
 					onCountChange={ladder.setCount}
 				/>
-				<div className="space-y-2">
-					<div className="text-xs font-semibold text-base-content/60">입력</div>
+				<MiniGameSection title="입력">
 					<LadderLabelGrid
 						disabled={ladder.isLocked}
 						items={ladder.inputs}
@@ -26,10 +26,19 @@ export function Ladder() {
 						kind="input"
 						onChange={ladder.setInputLabels}
 					/>
-				</div>
+				</MiniGameSection>
+				<MiniGameSection title="출력">
+					<LadderLabelGrid
+						disabled={ladder.isLocked}
+						items={ladder.outputs}
+						labels={ladder.outputLabels}
+						kind="output"
+						onChange={ladder.setOutputLabels}
+					/>
+				</MiniGameSection>
 				<LadderActions allDone={ladder.allDone} onReset={ladder.reset} onStartAll={ladder.startAll} />
-			</div>
-			<div className="mg-play-surface mg-play-surface-scroll space-y-3 min-w-0">
+			</MiniGameControls>
+			<MiniGameStage scroll className="mg-ladder-play">
 				<div
 					className="mg-ladder-board space-y-3"
 					style={{ "--mg-ladder-count": ladder.inputs.length } as CSSProperties}
@@ -39,6 +48,7 @@ export function Ladder() {
 						inputLabels={ladder.inputLabels}
 						inputs={ladder.inputs}
 						inputStates={ladder.inputStates}
+						outputLabels={ladder.outputLabels}
 						outputs={ladder.outputs}
 						pathsByInput={ladder.pathsByInput}
 						rungDelays={ladder.rungDelays}
@@ -46,17 +56,6 @@ export function Ladder() {
 						rungsKey={ladder.rungsKey}
 						onStartInput={ladder.startInput}
 					/>
-					<div className="space-y-2">
-						<div className="text-xs font-semibold text-base-content/60">출력</div>
-						<LadderLabelGrid
-							disabled={ladder.isLocked}
-							items={ladder.outputs}
-							labels={ladder.outputLabels}
-							kind="output"
-							alignColumns
-							onChange={ladder.setOutputLabels}
-						/>
-					</div>
 				</div>
 				<LadderResults
 					anyDone={ladder.anyDone}
@@ -66,7 +65,7 @@ export function Ladder() {
 					outputLabels={ladder.outputLabels}
 					results={ladder.results}
 				/>
-			</div>
-		</div>
+			</MiniGameStage>
+		</MiniGameLayout>
 	);
 }
