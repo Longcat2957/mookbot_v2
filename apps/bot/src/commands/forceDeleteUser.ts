@@ -15,25 +15,37 @@ const { inspectUserForDelete, softDeleteUser, recordAudit } = db;
 export const data = new SlashCommandBuilder()
 	.setName("유저강제삭제")
 	.setDescription("[운영자] Mookbot 계정 소프트 삭제 (FK 보존, 모든 lookup 에서 제외)")
-	.addUserOption((o) =>
-		o.setName("user").setDescription("삭제할 Discord 유저").setRequired(true),
+	.addStringOption((o) =>
+		o
+			.setName("discord_id")
+			.setDescription("삭제 대상 Discord 유저 ID (snowflake). 길드 탈퇴자도 가능.")
+			.setRequired(true)
+			.setMinLength(17)
+			.setMaxLength(20),
 	);
 
 export async function execute(interaction: ChatInputCommandInteraction): Promise<void> {
 	if (!(await requireOperator(interaction))) return;
 
-	const target = interaction.options.getUser("user", true);
+	const targetId = interaction.options.getString("discord_id", true).trim();
+	if (!/^\d{17,20}$/.test(targetId)) {
+		await interaction.reply({
+			content: `❌ \`discord_id\` 는 17~20 자리 숫자여야 합니다. 입력값: \`${targetId}\``,
+			ephemeral: true,
+		});
+		return;
+	}
 
 	await interaction.deferReply({ ephemeral: true });
 
-	const summary = await inspectUserForDelete(target.id);
+	const summary = await inspectUserForDelete(targetId);
 	if (!summary.exists) {
-		await interaction.editReply(`❌ <@${target.id}> 는 등록된 사용자가 아닙니다.`);
+		await interaction.editReply(`❌ <@${targetId}> (\`${targetId}\`) 는 등록된 사용자가 아닙니다.`);
 		return;
 	}
 	if (summary.alreadyDeleted) {
 		await interaction.editReply(
-			`ℹ️ <@${target.id}> (${summary.displayName ?? "?"}) 는 이미 소프트 삭제된 상태입니다.`,
+			`ℹ️ <@${targetId}> (${summary.displayName ?? "?"}) 는 이미 소프트 삭제된 상태입니다.`,
 		);
 		return;
 	}
@@ -42,7 +54,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
 		.setTitle(`⚠️ 유저 소프트 삭제 미리보기`)
 		.setColor(0xe8b339)
 		.addFields(
-			{ name: "대상", value: `<@${target.id}>`, inline: true },
+			{ name: "대상", value: `<@${targetId}> (\`${targetId}\`)`, inline: false },
 			{ name: "표시명", value: summary.displayName ?? "?", inline: true },
 			{ name: "Riot 연결", value: String(summary.riotAccounts), inline: true },
 			{ name: "시리즈 참가", value: String(summary.seriesParticipations), inline: true },
@@ -59,8 +71,8 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
 			].join("\n"),
 		);
 
-	const confirmId = `admin:confirm:user_force_delete:${target.id}`;
-	const cancelId = `admin:cancel:user_force_delete:${target.id}`;
+	const confirmId = `admin:confirm:user_force_delete:${targetId}`;
+	const cancelId = `admin:cancel:user_force_delete:${targetId}`;
 	const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
 		new ButtonBuilder().setCustomId(confirmId).setLabel("확정 삭제").setStyle(ButtonStyle.Danger),
 		new ButtonBuilder().setCustomId(cancelId).setLabel("취소").setStyle(ButtonStyle.Secondary),
