@@ -52,24 +52,6 @@ export function RouletteControls({
 					))}
 				</div>
 			</MiniGameSection>
-			<MiniGameSection title="후보">
-				<div className="mg-candidate-list">
-					{labels.map((label, index) => (
-						<div
-							// biome-ignore lint/suspicious/noArrayIndexKey: index is the stable roulette segment identity.
-							key={`candidate-${index}`}
-							className="mg-candidate-chip"
-						>
-							<span
-								className="size-2.5 rounded-full shrink-0"
-								style={{ background: SEGMENT_COLORS[index % SEGMENT_COLORS.length] }}
-								aria-hidden
-							/>
-							<span className="truncate text-xs font-medium">{label}</span>
-						</div>
-					))}
-				</div>
-			</MiniGameSection>
 		</>
 	);
 }

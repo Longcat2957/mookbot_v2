@@ -43,7 +43,6 @@ export function Roulette() {
 	}
 
 	const isLocked = phase === "spinning";
-	const resultLabel = resultIdx === null ? "" : labels[resultIdx];
 
 	return (
 		<MiniGameLayout controls="right">
@@ -56,11 +55,6 @@ export function Roulette() {
 						rotation={rotation}
 						phase={phase}
 					/>
-					{phase !== "idle" && (
-						<div className="mg-roulette-result-banner" aria-hidden>
-							{phase === "spinning" ? "회전 중" : resultLabel}
-						</div>
-					)}
 				</div>
 			</MiniGameStage>
 

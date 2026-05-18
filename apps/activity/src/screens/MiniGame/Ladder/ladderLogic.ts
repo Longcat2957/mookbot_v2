@@ -59,11 +59,11 @@ export function simulate(count: number, rungs: Rung[]): number[] {
 }
 
 export function buildLadderGeom(count: number): Geom {
-	const spacing = 80;
-	const padX = 40;
+	const spacing = count <= 3 ? 180 : count <= 5 ? 120 : 80;
+	const padX = count <= 3 ? 90 : 50;
 	const W = padX * 2 + Math.max(0, count - 1) * spacing;
-	const H = 360;
-	const topY = 50;
+	const H = Math.min(360, 220 + count * 14);
+	const topY = 42;
 	const bottomY = H - 60;
 	const x = (i: number) => padX + i * spacing;
 	const rowY = (row: number) => topY + ((row + 1) * (bottomY - topY)) / (ROWS + 1);

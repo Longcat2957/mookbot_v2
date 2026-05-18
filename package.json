@@ -1,7 +1,7 @@
 {
 	"name": "mookbot-v2",
 	"private": true,
-	"version": "0.18.6",
+	"version": "0.18.7",
 	"type": "module",
 	"engines": {
 		"node": ">=22"
@@ -31,6 +31,9 @@
 		"vitest": "^4.1.5"
 	},
 	"pnpm": {
+		"overrides": {
+			"fast-uri": "3.1.2"
+		},
 		"onlyBuiltDependencies": [
 			"better-sqlite3",
 			"esbuild"

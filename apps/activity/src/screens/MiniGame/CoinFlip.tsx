@@ -7,7 +7,6 @@ import {
 	MiniGameActionBar,
 	MiniGameControls,
 	MiniGameLayout,
-	MiniGameSection,
 	MiniGameStage,
 	MiniGameStatusCard,
 } from "./shared.js";
@@ -118,33 +117,13 @@ export function CoinFlip() {
 			</MiniGameStage>
 
 			<MiniGameControls>
-				<MiniGameStatusCard>
-					{phase === "settled" && side && (
-						<div className="space-y-1">
-							<div className="text-xs text-base-content/50">결과</div>
-							<div
-								className={`text-2xl sm:text-3xl font-bold ${side === "BLUE" ? "text-info" : "text-error"}`}
-							>
-								{side} 진영
-							</div>
+				{phase === "settled" && side && (
+					<MiniGameStatusCard className={side === "BLUE" ? "mg-result-blue" : "mg-result-red"}>
+						<div className="mg-coin-result">
+							<span>{side}</span>
 						</div>
-					)}
-					{isBusy && <div className="text-base-content/50 text-sm tracking-wider">던지는 중...</div>}
-					{phase === "idle" && <div className="text-base-content/40 text-sm">대기 중</div>}
-				</MiniGameStatusCard>
-
-				<MiniGameSection title="진영">
-					<div className="grid grid-cols-2 gap-2">
-						<div className="mg-side-card bg-info/10 border-info/20 text-info">
-							<div className="text-xs opacity-70">SIDE</div>
-							<div className="font-bold">BLUE</div>
-						</div>
-						<div className="mg-side-card bg-error/10 border-error/20 text-error">
-							<div className="text-xs opacity-70">SIDE</div>
-							<div className="font-bold">RED</div>
-						</div>
-					</div>
-				</MiniGameSection>
+					</MiniGameStatusCard>
+				)}
 
 				<MiniGameActionBar>
 					<button type="button" className="btn btn-primary btn-lg" onClick={flip} disabled={isBusy}>

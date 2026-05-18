@@ -552,6 +552,34 @@
 	mix-blend-mode: screen;
 }
 
+.mg-coin-face-blue::before {
+	inset: 16%;
+	border-radius: 28%;
+	transform: rotate(45deg);
+	border-width: 2px;
+	background:
+		linear-gradient(135deg, rgba(255, 255, 255, 0.18), transparent 42%),
+		repeating-linear-gradient(
+			45deg,
+			rgba(255, 255, 255, 0.12) 0 5px,
+			transparent 5px 12px
+		);
+}
+
+.mg-coin-face-red::before {
+	inset: 14%;
+	border-radius: 9999px;
+	border-width: 2px;
+	background:
+		radial-gradient(circle, rgba(255, 255, 255, 0.2) 0 22%, transparent 23%),
+		conic-gradient(
+			from 30deg,
+			transparent 0 12deg,
+			rgba(255, 255, 255, 0.16) 12deg 24deg,
+			transparent 24deg 60deg
+		);
+}
+
 .mg-coin-mark {
 	position: relative;
 	z-index: 1;
@@ -570,6 +598,7 @@
 
 .mg-coin-face-blue {
 	background:
+		linear-gradient(45deg, rgba(255, 255, 255, 0.12) 0 12%, transparent 12% 28%, rgba(0, 0, 0, 0.12) 28% 42%, transparent 42%),
 		radial-gradient(circle at 32% 28%, rgba(255, 255, 255, 0.45) 0%, transparent 40%),
 		linear-gradient(
 			135deg,
@@ -581,14 +610,40 @@
 
 .mg-coin-face-red {
 	background:
-		radial-gradient(circle at 32% 28%, rgba(255, 255, 255, 0.45) 0%, transparent 40%),
+		repeating-conic-gradient(from 15deg, rgba(255, 255, 255, 0.12) 0 8deg, transparent 8deg 24deg),
+		radial-gradient(circle at 34% 30%, rgba(255, 255, 255, 0.38) 0%, transparent 38%),
 		linear-gradient(
-			135deg,
+			225deg,
 			color-mix(in oklch, var(--color-error), white 30%) 0%,
 			var(--color-error) 50%,
 			color-mix(in oklch, var(--color-error), black 25%) 100%
 		);
 	transform: rotateY(180deg);
+}
+
+.mg-result-blue {
+	border-color: color-mix(in oklch, var(--color-info), transparent 58%);
+	background: color-mix(in oklch, var(--color-info), transparent 88%);
+}
+
+.mg-result-red {
+	border-color: color-mix(in oklch, var(--color-error), transparent 58%);
+	background: color-mix(in oklch, var(--color-error), transparent 88%);
+}
+
+.mg-coin-result {
+	width: 100%;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	min-width: 0;
+}
+
+.mg-coin-result > span {
+	font-size: clamp(1.75rem, 9cqi, 2.75rem);
+	line-height: 1;
+	font-weight: 900;
+	letter-spacing: 0;
 }
 
 .mg-coin-shadow {
@@ -658,11 +713,13 @@
 
 .mg-ladder-board {
 	width: 100%;
-	min-width: min(42rem, calc(4.5rem * var(--mg-ladder-count, 2)));
+	min-width: clamp(18rem, calc(4.5rem * var(--mg-ladder-count, 2)), 42rem);
+	max-width: 52rem;
+	margin-inline: auto;
 }
 
 .mg-ladder-play {
-	min-height: clamp(18rem, 46cqi, 30rem);
+	min-height: clamp(15rem, 40cqi, 28rem);
 }
 
 .mg-ladder-label-row {
@@ -914,24 +971,6 @@
 	margin: 0;
 }
 
-.mg-roulette-result-banner {
-	max-width: min(24rem, 100%);
-	min-height: 2.25rem;
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	border-radius: 9999px;
-	border: 1px solid color-mix(in oklch, var(--color-primary), transparent 62%);
-	background: color-mix(in oklch, var(--color-base-100), transparent 8%);
-	padding: 0.35rem 0.9rem;
-	font-size: 0.85rem;
-	font-weight: 800;
-	color: var(--color-base-content);
-	overflow: hidden;
-	text-overflow: ellipsis;
-	white-space: nowrap;
-}
-
 .mg-roulette {
 	position: relative;
 	width: 90%;
@@ -940,12 +979,13 @@
 	transition: transform 4000ms cubic-bezier(0.15, 0.85, 0.3, 1) !important;
 	will-change: transform;
 	box-shadow:
-		inset 0 0 0 2px rgba(255, 255, 255, 0.22),
-		inset 0 0 0 12px rgba(0, 0, 0, 0.26),
-		inset 0 0 34px rgba(0, 0, 0, 0.24),
-		0 16px 40px rgba(0, 0, 0, 0.4),
+		inset 0 0 0 3px rgba(255, 255, 255, 0.28),
+		inset 0 0 0 13px rgba(0, 0, 0, 0.24),
+		inset 0 0 0 19px rgba(255, 255, 255, 0.08),
+		inset 0 0 36px rgba(0, 0, 0, 0.3),
+		0 18px 42px rgba(0, 0, 0, 0.42),
 		0 0 32px color-mix(in oklch, var(--color-primary), transparent 84%);
-	border: 8px solid color-mix(in oklch, var(--color-base-content), transparent 82%);
+	border: 10px solid color-mix(in oklch, var(--color-base-content), transparent 80%);
 }
 
 .mg-roulette-spinning {
@@ -959,12 +999,12 @@
 .mg-roulette::after {
 	content: "";
 	position: absolute;
-	inset: 12%;
+	inset: 10%;
 	border-radius: inherit;
-	border: 1px solid rgba(255, 255, 255, 0.28);
+	border: 2px solid rgba(255, 255, 255, 0.26);
 	box-shadow:
-		inset 0 0 0 10px rgba(0, 0, 0, 0.14),
-		0 0 24px rgba(255, 255, 255, 0.12);
+		inset 0 0 0 10px rgba(0, 0, 0, 0.12),
+		0 0 24px rgba(255, 255, 255, 0.14);
 	pointer-events: none;
 }
 
@@ -1026,6 +1066,22 @@
 		inset 0 -4px 8px rgba(0, 0, 0, 0.35),
 		inset 0 4px 8px rgba(255, 255, 255, 0.42);
 	z-index: 2;
+}
+
+.mg-roulette-result-card {
+	justify-content: center;
+	border-color: color-mix(in oklch, var(--color-primary), transparent 58%);
+	background: color-mix(in oklch, var(--color-base-100), transparent 6%);
+}
+
+.mg-roulette-result-text {
+	max-width: 100%;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	font-size: clamp(1.6rem, 8cqi, 2.5rem);
+	line-height: 1;
+	font-weight: 900;
 }
 
 .mg-roulette-spinning .mg-roulette-hub {
