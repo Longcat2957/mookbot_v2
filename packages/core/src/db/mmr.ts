@@ -64,9 +64,11 @@ export async function getLeaderboard(
 	offset = 0,
 ): Promise<LaneMmrRow[]> {
 	return query<LaneMmrRow>(
-		`SELECT * FROM user_lane_mmr
-		 WHERE season_id = ? AND role = ? AND games_played > 0
-		 ORDER BY mmr DESC
+		`SELECT ulm.*
+		 FROM user_lane_mmr ulm
+		 JOIN users u ON u.discord_id = ulm.user_id AND u.deleted_at IS NULL
+		 WHERE ulm.season_id = ? AND ulm.role = ? AND ulm.games_played > 0
+		 ORDER BY ulm.mmr DESC
 		 LIMIT ? OFFSET ?`,
 		[seasonId, role, limit, offset],
 	);
@@ -74,7 +76,10 @@ export async function getLeaderboard(
 
 export async function countLeaderboard(seasonId: number, role: Role): Promise<number> {
 	const row = await queryOne<{ n: number }>(
-		`SELECT COUNT(*) AS n FROM user_lane_mmr WHERE season_id = ? AND role = ? AND games_played > 0`,
+		`SELECT COUNT(*) AS n
+		 FROM user_lane_mmr ulm
+		 JOIN users u ON u.discord_id = ulm.user_id AND u.deleted_at IS NULL
+		 WHERE ulm.season_id = ? AND ulm.role = ? AND ulm.games_played > 0`,
 		[seasonId, role],
 	);
 	return row?.n ?? 0;
@@ -137,14 +142,15 @@ export async function getCompositeLeaderboard(
 ): Promise<CompositeLeaderboardRow[]> {
 	return query<CompositeLeaderboardRow>(
 		`SELECT
-		   user_id,
-		   SUM(mmr * games_played) * 1.0 / NULLIF(SUM(games_played), 0) AS weighted_mmr,
-		   SUM(games_played) AS total_games,
-		   SUM(wins) AS total_wins,
+		   ulm.user_id,
+		   SUM(ulm.mmr * ulm.games_played) * 1.0 / NULLIF(SUM(ulm.games_played), 0) AS weighted_mmr,
+		   SUM(ulm.games_played) AS total_games,
+		   SUM(ulm.wins) AS total_wins,
 		   COUNT(*) AS roles_played
-		 FROM user_lane_mmr
-		 WHERE season_id = ? AND games_played >= 1
-		 GROUP BY user_id
+		 FROM user_lane_mmr ulm
+		 JOIN users u ON u.discord_id = ulm.user_id AND u.deleted_at IS NULL
+		 WHERE ulm.season_id = ? AND ulm.games_played >= 1
+		 GROUP BY ulm.user_id
 		 ORDER BY weighted_mmr DESC
 		 LIMIT ?`,
 		[seasonId, limit],

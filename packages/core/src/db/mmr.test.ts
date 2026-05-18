@@ -10,7 +10,7 @@ import {
 	getMmrHistoryForUser,
 } from "./mmr.js";
 import { createSeason } from "./seasons.js";
-import { upsertUser } from "./users.js";
+import { softDeleteUser, upsertUser } from "./users.js";
 
 let db: TestDb;
 let seasonId: number;
@@ -77,6 +77,14 @@ describe("getLeaderboard / countLeaderboard", () => {
 	it("countLeaderboard 반영 (games_played > 0)", async () => {
 		expect(await countLeaderboard(seasonId, "TOP")).toBe(2);
 		expect(await countLeaderboard(seasonId, "MID")).toBe(0);
+	});
+
+	it("soft-deleted user 제외", async () => {
+		expect(await softDeleteUser("u1")).toBe(1);
+
+		const lb = await getLeaderboard(seasonId, "TOP");
+		expect(lb.map((r) => r.user_id)).toEqual(["u2"]);
+		expect(await countLeaderboard(seasonId, "TOP")).toBe(1);
 	});
 });
 
@@ -150,5 +158,12 @@ describe("getCompositeLeaderboard", () => {
 		expect(lb[0]?.total_games).toBe(10);
 		expect(lb[1]?.weighted_mmr).toBe(1500);
 		expect(lb[1]?.total_games).toBe(3);
+	});
+
+	it("soft-deleted user 제외", async () => {
+		await softDeleteUser("u1");
+
+		const lb = await getCompositeLeaderboard(seasonId);
+		expect(lb.map((r) => r.user_id)).toEqual(["u2"]);
 	});
 });
