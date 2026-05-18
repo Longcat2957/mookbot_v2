@@ -4,13 +4,14 @@
 #
 # 시퀀스:
 #   1. preflight  — working tree clean + main 과 origin/main sync 확인
-#   2. docker:release  — 3개 이미지 build + push (X.Y.Z + latest)
-#   3. VPS pull + up -d  — ssh root@141.164.46.191 로 적용
-#   4. health verify  — 컨테이너 상태 출력
-#   5. slash command 등록  — Discord 에 명령어 PUT (새 컨테이너 healthy 이후)
+#   2. D1 schema migrate  — schema.sql 의 ALTER ADD COLUMN / CREATE INDEX 멱등 적용
+#   3. docker:release  — 3개 이미지 build + push (X.Y.Z + latest)
+#   4. VPS pull + up -d  — ssh root@141.164.46.191 로 적용
+#   5. health verify  — 컨테이너 상태 출력
+#   6. slash command 등록  — Discord 에 명령어 PUT (새 컨테이너 healthy 이후)
 #
 # 옵션:
-#   --skip-commands  — step 5 (Discord 명령 등록) 건너뜀. 명령 변경 0 일 때만 사용.
+#   --skip-commands  — step 6 (Discord 명령 등록) 건너뜀. 명령 변경 0 일 때만 사용.
 #
 # 가정:
 #   - 변경분 commit + git push origin main 이 이미 완료됨
@@ -71,17 +72,23 @@ if [ "$LOCAL_HEAD" != "$REMOTE_HEAD" ]; then
 fi
 echo "[deploy-vps] preflight OK ($LOCAL_HEAD)"
 
-# --- 2. docker:release -----------------------------------------------------
-echo "[deploy-vps] step 2/5 — docker build + push"
+# --- 2. db migrate ---------------------------------------------------------
+# 새 ALTER ADD COLUMN / CREATE INDEX 를 prod D1 에 먼저 적용해야 신규 코드가 깨지지 않음.
+# migrate.ts 는 idempotent — 이미 적용된 statement 는 skip 또는 dup 에러 흡수.
+echo "[deploy-vps] step 2/6 — D1 schema migrate"
+pnpm --filter @mookbot/core db:migrate
+
+# --- 3. docker:release -----------------------------------------------------
+echo "[deploy-vps] step 3/6 — docker build + push"
 "$ROOT_DIR/scripts/docker-build.sh"
 "$ROOT_DIR/scripts/docker-push.sh"
 
 # --- 3. VPS pull + up ------------------------------------------------------
-echo "[deploy-vps] step 3/5 — VPS pull + up -d ($VPS_HOST:$VPS_DIR)"
+echo "[deploy-vps] step 4/6 — VPS pull + up -d ($VPS_HOST:$VPS_DIR)"
 ssh -o ConnectTimeout=10 "$VPS_HOST" "cd $VPS_DIR && docker compose pull && docker compose up -d"
 
 # --- 4. verify -------------------------------------------------------------
-echo "[deploy-vps] step 4/5 — health 확인 (5s 대기 후)"
+echo "[deploy-vps] step 5/6 — health 확인 (5s 대기 후)"
 sleep 5
 ssh -o ConnectTimeout=10 "$VPS_HOST" "cd $VPS_DIR && docker compose ps"
 
@@ -90,9 +97,9 @@ ssh -o ConnectTimeout=10 "$VPS_HOST" "cd $VPS_DIR && docker compose ps"
 # 새 코드로 응답 가능하도록 (옛 컨테이너에 새 이름 띄우면 unknown command 응답).
 # 명령어 변경 없는 release 라면 --skip-commands 로 1 API call 절약 (옵션).
 if [ "$SKIP_COMMANDS" = "1" ]; then
-	echo "[deploy-vps] step 5/5 — slash command 등록 skip (--skip-commands)"
+	echo "[deploy-vps] step 6/6 — slash command 등록 skip (--skip-commands)"
 else
-	echo "[deploy-vps] step 5/5 — slash command 등록 (Discord)"
+	echo "[deploy-vps] step 6/6 — slash command 등록 (Discord)"
 	pnpm --filter @mookbot/bot exec tsx src/deploy-commands.ts
 fi
 
