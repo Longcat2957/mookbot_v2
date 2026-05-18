@@ -26,7 +26,10 @@ export function nextSpinRotation({
 	segmentSize: number;
 }) {
 	const fullSpins = SPINS_MIN + Math.floor(Math.random() * (SPINS_MAX - SPINS_MIN + 1));
-	const targetResidual = (360 - (result + 0.5) * segmentSize + 720) % 360;
+	// 결과 segment 내부 랜덤 오프셋. 경계 닿으면 어느 칸 당첨인지 헷갈리니 양 끝 15% margin 유지.
+	const margin = 0.15;
+	const offset = margin + Math.random() * (1 - margin * 2);
+	const targetResidual = (360 - (result + offset) * segmentSize + 720) % 360;
 	const currentResidual = ((rotation % 360) + 360) % 360;
 	return rotation + fullSpins * 360 + ((targetResidual - currentResidual + 360) % 360);
 }
