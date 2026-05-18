@@ -100,10 +100,10 @@ export function CoinFlip() {
 								style={{ transform: `rotateY(${rotation}deg)` }}
 							>
 								<div className="mg-coin-face mg-coin-face-blue">
-									<span className="mg-coin-mark">B</span>
+									<span className="mg-coin-mark mg-coin-mark-blue">B</span>
 								</div>
 								<div className="mg-coin-face mg-coin-face-red">
-									<span className="mg-coin-mark">R</span>
+									<span className="mg-coin-mark mg-coin-mark-red">R</span>
 								</div>
 							</div>
 						</div>
