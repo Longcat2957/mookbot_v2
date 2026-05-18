@@ -130,6 +130,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
 		`SELECT discord_id, display_name FROM users
 		 WHERE discord_id NOT IN (${placeholders || "''"})
 		   AND discord_id NOT LIKE 'test-%'
+		   AND deleted_at IS NULL
 		 ORDER BY RANDOM()
 		 LIMIT ?`,
 		[...excludeIds, want],

@@ -15,7 +15,8 @@
 CREATE TABLE IF NOT EXISTS users (
     discord_id    TEXT    PRIMARY KEY,
     display_name  TEXT    NOT NULL,
-    created_at    INTEGER NOT NULL DEFAULT (unixepoch())
+    created_at    INTEGER NOT NULL DEFAULT (unixepoch()),
+    deleted_at    INTEGER                 -- v0.18.10: soft-delete. NULL = live. 모든 read 쿼리에서 IS NULL 필터.
 );
 
 CREATE TABLE IF NOT EXISTS riot_accounts (
@@ -461,6 +462,11 @@ ALTER TABLE riot_accounts ADD COLUMN profile_icon_id INTEGER;
 
 -- v0.14: 경매 BIDDING 단계의 현재 매물 후보 — 모든 화면에 실시간 sync.
 ALTER TABLE auction_tournaments ADD COLUMN current_bid_target_user_id TEXT REFERENCES users(discord_id);
+
+-- v0.18.10: users 소프트 삭제. /유저강제삭제 운영자 명령으로 deleted_at = unixepoch() UPDATE.
+-- 모든 user lookup 래퍼 (getUser/listUsers/searchUsers/getUserByPuuid) 가 IS NULL 필터.
+ALTER TABLE users ADD COLUMN deleted_at INTEGER;
+CREATE INDEX IF NOT EXISTS idx_users_deleted_at ON users(deleted_at);
 
 -- v0.5.0 의 series.type / series.auction_tournament_id 컬럼은 v0.11.0 에서 제거.
 -- 옛 prod DB 는 v0.11.0 마이그레이션 블록이 DROP COLUMN 처리. fresh DB 는 CREATE 부터

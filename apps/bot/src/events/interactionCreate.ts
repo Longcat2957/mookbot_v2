@@ -7,6 +7,7 @@ import { handleButton as earlyCancelAuctionTournamentButton } from "../commands/
 import { handleButton as earlyCompleteSeriesButton } from "../commands/earlyCompleteSeries.js";
 import { handleButton as forceDeleteRecruitmentButton } from "../commands/forceDeleteRecruitment.js";
 import { handleButton as forceDeleteSeriesButton } from "../commands/forceDeleteSeries.js";
+import { handleButton as forceDeleteUserButton } from "../commands/forceDeleteUser.js";
 import { ALL_COMMANDS } from "../commands/index.js";
 import {
 	handleButton as recruitButton,
@@ -47,6 +48,7 @@ export async function interactionCreate(interaction: Interaction) {
 				if (action === "series_force_delete") await forceDeleteSeriesButton(interaction);
 				else if (action === "recruitment_force_delete") await forceDeleteRecruitmentButton(interaction);
 				else if (action === "auction_force_delete") await auctionForceDeleteButton(interaction);
+				else if (action === "user_force_delete") await forceDeleteUserButton(interaction);
 				else if (action === "series_early_complete") await earlyCompleteSeriesButton(interaction);
 				else if (action === "auction_tournament_early_cancel")
 					await earlyCancelAuctionTournamentButton(interaction);

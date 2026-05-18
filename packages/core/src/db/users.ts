@@ -5,6 +5,7 @@ export interface UserRow {
 	discord_id: string;
 	display_name: string;
 	created_at: number;
+	deleted_at: number | null;
 }
 
 export interface RiotAccountRow {
@@ -28,13 +29,27 @@ export async function upsertUser(discordId: string, displayName: string): Promis
 }
 
 export async function getUser(discordId: string): Promise<UserRow | undefined> {
+	return queryOne<UserRow>(
+		"SELECT * FROM users WHERE discord_id = ? AND deleted_at IS NULL",
+		[discordId],
+	);
+}
+
+/**
+ * 소프트 삭제 포함 lookup — 관리자 도구 / 복구 / audit 전용.
+ * 일반 코드 경로는 getUser 사용.
+ */
+export async function getUserIncludingDeleted(discordId: string): Promise<UserRow | undefined> {
 	return queryOne<UserRow>("SELECT * FROM users WHERE discord_id = ?", [discordId]);
 }
 
 export async function listUsers(discordIds: readonly string[]): Promise<UserRow[]> {
 	if (discordIds.length === 0) return [];
 	const { placeholders, params } = inClause(discordIds);
-	return query<UserRow>(`SELECT * FROM users WHERE discord_id IN ${placeholders}`, params);
+	return query<UserRow>(
+		`SELECT * FROM users WHERE deleted_at IS NULL AND discord_id IN ${placeholders}`,
+		params,
+	);
 }
 
 /**
@@ -112,7 +127,7 @@ export async function getUserByPuuid(puuid: string): Promise<UserRow | undefined
 	return queryOne<UserRow>(
 		`SELECT u.* FROM users u
 		 JOIN riot_accounts ra ON ra.user_id = u.discord_id
-		 WHERE ra.puuid = ?`,
+		 WHERE ra.puuid = ? AND u.deleted_at IS NULL`,
 		[puuid],
 	);
 }
@@ -203,13 +218,93 @@ export async function searchUsers(input: { query: string; limit?: number }): Pro
 	const like = `%${q}%`;
 	const limit = Math.max(1, Math.min(50, input.limit ?? 10));
 	return query<UserRow>(
-		`SELECT DISTINCT u.discord_id, u.display_name, u.created_at
+		`SELECT DISTINCT u.discord_id, u.display_name, u.created_at, u.deleted_at
 		 FROM users u
 		 LEFT JOIN riot_accounts ra ON ra.user_id = u.discord_id
-		 WHERE u.display_name LIKE ?
-		    OR (ra.game_name IS NOT NULL AND ra.game_name LIKE ?)
+		 WHERE u.deleted_at IS NULL
+		   AND (u.display_name LIKE ?
+		    OR (ra.game_name IS NOT NULL AND ra.game_name LIKE ?))
 		 ORDER BY u.display_name
 		 LIMIT ?`,
 		[like, like, limit],
 	);
+}
+
+/**
+ * 유저 소프트 삭제. 다시 호출해도 deleted_at 갱신 (idempotent — 기존 stamp 덮어쓰기 OK).
+ *
+ * - FK 모두 보존 (history, MMR, 시리즈 참가 기록 등). 통계는 그대로 살아있음.
+ * - 모든 user lookup 래퍼가 IS NULL 필터하므로 화면에서 사라짐.
+ * - 다시 /등록 해도 ON CONFLICT 가 display_name 만 갱신하므로 deleted_at 유지 (재활성화 안 됨).
+ *
+ * @returns 영향받은 row 수 (0 = 이미 삭제됨 또는 존재 안 함)
+ */
+export async function softDeleteUser(discordId: string): Promise<number> {
+	const result = await execute(
+		`UPDATE users SET deleted_at = unixepoch() WHERE discord_id = ? AND deleted_at IS NULL`,
+		[discordId],
+	);
+	return result.changes ?? 0;
+}
+
+/**
+ * 소프트 삭제 복구. 운영 실수 되돌리기용.
+ *
+ * @returns 영향받은 row 수 (0 = 이미 활성 또는 존재 안 함)
+ */
+export async function restoreUser(discordId: string): Promise<number> {
+	const result = await execute(
+		`UPDATE users SET deleted_at = NULL WHERE discord_id = ? AND deleted_at IS NOT NULL`,
+		[discordId],
+	);
+	return result.changes ?? 0;
+}
+
+/**
+ * 소프트 삭제 미리보기 — 영향 받는 데이터 양 요약.
+ * 운영자 confirm 화면에서 사용.
+ */
+export async function inspectUserForDelete(discordId: string): Promise<{
+	exists: boolean;
+	alreadyDeleted: boolean;
+	displayName: string | null;
+	riotAccounts: number;
+	seriesParticipations: number;
+	gameStats: number;
+	auctionParticipations: number;
+}> {
+	const user = await getUserIncludingDeleted(discordId);
+	if (!user) {
+		return {
+			exists: false,
+			alreadyDeleted: false,
+			displayName: null,
+			riotAccounts: 0,
+			seriesParticipations: 0,
+			gameStats: 0,
+			auctionParticipations: 0,
+		};
+	}
+	const [riot, sp, gs, ap] = await Promise.all([
+		queryOne<{ n: number }>(`SELECT COUNT(*) AS n FROM riot_accounts WHERE user_id = ?`, [
+			discordId,
+		]),
+		queryOne<{ n: number }>(`SELECT COUNT(*) AS n FROM series_participants WHERE user_id = ?`, [
+			discordId,
+		]),
+		queryOne<{ n: number }>(`SELECT COUNT(*) AS n FROM game_stats WHERE user_id = ?`, [discordId]),
+		queryOne<{ n: number }>(
+			`SELECT COUNT(*) AS n FROM auction_recruitment_participants WHERE user_id = ?`,
+			[discordId],
+		),
+	]);
+	return {
+		exists: true,
+		alreadyDeleted: user.deleted_at !== null,
+		displayName: user.display_name,
+		riotAccounts: riot?.n ?? 0,
+		seriesParticipations: sp?.n ?? 0,
+		gameStats: gs?.n ?? 0,
+		auctionParticipations: ap?.n ?? 0,
+	};
 }

@@ -11,12 +11,16 @@ export function useAuctionActions({
 }) {
 	const request = useCallback(
 		async <T>(path: string, method: "POST" | "PUT", body?: unknown): Promise<T> => {
-			const result = await api<T>(`/auction-tournaments/${tournamentId}${path}`, {
-				method,
-				...(body === undefined ? {} : { body: JSON.stringify(body) }),
-			});
-			refresh();
-			return result;
+			try {
+				return await api<T>(`/auction-tournaments/${tournamentId}${path}`, {
+					method,
+					...(body === undefined ? {} : { body: JSON.stringify(body) }),
+				});
+			} finally {
+				// 성공/실패 무관하게 서버 진실로 resync.
+				// 409 등에서 refresh 안 하면 WS originUser 억제로 영구 stale.
+				refresh();
+			}
 		},
 		[tournamentId, refresh],
 	);

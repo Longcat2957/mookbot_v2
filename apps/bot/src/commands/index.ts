@@ -11,6 +11,7 @@ import * as earlyCancelAuctionTournament from "./earlyCancelAuctionTournament.js
 import * as earlyCompleteSeries from "./earlyCompleteSeries.js";
 import * as forceDeleteRecruitment from "./forceDeleteRecruitment.js";
 import * as forceDeleteSeries from "./forceDeleteSeries.js";
+import * as forceDeleteUser from "./forceDeleteUser.js";
 import * as help from "./help.js";
 import * as history from "./history.js";
 import * as leaderboard from "./leaderboard.js";
@@ -40,6 +41,7 @@ export const ALL_COMMANDS = [
 	currentGame,
 	forceDeleteSeries,
 	forceDeleteRecruitment,
+	forceDeleteUser,
 	earlyCompleteSeries,
 	adjustMmr,
 	resetSeasonResults,
