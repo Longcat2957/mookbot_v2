@@ -424,6 +424,14 @@
 	animation: mg-coin-bob-pulse 3.5s ease-in-out infinite !important;
 }
 
+.mg-coin-bob-toss {
+	animation: mg-coin-toss-rise 900ms cubic-bezier(0.16, 0.84, 0.22, 1) both !important;
+}
+
+.mg-coin-bob-settle {
+	animation: mg-coin-toss-fall 1500ms cubic-bezier(0.08, 0.74, 0.16, 1) both !important;
+}
+
 @keyframes mg-coin-bob-pulse {
 	0%,
 	100% {
@@ -431,6 +439,30 @@
 	}
 	50% {
 		transform: translateY(-8px);
+	}
+}
+
+@keyframes mg-coin-toss-rise {
+	0% {
+		transform: translateY(0) scale(1);
+	}
+	42% {
+		transform: translateY(-24px) scale(1.035);
+	}
+	100% {
+		transform: translateY(-14px) scale(1.01);
+	}
+}
+
+@keyframes mg-coin-toss-fall {
+	0% {
+		transform: translateY(-14px) scale(1.01);
+	}
+	76% {
+		transform: translateY(1px) scale(0.995);
+	}
+	100% {
+		transform: translateY(0) scale(1);
 	}
 }
 

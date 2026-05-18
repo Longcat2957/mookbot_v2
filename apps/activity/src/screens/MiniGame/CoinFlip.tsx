@@ -93,7 +93,9 @@ export function CoinFlip() {
 						className={`mg-coin-stage ${isBusy ? "mg-coin-stage-flipping" : ""} ${phase === "settled" ? "mg-coin-stage-settled" : ""}`}
 					>
 						{/* outer: bob (translateY only). inner: rotateY (inline). 분리해서 keyframe vs inline transform 충돌 회피. */}
-						<div className={`mg-coin-bob ${phase === "idle" ? "mg-coin-bob-active" : ""}`}>
+						<div
+							className={`mg-coin-bob ${phase === "idle" ? "mg-coin-bob-active" : ""} ${phase === "flipping" ? "mg-coin-bob-toss" : ""} ${phase === "settling" ? "mg-coin-bob-settle" : ""}`}
+						>
 							<div
 								className={`mg-coin ${phase === "flipping" ? "mg-coin-flipping" : ""} ${phase === "settling" ? "mg-coin-settling" : ""}`}
 								style={{ transform: `rotateY(${rotation}deg)` }}
