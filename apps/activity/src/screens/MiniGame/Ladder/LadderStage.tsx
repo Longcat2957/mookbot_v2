@@ -37,12 +37,13 @@ export function LadderStage({
 
 	return (
 		<div className="mg-ladder-stage">
-			<div
-				className="mg-ladder-label-row mg-ladder-label-row-top"
-				style={{ gridTemplateColumns: `repeat(${inputs.length}, minmax(0, 1fr))` }}
-			>
+			<div className="mg-ladder-label-row mg-ladder-label-row-top">
 				{inputs.map((i) => (
-					<div key={`top-label-${i}`} className="mg-ladder-label-chip">
+					<div
+						key={`top-label-${i}`}
+						className="mg-ladder-label-chip"
+						style={{ left: `${(geom.x(i) / geom.W) * 100}%` }}
+					>
 						<span>{inputLabels[i] ?? i + 1}</span>
 					</div>
 				))}
@@ -170,12 +171,13 @@ export function LadderStage({
 					);
 				})}
 			</svg>
-			<div
-				className="mg-ladder-label-row mg-ladder-label-row-bottom"
-				style={{ gridTemplateColumns: `repeat(${outputs.length}, minmax(0, 1fr))` }}
-			>
+			<div className="mg-ladder-label-row mg-ladder-label-row-bottom">
 				{outputs.map((i) => (
-					<div key={`bottom-label-${i}`} className="mg-ladder-label-chip mg-ladder-output-label-chip">
+					<div
+						key={`bottom-label-${i}`}
+						className="mg-ladder-label-chip mg-ladder-output-label-chip"
+						style={{ left: `${(geom.x(i) / geom.W) * 100}%` }}
+					>
 						<span>{outputLabels[i] ?? i + 1}</span>
 					</div>
 				))}

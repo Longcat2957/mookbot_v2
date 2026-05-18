@@ -1,4 +1,4 @@
-import { ROWS, RUNG_PROB } from "./constants.js";
+import { MAX_COUNT, ROWS, RUNG_PROB } from "./constants.js";
 
 export type InputState = "idle" | "running" | "done";
 
@@ -59,13 +59,16 @@ export function simulate(count: number, rungs: Rung[]): number[] {
 }
 
 export function buildLadderGeom(count: number): Geom {
-	const spacing = count <= 3 ? 180 : count <= 5 ? 120 : 80;
-	const padX = count <= 3 ? 90 : 50;
-	const W = padX * 2 + Math.max(0, count - 1) * spacing;
-	const H = Math.min(360, 220 + count * 14);
+	// 10인 기준으로 W/H 고정. count 가 적으면 posts 가운데 정렬 (spacing 80 유지).
+	const spacing = 80;
+	const padX = 50;
+	const W = padX * 2 + (MAX_COUNT - 1) * spacing;
+	const H = Math.min(360, 220 + MAX_COUNT * 14);
 	const topY = 42;
 	const bottomY = H - 60;
-	const x = (i: number) => padX + i * spacing;
+	const usedWidth = Math.max(0, count - 1) * spacing;
+	const startX = (W - usedWidth) / 2;
+	const x = (i: number) => startX + i * spacing;
 	const rowY = (row: number) => topY + ((row + 1) * (bottomY - topY)) / (ROWS + 1);
 	return { W, H, x, topY, bottomY, rowY };
 }
