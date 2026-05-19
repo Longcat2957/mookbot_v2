@@ -9,6 +9,10 @@ const ROLE_LABEL: Record<string, string> = {
 	SUPPORT: "서폿",
 };
 
+function formatMmr(mmr: number): string {
+	return String(Math.round(mmr));
+}
+
 export const data = new SlashCommandBuilder()
 	.setName("내정보")
 	.setDescription("내 등록 정보 + 시즌 라인별 MMR")
@@ -62,7 +66,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
 			}
 			const wr = m.games_played > 0 ? Math.round((m.wins / m.games_played) * 100) : 0;
 			const losses = m.games_played - m.wins;
-			return `${ROLE_LABEL[role]}: **${m.mmr}** · ${m.games_played}G ${m.wins}승 ${losses}패 (${wr}%)`;
+			return `${ROLE_LABEL[role]}: **${formatMmr(m.mmr)}** · ${m.games_played}G ${m.wins}승 ${losses}패 (${wr}%)`;
 		});
 		eb.addFields({ name: `시즌 ${season.id} 라인 MMR`, value: lines.join("\n") });
 	}

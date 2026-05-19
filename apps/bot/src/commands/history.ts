@@ -10,6 +10,15 @@ const ROLE_LABEL: Record<(typeof ROLES)[number], string> = {
 	SUPPORT: "서폿",
 };
 
+function formatMmr(mmr: number): string {
+	return String(Math.round(mmr));
+}
+
+function formatDelta(delta: number): string {
+	const rounded = Math.round(delta);
+	return `${rounded > 0 ? "+" : ""}${rounded}`;
+}
+
 export const data = new SlashCommandBuilder()
 	.setName("내전기록")
 	.setDescription("내전 라인별 통계 + 최근 MMR 변동")
@@ -61,15 +70,14 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
 		if (!m || m.games_played === 0) return `${ROLE_LABEL[role]}: _기록 없음_`;
 		const losses = m.games_played - m.wins;
 		const wr = m.games_played > 0 ? Math.round((m.wins / m.games_played) * 100) : 0;
-		return `${ROLE_LABEL[role]}: **${m.mmr}** · ${m.games_played}G ${m.wins}-${losses} (${wr}%)`;
+		return `${ROLE_LABEL[role]}: **${formatMmr(m.mmr)}** · ${m.games_played}G ${m.wins}-${losses} (${wr}%)`;
 	});
 	eb.addFields({ name: "라인별 MMR", value: laneLines.join("\n") });
 
 	if (changes.length > 0) {
 		const recentLines = changes.slice(0, 10).map((c) => {
-			const sign = c.delta > 0 ? "+" : "";
 			const arrow = c.delta > 0 ? "📈" : "📉";
-			return `${arrow} ${ROLE_LABEL[c.role]} ${sign}${c.delta} → ${c.mmr_after}`;
+			return `${arrow} ${ROLE_LABEL[c.role]} ${formatDelta(c.delta)} → ${formatMmr(c.mmr_after)}`;
 		});
 		eb.addFields({ name: "최근 MMR 변동", value: recentLines.join("\n") });
 	}

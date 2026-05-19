@@ -10,6 +10,10 @@ const ROLE_LABEL: Record<(typeof ROLES)[number], string> = {
 	SUPPORT: "서폿",
 };
 
+function formatMmr(mmr: number): string {
+	return String(Math.round(mmr));
+}
+
 export const data = new SlashCommandBuilder()
 	.setName("랭킹")
 	.setDescription("라인별 시즌 MMR 상위 랭킹 (상위 10)")
@@ -53,7 +57,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
 		const wr = r.games_played > 0 ? Math.round((r.wins / r.games_played) * 100) : 0;
 		const name = nameById.get(r.user_id) ?? r.user_id;
 		const medal = i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : `${i + 1}.`;
-		return `${medal} **${name}** · ${r.mmr} · ${r.games_played}G ${r.wins}-${losses} (${wr}%)`;
+		return `${medal} **${name}** · ${formatMmr(r.mmr)} · ${r.games_played}G ${r.wins}-${losses} (${wr}%)`;
 	});
 
 	const eb = new EmbedBuilder()

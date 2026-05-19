@@ -2,9 +2,9 @@
 
 > 현재 버전 기준 진척 상태.
 
-## 현재 (v0.10.3)
+## 현재 (v0.18.9)
 
-활성 도메인: `bot.mooklol.com` (Cloudflare proxied → 단일 VPS · Docker compose 4컨테이너 stack: bot · api · activity · nginx).
+활성 도메인: `bot.mooklol.com` (Cloudflare proxied → 단일 VPS · Docker compose 5컨테이너 stack: bot · api · activity · nginx · valkey).
 실서비스 운영 중.
 
 ## ✅ 완료 (Shipped)
@@ -154,6 +154,55 @@
 - **검증된 동작**: 첫 로드 (server draft 없음/있음), dirty 보호, `setSide`/`setCurrentGame`/`setGameDraft` (게임 게이팅 포함), `fearlessUsedIds` 도메인 계산 (이전 게임 + draft 합산, 현재 제외), `revert`/`undoLast` 성공/실패, debounced save (canEdit on/off), WS callback 시 refresh + toast, 1/2/3 단축키 (input 안 무시), `moveTo` (빈/점유 unassigned/점유 swap/null), `swapTeams`, `allFilled`, `submit` (성공/미충족/실패), Tap-to-Place 흐름 (`handleParticipantTap`/`handleSlotTap`/`handlePoolTap`, canEdit off 시 no-op), Esc 키 selected 해제, `recentlyChanged` diff.
 - **vitest config**: `apps/activity/src/screens/*/use*State.ts` 만 coverage include 로 추가 (전체 activity src 는 UI 영역으로 exclude 유지).
 - **테스트 총합**: 256 → 291 (+35). lint warnings 가 +20 (mock data 의 `!` non-null assertion — 테스트에서는 의도적 패턴, errors 0).
+
+### Phase 48 — 유저 soft-delete + 리더보드 비노출 (v0.18.x)
+- **유저 soft-delete** — `users.deleted_at` 컬럼 추가. `/유저강제삭제` 는 FK/history/MMR/시리즈 기록을 보존하면서 일반 사용자 lookup 에서 제외. 운영 실수 복구용 `restoreUser` 경로와 삭제 영향 미리보기 유지.
+- **리더보드 privacy fix** — 삭제 유저가 `user_lane_mmr` 에 남아 있어 `/api/leaderboard` 이름 lookup 실패 시 Discord ID 숫자로 노출되던 문제 수정. `getLeaderboard` / `countLeaderboard` / `getCompositeLeaderboard` 가 live `users` row 와 조인해 soft-deleted user 를 원천 제외.
+- **경매 상태 409 stuck fix** — 경매 진행 중 정상 종료/전환 케이스가 409 에러로 표시되어 화면 상태가 멈추던 흐름 보정.
+- **배포 안정화** — `deploy-vps` 가 Docker build 전 D1 migrate 를 먼저 수행해 schema drift 상태에서 새 이미지가 올라가는 위험 축소.
+
+### Phase 47 — MiniGame UI 재설계 + 애니메이션 안정화 (v0.18.1~v0.18.5)
+- **MiniGame 공통 layout primitive** — `MiniGame/shared.tsx` 로 `MiniGameLayout` / `MiniGameStage` / `MiniGameControls` / status/action primitives 도입. coin / ladder / roulette 가 같은 화면 골격 사용.
+- **Coin / Ladder / Roulette UI polish** — 코인 3D face 분리·회전 안정화, 사다리 canvas 10인 기준 크기 고정, 룰렛 winning segment 내부 랜덤 정지로 결과가 더 자연스럽게 보이도록 수정.
+- **reduced-motion + CSS 정리** — MiniGame 전용 CSS에 공통 motion fallback 과 candidate/list 스타일 정리.
+- **의존성 보안 패치** — `fast-uri` 취약점 대응 포함.
+
+### Phase 46 — Activity 구조/성능/디자인 정비 (v0.15.1~v0.18.0)
+- **Activity app structure refactor** — 화면 lazy loading (`screenLoaders`) 과 app shell 구조 정리. `Leaderboard` / `MiniGame` / `Profile` 등 주요 화면 prefetch 경로 추가.
+- **화면·asset 성능 개선** — activity screens/assets 로딩 경로 정리, auction 화면 폭/그리드 밀도 조정.
+- **디자인 시스템 refresh** — 기존 daisyUI 기반 surface/card 패턴을 유지하면서 경매/대시보드 화면 톤과 spacing 을 재정비.
+- **Auction draft UI polish** — 팀 카드 grid, 입찰/매물 진행 UI, reader 시인성 개선.
+
+### Phase 45 — Valkey/Redis KV backend + WS Pub/Sub (v0.15.0~v0.15.1)
+- **KV backend 분리** — `packages/core/src/kv/*` 도입. `entry:*` / `pickban:*` / `cache:*` 는 Redis/Valkey 로 라우팅, 그 외 영구 설정 키는 D1 `guild_kv` 유지.
+- **WS Pub/Sub** — API 인스턴스 간 WebSocket invalidate broadcast 를 Redis Pub/Sub 로 전파. `REDIS_URL` 없으면 dev/test 용 in-process fallback.
+- **BidIntent 영속화** — 경매 BIDDING 단계 입찰 의도 상태를 Redis hash 로 보관해 API 재시작 중에도 transient 입력 상태 보존.
+- **운영 반영** — VPS compose 에 `valkey` 컨테이너 추가, healthcheck 와 API dependency 연결.
+- **핫픽스** — 경매 `/draw` 후 본인 화면 SWR refresh 누락으로 현재 매물이 안 바뀌어 보이던 문제 수정.
+
+### Phase 44 — DB migration 안전 시스템 (v0.14.1)
+- **incident postmortem 반영** — destructive transition (`DROP`, `DELETE`, `UPDATE ... SET deleted_at` 류) 이 idempotent migration 재실행 중 데이터 손실로 이어질 수 있어 `migrate.ts` 에 안전 가드 추가.
+- **schema policy 명문화** — fresh DB 용 `schema.sql` 과 prod transition 은 분리 원칙. 위험한 one-shot transition 은 migration 파일에 계속 남기지 않도록 테스트/가드 보강.
+
+### Phase 43 — 경매 BIDDING 실시간 공유 (v0.14.0)
+- **현재 매물 상태 DB 동기화** — `auction_tournaments.current_bid_target_user_id` 로 `/draw`, 낙찰, 수동 배치, 유찰/다음 흐름이 모든 화면에서 같은 매물을 보도록 정리.
+- **입찰 의도 공유** — 운영자가 입력 중인 bid points 를 화면 간 실시간 공유. BIDDING reader 경험 개선.
+- **revert-stage cleanup** — 단계 되돌리기 시 현재 매물/입찰 의도 같은 transient 상태가 남지 않도록 cleanup.
+
+### Phase 42 — Activity UI 전면 정비 + 일괄등록 보강 (v0.13.0~v0.13.2)
+- **Activity UI 정비** — 접근성, 모바일 대응, 디자인 토큰, Auction 화면 분해를 한 번에 정리.
+- **SeriesResult profile 진입** — 종료 화면 멤버에서 프로필로 바로 이동 가능.
+- **`/일괄등록` 메인 계정 처리 보강** — 본인 sub PUUID 충돌/승격 흐름에서 main 계정 전환이 의도대로 되도록 수정.
+
+### Phase 41 — 명령어 네이밍 통일 + 경매 운영 명령어 보강 (v0.12.0~v0.12.1)
+- **슬래시 명령 이름 정리** — Discord 제약에 맞춰 lowercase ASCII 명령 이름 정책 반영.
+- **경매내전 운영 명령어 보강** — 경매 모집/토너먼트 운영에 필요한 봇 명령과 도움말 노출 정리.
+- **deploy-vps slash 등록 통합** — 배포 마지막 단계에서 슬래시 명령 등록 자동 수행.
+
+### Phase 40 — RANKED / AUCTION 스키마 분리 (v0.11.0)
+- **series RANKED 전용화** — 일반 내전 시리즈와 경매 매치를 `series.type` 으로 섞던 구조 제거. `series` 는 RANKED 전용, 경매는 `auction_matches` 독립 lifecycle 로 분리.
+- **games polymorphic FK** — RANKED 게임은 `ranked_series_id`, AUCTION 게임은 `auction_match_id` 사용. MMR 갱신은 RANKED 에만 적용하고 경매 게임은 챔프/승패 통계만 누적.
+- **일반 목록 노출 안전성** — 경매 매치가 일반 시리즈 목록/완료 목록에 섞이는 계열 문제의 구조적 원인 제거.
 
 ### Phase 39 — `/내정보갱신` 응답 요약 (v0.10.3)
 - **`/내정보갱신` 슬래시 응답 개선** — 기존엔 계정별 결과 줄만 나열. 이제 상단에 업데이트/변경 없음/실패 카운트 요약 + 아래에 계정별 세부 줄. 다계정 사용자가 한눈에 결과 파악 가능.
@@ -334,6 +383,7 @@
 - **audit_log retention 정책** — 정상 lifecycle audit (v0.3.26) 까지 누적되면 시즌 단위 archive 또는 90일 retention. 현재는 무제한 — 누적 부담 작아 긴급도 낮음.
 - **pino info/warn 로그도 `/logs` 웹뷰에서 조회** — 현재 audit_log 만; 별도 events 테이블 또는 Cloudflare Logpush 필요.
 - ⏸ **자동 시즌 전환 (스케줄러)** — 시즌 컷오프 정책 미결.
+- **Redis/Valkey TTL 세분화** — 현재 hot KV 는 Redis/Valkey 로 라우팅됨. 후속으로 `entry:*` / `pickban:*` / `cache:*` 별 TTL 정책을 명시적으로 분리 가능.
 
 ### 인프라
 - **봇 명령 스모크 테스트** — 인터랙션 mocking 복잡도 vs 가치 trade-off, 미정.
