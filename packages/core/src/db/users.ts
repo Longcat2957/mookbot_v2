@@ -16,6 +16,7 @@ export interface RiotAccountRow {
 	is_main: 0 | 1;
 	profile_icon_id: number | null;
 	main_position: string | null;
+	main_position_updated_at: number | null;
 	created_at: number;
 	updated_at: number;
 }
@@ -30,10 +31,9 @@ export async function upsertUser(discordId: string, displayName: string): Promis
 }
 
 export async function getUser(discordId: string): Promise<UserRow | undefined> {
-	return queryOne<UserRow>(
-		"SELECT * FROM users WHERE discord_id = ? AND deleted_at IS NULL",
-		[discordId],
-	);
+	return queryOne<UserRow>("SELECT * FROM users WHERE discord_id = ? AND deleted_at IS NULL", [
+		discordId,
+	]);
 }
 
 /**
@@ -182,7 +182,9 @@ export async function setRiotAccountMainPosition(
 	mainPosition: string | null,
 ): Promise<void> {
 	await execute(
-		`UPDATE riot_accounts SET main_position = ?, updated_at = unixepoch() WHERE puuid = ?`,
+		`UPDATE riot_accounts
+		 SET main_position = ?, main_position_updated_at = unixepoch(), updated_at = unixepoch()
+		 WHERE puuid = ?`,
 		[mainPosition, puuid],
 	);
 }
@@ -297,9 +299,7 @@ export async function inspectUserForDelete(discordId: string): Promise<{
 		};
 	}
 	const [riot, sp, gs, ap] = await Promise.all([
-		queryOne<{ n: number }>(`SELECT COUNT(*) AS n FROM riot_accounts WHERE user_id = ?`, [
-			discordId,
-		]),
+		queryOne<{ n: number }>(`SELECT COUNT(*) AS n FROM riot_accounts WHERE user_id = ?`, [discordId]),
 		queryOne<{ n: number }>(`SELECT COUNT(*) AS n FROM series_participants WHERE user_id = ?`, [
 			discordId,
 		]),

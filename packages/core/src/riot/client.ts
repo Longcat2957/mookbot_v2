@@ -75,6 +75,7 @@ export function __clearRiotCacheForTest(): void {
 let lastRequestTime = 0;
 let requestQueue: Promise<void> = Promise.resolve();
 const MIN_INTERVAL_MS = 50; // ~20 req/s for production key
+const REQUEST_TIMEOUT_MS = 20_000;
 
 async function waitForRateLimit(): Promise<void> {
 	const previous = requestQueue;
@@ -142,6 +143,7 @@ export class RiotApiClient {
 
 		const res = await fetch(url, {
 			headers: { "X-Riot-Token": this.apiKey },
+			signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
 		});
 
 		if (res.status === 429) {

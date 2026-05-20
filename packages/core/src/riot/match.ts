@@ -5,6 +5,7 @@ export type RiotLane = "TOP" | "JUNGLE" | "MIDDLE" | "BOTTOM" | "UTILITY";
 export type MookMainPosition = "TOP" | "JUNGLE" | "MID" | "BOTTOM" | "SUPPORT" | "FLEX";
 
 const SOLO_QUEUE_ID = 420;
+const MATCH_DETAIL_CONCURRENCY = 5;
 const POSITION_TO_ROLE: Record<RiotLane, "TOP" | "JUNGLE" | "MID" | "BOTTOM" | "SUPPORT"> = {
 	TOP: "TOP",
 	JUNGLE: "JUNGLE",
@@ -74,8 +75,8 @@ export async function inferMainPositionFromSoloRanked(
 	);
 	const scores: Record<string, number> = {};
 	let sampleSize = 0;
-	for (const id of matchIds) {
-		const match = await getMatch(id);
+	const matches = await mapConcurrent(matchIds, MATCH_DETAIL_CONCURRENCY, getMatch);
+	for (const match of matches) {
 		const participant = match.info.participants.find((p) => p.puuid === puuid);
 		if (!participant) continue;
 		const raw = participant.teamPosition || participant.individualPosition;
@@ -100,6 +101,26 @@ export async function inferMainPositionFromSoloRanked(
 		sampleSize,
 		scores,
 	};
+}
+
+async function mapConcurrent<T, R>(
+	items: readonly T[],
+	concurrency: number,
+	mapper: (item: T) => Promise<R>,
+): Promise<R[]> {
+	const results: R[] = [];
+	let next = 0;
+	const workerCount = Math.min(Math.max(concurrency, 1), items.length);
+	await Promise.all(
+		Array.from({ length: workerCount }, async () => {
+			while (next < items.length) {
+				const index = next;
+				next += 1;
+				results[index] = await mapper(items[index] as T);
+			}
+		}),
+	);
+	return results;
 }
 
 function isRiotLane(value: string): value is RiotLane {

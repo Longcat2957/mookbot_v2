@@ -1,7 +1,7 @@
 import { StatusBadge } from "../../components/DesignPrimitives.js";
 import { UserAvatar } from "../../components/UserAvatar.js";
 import type { ProfileResponse } from "./types.js";
-import { winrateToneClass } from "./types.js";
+import { ROLE_LABEL, winrateToneClass } from "./types.js";
 
 export function ProfileHeader({
 	data,
@@ -15,6 +15,10 @@ export function ProfileHeader({
 	onManageRiotAccounts?: () => void;
 }) {
 	const totalWrPct = Math.round(data.totals.winrate * 100);
+	const mainAccount = data.riotAccounts.find((account) => account.isMain);
+	const mainPositionLabel = mainAccount?.mainPosition
+		? (ROLE_LABEL[mainAccount.mainPosition] ?? mainAccount.mainPosition)
+		: null;
 
 	return (
 		<div className="flex items-start justify-between gap-3 flex-wrap">
@@ -48,6 +52,16 @@ export function ProfileHeader({
 							)}
 						</span>
 					</div>
+					<div className="flex flex-wrap items-center gap-1.5 mt-2">
+						<StatusBadge tone={mainPositionLabel ? "info" : "neutral"} variant="soft" size="sm">
+							주력 라인 {mainPositionLabel ?? "미계산"}
+						</StatusBadge>
+						{mainAccount?.mainPositionUpdatedAt && (
+							<span className="text-xs text-base-content/40">
+								{formatUpdatedAt(mainAccount.mainPositionUpdatedAt)}
+							</span>
+						)}
+					</div>
 					<div className="flex flex-wrap gap-1.5 mt-2 items-center">
 						{data.riotAccounts.map((account) => (
 							<StatusBadge
@@ -77,4 +91,9 @@ export function ProfileHeader({
 			</button>
 		</div>
 	);
+}
+
+function formatUpdatedAt(epochSec: number): string {
+	const date = new Date(epochSec * 1000);
+	return `갱신 ${date.toLocaleDateString("ko-KR", { month: "numeric", day: "numeric" })}`;
 }

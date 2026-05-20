@@ -28,6 +28,7 @@ CREATE TABLE IF NOT EXISTS riot_accounts (
     profile_icon_id INTEGER,                 -- v0.3.20: League 소환사 아이콘 (RP/BE 구매)
     main_position   TEXT CHECK (main_position IS NULL OR main_position IN ('TOP', 'JUNGLE', 'MID', 'BOTTOM', 'SUPPORT', 'FLEX')),
                                              -- v0.19.3: 최근 솔로랭크 Match-V5 기반 추정 주 포지션
+    main_position_updated_at INTEGER,        -- v0.19.3: NULL 포함 주 포지션 계산 완료 시각
     created_at      INTEGER NOT NULL DEFAULT (unixepoch()),
     updated_at      INTEGER NOT NULL DEFAULT (unixepoch())
 );
@@ -464,6 +465,7 @@ ALTER TABLE riot_accounts ADD COLUMN profile_icon_id INTEGER;
 
 -- v0.19.3: 최근 솔로랭크 match history 기반 추정 주 포지션 (TOP/JUNGLE/MID/BOTTOM/SUPPORT/FLEX).
 ALTER TABLE riot_accounts ADD COLUMN main_position TEXT;
+ALTER TABLE riot_accounts ADD COLUMN main_position_updated_at INTEGER;
 
 -- v0.14: 경매 BIDDING 단계의 현재 매물 후보 — 모든 화면에 실시간 sync.
 ALTER TABLE auction_tournaments ADD COLUMN current_bid_target_user_id TEXT REFERENCES users(discord_id);

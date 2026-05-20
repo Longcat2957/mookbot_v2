@@ -131,6 +131,8 @@ export async function registerUsersRoutes(app: FastifyInstance): Promise<void> {
 					gameName: a.game_name,
 					tagLine: a.tag_line,
 					isMain: a.puuid === mainAccount?.puuid,
+					mainPosition: a.main_position,
+					mainPositionUpdatedAt: a.main_position_updated_at,
 					profileIconUrl:
 						a.profile_icon_id != null ? rewriteDD(datadragon.getProfileIconUrl(a.profile_icon_id)) : null,
 				})),

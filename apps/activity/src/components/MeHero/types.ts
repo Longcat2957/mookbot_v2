@@ -4,6 +4,7 @@ export const ROLE_LABEL: Record<string, string> = {
 	MID: "미드",
 	BOTTOM: "원딜",
 	SUPPORT: "서폿",
+	FLEX: "FLEX",
 };
 
 export const ROLE_ORDER = ["TOP", "JUNGLE", "MID", "BOTTOM", "SUPPORT"] as const;
@@ -13,6 +14,8 @@ export interface RiotAccount {
 	tagLine: string;
 	isMain: boolean;
 	profileIconUrl: string | null;
+	mainPosition: string | null;
+	mainPositionUpdatedAt: number | null;
 }
 
 export interface LaneMmr {

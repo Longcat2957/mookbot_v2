@@ -13,10 +13,16 @@ import {
 	formatRiotIdSuggestion,
 } from "../utils/riotIdExtract.js";
 
+const MAIN_POSITION_CACHE_TTL_SEC = 7 * 24 * 60 * 60;
+const PROGRESS_UPDATE_INTERVAL_MS = 3_000;
+
 export const data = new SlashCommandBuilder()
 	.setName("일괄등록")
 	.setDescription("(관리자) 서버 멤버 일괄 등록 + 별명 라이엇 ID 자동 연결")
 	.addBooleanOption((o) => o.setName("dry_run").setDescription("DB 변경 없이 결과만 미리 확인"))
+	.addBooleanOption((o) =>
+		o.setName("main_position").setDescription("느림: Riot Match-V5 기반 주 포지션까지 갱신"),
+	)
 	.setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild);
 
 type Outcome =
@@ -35,7 +41,21 @@ type Outcome =
 	| { kind: "apiFailed"; mention: string; displayName: string; tried: string };
 
 interface ProcessContext {
+	interaction: ChatInputCommandInteraction;
+	refreshMainPosition: boolean;
 	mainPositionRefreshes: Map<string, Promise<void>>;
+	progress: {
+		total: number;
+		processed: number;
+		lastUpdateAt: number;
+	};
+	mainPosition: {
+		attempted: number;
+		success: number;
+		failed: number;
+		skippedFresh: number;
+		activeLabel: string | null;
+	};
 }
 
 export async function execute(interaction: ChatInputCommandInteraction): Promise<void> {
@@ -52,6 +72,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
 	}
 
 	const dryRun = interaction.options.getBoolean("dry_run") ?? false;
+	const refreshMainPosition = interaction.options.getBoolean("main_position") ?? false;
 	await interaction.deferReply({ ephemeral: true });
 
 	let allMembers: Collection<string, GuildMember>;
@@ -84,13 +105,32 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
 		noPattern: [],
 		apiFailed: [],
 	};
+	const mainAccounts = await db.listMainRiotAccounts(humans.map((m) => m.id));
+	const mainByUserId = new Map(mainAccounts.map((account) => [account.user_id, account]));
 	const ctx: ProcessContext = {
+		interaction,
+		refreshMainPosition: refreshMainPosition && !dryRun,
 		mainPositionRefreshes: new Map(),
+		progress: {
+			total: humans.length,
+			processed: 0,
+			lastUpdateAt: 0,
+		},
+		mainPosition: {
+			attempted: 0,
+			success: 0,
+			failed: 0,
+			skippedFresh: 0,
+			activeLabel: null,
+		},
 	};
 
+	await maybeEditProgress(ctx, true);
 	for (const m of humans) {
-		const o = await processMember(m, dryRun, ctx);
+		const o = await processMember(m, dryRun, ctx, mainByUserId.get(m.id));
 		buckets[o.kind].push(o);
+		ctx.progress.processed += 1;
+		await maybeEditProgress(ctx);
 	}
 
 	const total = humans.length;
@@ -106,6 +146,10 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
 				`🔁 메인 전환: ${buckets.mainSwitched.length}명`,
 				`↩️ 변동 없음: ${buckets.unchanged.length}명`,
 				`👤 users 만 (라이엇 미연결): ${userOnly}명`,
+				`🧭 주 포지션 갱신: ${ctx.refreshMainPosition ? "ON" : "OFF"}`,
+				ctx.refreshMainPosition
+					? `   - 시도 ${ctx.mainPosition.attempted}, 성공 ${ctx.mainPosition.success}, 실패 ${ctx.mainPosition.failed}, 캐시 ${ctx.mainPosition.skippedFresh}`
+					: "",
 				dryRun ? "\n*dry_run=true — DB 변경 없음*" : "",
 			]
 				.filter(Boolean)
@@ -129,7 +173,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
 		o.kind === "apiFailed" ? `${o.mention} (시도: \`${o.tried}\`)` : "",
 	);
 
-	await interaction.editReply({ embeds: [eb] });
+	await interaction.editReply({ content: "", embeds: [eb] });
 }
 
 function pushField(
@@ -151,6 +195,7 @@ async function processMember(
 	member: GuildMember,
 	dryRun: boolean,
 	ctx: ProcessContext,
+	existingMain: db.RiotAccountRow | undefined,
 ): Promise<Outcome> {
 	const userId = member.id;
 	// GuildMember.displayName — 닉 → globalName → username chain (resolveGuildDisplayName 1순위와 동일)
@@ -164,10 +209,9 @@ async function processMember(
 	}
 
 	const extracted = extractRiotIdFromDisplayName(displayName);
-	const existingMain = await db.getMainRiotAccount(userId);
 
 	if (!extracted) {
-		if (existingMain && !dryRun) await refreshMainPositionIfMissing(existingMain, ctx);
+		if (existingMain) await refreshMainPositionIfMissing(existingMain, ctx, displayName);
 		return existingMain
 			? { kind: "unchanged", mention, displayName }
 			: { kind: "noPattern", mention, displayName };
@@ -178,7 +222,7 @@ async function processMember(
 		existingMain.game_name.toLowerCase() === extracted.gameName.toLowerCase() &&
 		existingMain.tag_line.toLowerCase() === extracted.tagLine.toLowerCase()
 	) {
-		if (!dryRun) await refreshMainPositionIfMissing(existingMain, ctx);
+		await refreshMainPositionIfMissing(existingMain, ctx, displayName);
 		return { kind: "unchanged", mention, displayName };
 	}
 
@@ -232,7 +276,7 @@ async function processMember(
 			profileIconId,
 		});
 		await db.setMainRiotAccount(userId, account.puuid);
-		await refreshMainPosition(account.puuid, ctx);
+		await refreshMainPositionIfEnabled(account.puuid, ctx, displayName);
 		return {
 			kind: "newlyLinked",
 			mention,
@@ -253,7 +297,7 @@ async function processMember(
 			tagLine: account.tagLine,
 			profileIconId,
 		});
-		await refreshMainPosition(account.puuid, ctx);
+		await refreshMainPositionIfEnabled(account.puuid, ctx, displayName);
 		if (sameIdentity) return { kind: "unchanged", mention, displayName };
 		return {
 			kind: "renamed",
@@ -275,7 +319,7 @@ async function processMember(
 		profileIconId,
 	});
 	await db.setMainRiotAccount(userId, account.puuid);
-	await refreshMainPosition(account.puuid, ctx);
+	await refreshMainPositionIfEnabled(account.puuid, ctx, displayName);
 	return {
 		kind: "mainSwitched",
 		mention,
@@ -286,26 +330,85 @@ async function processMember(
 }
 
 async function refreshMainPositionIfMissing(
-	account: NonNullable<Awaited<ReturnType<typeof db.getMainRiotAccount>>>,
+	account: db.RiotAccountRow,
 	ctx: ProcessContext,
+	label: string,
 ): Promise<void> {
-	if (account.main_position != null) return;
-	await refreshMainPosition(account.puuid, ctx);
+	if (!ctx.refreshMainPosition) return;
+	if (isMainPositionFresh(account)) {
+		ctx.mainPosition.skippedFresh += 1;
+		return;
+	}
+	await refreshMainPosition(account.puuid, ctx, label);
 }
 
-async function refreshMainPosition(puuid: string, ctx: ProcessContext): Promise<void> {
+async function refreshMainPositionIfEnabled(
+	puuid: string,
+	ctx: ProcessContext,
+	label: string,
+): Promise<void> {
+	if (!ctx.refreshMainPosition) return;
+	await refreshMainPosition(puuid, ctx, label);
+}
+
+async function refreshMainPosition(
+	puuid: string,
+	ctx: ProcessContext,
+	label: string,
+): Promise<void> {
 	const existing = ctx.mainPositionRefreshes.get(puuid);
 	if (existing) return existing;
-	const refresh = refreshMainPositionOnce(puuid);
+	const refresh = refreshMainPositionOnce(puuid, ctx, label);
 	ctx.mainPositionRefreshes.set(puuid, refresh);
 	return refresh;
 }
 
-async function refreshMainPositionOnce(puuid: string): Promise<void> {
+async function refreshMainPositionOnce(
+	puuid: string,
+	ctx: ProcessContext,
+	label: string,
+): Promise<void> {
+	ctx.mainPosition.attempted += 1;
+	ctx.mainPosition.activeLabel = label;
+	await maybeEditProgress(ctx, true);
 	try {
 		const inferred = await riot.inferMainPositionFromSoloRanked(puuid, 50);
 		await db.setRiotAccountMainPosition(puuid, inferred.role);
+		ctx.mainPosition.success += 1;
 	} catch {
+		ctx.mainPosition.failed += 1;
 		// Match-V5 실패는 등록 자체를 막지 않는다. 다음 /일괄등록 때 재시도.
+	} finally {
+		ctx.mainPosition.activeLabel = null;
+		await maybeEditProgress(ctx, true);
+	}
+}
+
+function isMainPositionFresh(account: db.RiotAccountRow): boolean {
+	if (account.main_position_updated_at == null) return false;
+	const ageSec = Math.floor(Date.now() / 1000) - account.main_position_updated_at;
+	return ageSec < MAIN_POSITION_CACHE_TTL_SEC;
+}
+
+async function maybeEditProgress(ctx: ProcessContext, force = false): Promise<void> {
+	if (!ctx.refreshMainPosition && ctx.progress.processed === 0 && !force) return;
+	const now = Date.now();
+	if (!force && now - ctx.progress.lastUpdateAt < PROGRESS_UPDATE_INTERVAL_MS) return;
+	ctx.progress.lastUpdateAt = now;
+	try {
+		await ctx.interaction.editReply({
+			content: [
+				"`/일괄등록` 처리 중...",
+				`멤버: ${ctx.progress.processed}/${ctx.progress.total}`,
+				ctx.refreshMainPosition
+					? `주 포지션: 시도 ${ctx.mainPosition.attempted}, 성공 ${ctx.mainPosition.success}, 실패 ${ctx.mainPosition.failed}, 캐시 ${ctx.mainPosition.skippedFresh}`
+					: "주 포지션: OFF",
+				ctx.mainPosition.activeLabel ? `현재 Match-V5 조회: ${ctx.mainPosition.activeLabel}` : "",
+			]
+				.filter(Boolean)
+				.join("\n"),
+		});
+	} catch {
+		// 진행률 표시 실패가 일괄등록 자체를 깨면 안 된다. 최종 결과 editReply 에서 다시 시도.
 	}
 }

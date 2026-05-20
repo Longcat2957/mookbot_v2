@@ -1,5 +1,6 @@
 import { UserAvatar } from "../UserAvatar.js";
 import type { MeProfileResponse, RiotAccount, TopChampion } from "./types.js";
+import { ROLE_LABEL } from "./types.js";
 
 export function MeIdentity({
 	user,
@@ -11,6 +12,9 @@ export function MeIdentity({
 	topChampion: TopChampion | undefined;
 }) {
 	const avatarUrl = user.profileIconUrl ?? topChampion?.iconUrl ?? topChampion?.splashUrl ?? null;
+	const mainPositionLabel = mainRiot?.mainPosition
+		? (ROLE_LABEL[mainRiot.mainPosition] ?? mainRiot.mainPosition)
+		: null;
 
 	return (
 		<div className="flex items-start gap-3 min-w-0 flex-1">
@@ -33,6 +37,10 @@ export function MeIdentity({
 						<span className="opacity-50">#{mainRiot.tagLine}</span>
 					</div>
 				)}
+				<div className="text-xs text-base-content/50 truncate mt-0.5">
+					주력 라인{" "}
+					<span className="font-medium text-base-content/70">{mainPositionLabel ?? "미계산"}</span>
+				</div>
 				{topChampion && (
 					<div className="text-xs text-base-content/50 truncate mt-0.5">
 						주력 <span className="font-medium text-base-content/70">{topChampion.championName}</span>
