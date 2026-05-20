@@ -95,11 +95,11 @@ export function GameInputForm({
 					bans: { TEAM_1: bans.TEAM_1.filter(Boolean), TEAM_2: bans.TEAM_2.filter(Boolean) },
 				}),
 			});
-			onRecorded();
 		} catch (err) {
 			setError(err instanceof Error ? err.message : String(err));
 		} finally {
 			setSubmitting(false);
+			onRecorded();
 		}
 	};
 

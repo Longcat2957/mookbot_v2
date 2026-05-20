@@ -1,5 +1,6 @@
 import { query, queryOne } from "../cloudflare/d1.js";
 import type { Role, Team } from "../mmr/elo.js";
+import { inClause } from "./sql.js";
 
 export type Side = "BLUE" | "RED";
 
@@ -125,6 +126,58 @@ export async function getRecentGamesForUser(input: {
 		   AND (am.id IS NULL OR (am.deleted_at IS NULL AND am_season.deleted_at IS NULL))
 		 ORDER BY g.played_at DESC
 		 LIMIT ?`,
+		params,
+	);
+}
+
+export interface HeadToHeadRow {
+	user_id: string;
+	opponent_id: string;
+	role: Role;
+	plays: number;
+	wins: number;
+}
+
+/**
+ * 참가자 풀 안에서 같은 게임·같은 라인으로 맞붙은 상대 전적.
+ * user_id 관점의 row 를 반환하므로 A vs B, B vs A 가 각각 별도 row 로 나온다.
+ */
+export async function listHeadToHeadRecords(input: {
+	userIds: readonly string[];
+	seasonId?: number;
+}): Promise<HeadToHeadRow[]> {
+	const userIds = [...new Set(input.userIds)];
+	if (userIds.length < 2) return [];
+	const userClause = inClause(userIds);
+	const opponentClause = inClause(userIds);
+	const params: unknown[] = [...userClause.params, ...opponentClause.params];
+	const conditions = [
+		`a.user_id IN ${userClause.placeholders}`,
+		`b.user_id IN ${opponentClause.placeholders}`,
+		"a.user_id <> b.user_id",
+		"a.team <> b.team",
+	];
+	if (input.seasonId !== undefined) {
+		conditions.push("COALESCE(s.season_id, aut.season_id) = ?");
+		params.push(input.seasonId);
+	}
+	return query<HeadToHeadRow>(
+		`SELECT
+		   a.user_id AS user_id,
+		   b.user_id AS opponent_id,
+		   a.role AS role,
+		   COUNT(*) AS plays,
+		   SUM(CASE WHEN a.won = 1 THEN 1 ELSE 0 END) AS wins
+		 FROM game_stats a
+		 JOIN game_stats b ON b.game_id = a.game_id AND b.role = a.role
+		 JOIN games g ON g.id = a.game_id
+		 LEFT JOIN series s ON s.id = g.ranked_series_id
+		 LEFT JOIN auction_matches am ON am.id = g.auction_match_id
+		 LEFT JOIN auction_tournaments aut ON aut.id = am.tournament_id
+		 WHERE ${conditions.join(" AND ")}
+		   AND (s.id IS NULL OR s.deleted_at IS NULL)
+		   AND (am.id IS NULL OR (am.deleted_at IS NULL AND aut.deleted_at IS NULL))
+		 GROUP BY a.user_id, b.user_id, a.role`,
 		params,
 	);
 }

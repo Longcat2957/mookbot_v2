@@ -57,6 +57,15 @@ export interface Participant {
 	profileIconUrl?: string | null;
 }
 
+export interface HeadToHead {
+	userId: string;
+	opponentId: string;
+	role: Lane;
+	plays: number;
+	wins: number;
+	losses: number;
+}
+
 export interface EntryDraft {
 	// userId → "TEAM_1_TOP" / "TEAM_2_MID" 등 Slot
 	assignments: Record<string, string>;
@@ -71,6 +80,7 @@ export interface RecruitmentDetail {
 		createdAt: number;
 	};
 	participants: Participant[];
+	headToHead?: HeadToHead[];
 	entryDraft: EntryDraft | null;
 }
 

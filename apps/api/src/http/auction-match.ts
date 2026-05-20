@@ -15,6 +15,61 @@ type MatchRound = "SEMI" | "FINAL" | "SINGLE";
 type MatchFormat = "BO1" | "BO3";
 type Team = "TEAM_1" | "TEAM_2";
 type Role = "TOP" | "JUNGLE" | "MID" | "BOTTOM" | "SUPPORT";
+const TEAMS = ["TEAM_1", "TEAM_2"] as const;
+const ROLES = ["TOP", "JUNGLE", "MID", "BOTTOM", "SUPPORT"] as const;
+
+function validateDraftGameInput(input: {
+	team1Members: Set<string>;
+	team2Members: Set<string>;
+	picks: {
+		TEAM_1: { userId: string; role: Role; championId: number }[];
+		TEAM_2: { userId: string; role: Role; championId: number }[];
+	};
+	bans: { TEAM_1: number[]; TEAM_2: number[] };
+	team1Side: "BLUE" | "RED";
+	winningTeam: Team;
+}): string | null {
+	if (input.team1Side !== "BLUE" && input.team1Side !== "RED") return "team1Side invalid";
+	if (input.winningTeam !== "TEAM_1" && input.winningTeam !== "TEAM_2") return "winningTeam invalid";
+
+	const seenUsers = new Set<string>();
+	const seenChampions = new Set<number>();
+	for (const team of TEAMS) {
+		const picks = input.picks?.[team];
+		if (!Array.isArray(picks) || picks.length !== ROLES.length) {
+			return `${team} picks must contain exactly 5 roles`;
+		}
+		const roleSet = new Set<Role>();
+		const allowedUsers = team === "TEAM_1" ? input.team1Members : input.team2Members;
+		for (const pick of picks) {
+			if (!ROLES.includes(pick.role)) return `${team} role invalid`;
+			if (roleSet.has(pick.role)) return `${team} role duplicated`;
+			roleSet.add(pick.role);
+			if (!allowedUsers.has(pick.userId)) return `${team} user is not a match member`;
+			if (seenUsers.has(pick.userId)) return "user duplicated across picks";
+			seenUsers.add(pick.userId);
+			if (!Number.isInteger(pick.championId) || !datadragon.getChampionData(pick.championId)) {
+				return `${team} champion invalid`;
+			}
+			if (seenChampions.has(pick.championId)) return "champion duplicated";
+			seenChampions.add(pick.championId);
+		}
+		for (const role of ROLES) {
+			if (!roleSet.has(role)) return `${team} role missing`;
+		}
+
+		const bans = input.bans?.[team];
+		if (!Array.isArray(bans) || bans.length > 5) return `${team} bans invalid`;
+		for (const championId of bans) {
+			if (!Number.isInteger(championId) || !datadragon.getChampionData(championId)) {
+				return `${team} ban champion invalid`;
+			}
+			if (seenChampions.has(championId)) return "champion duplicated";
+			seenChampions.add(championId);
+		}
+	}
+	return null;
+}
 
 export async function registerAuctionMatchRoutes(app: FastifyInstance): Promise<void> {
 	// 매치 상세 (브래킷 / 결과 화면용) — match 메타 + games + picks/bans
@@ -177,6 +232,19 @@ export async function registerAuctionMatchRoutes(app: FastifyInstance): Promise<
 		if (body.gameNumber > 1 && match.format === "BO1") {
 			return reply.code(409).send({ error: "BO1 매치는 game 1 만" });
 		}
+		const [team1Members, team2Members] = await Promise.all([
+			db.listAuctionTeamMembers(match.team1_id),
+			db.listAuctionTeamMembers(match.team2_id),
+		]);
+		const validationError = validateDraftGameInput({
+			team1Members: new Set(team1Members.map((m) => m.user_id)),
+			team2Members: new Set(team2Members.map((m) => m.user_id)),
+			picks: body.picks,
+			bans: body.bans,
+			team1Side: body.team1Side,
+			winningTeam: body.winningTeam,
+		});
+		if (validationError) return reply.code(400).send({ error: validationError });
 
 		// 같은 게임번호 중복 가드
 		const existing = await db.listGamesInAuctionMatch(matchId);
@@ -187,9 +255,11 @@ export async function registerAuctionMatchRoutes(app: FastifyInstance): Promise<
 		// participants for recordGameOnly — 각 picks 의 userId + team + role
 		const participants: Array<{ userId: string; team: Team; role: Role }> = [];
 		const picksFlat: { team: Team; role: Role; championName: string }[] = [];
-		for (const team of ["TEAM_1", "TEAM_2"] as const) {
+		const stats: Array<{ userId: string; championId: number }> = [];
+		for (const team of TEAMS) {
 			for (const p of body.picks[team]) {
 				participants.push({ userId: p.userId, team, role: p.role });
+				stats.push({ userId: p.userId, championId: p.championId });
 				picksFlat.push({
 					team,
 					role: p.role,
@@ -204,22 +274,14 @@ export async function registerAuctionMatchRoutes(app: FastifyInstance): Promise<
 			winningTeam: body.winningTeam,
 			team1Side: body.team1Side,
 			...(body.durationMin ? { durationSec: body.durationMin * 60 } : {}),
-			stats: participants.map((p, i) => {
-				const teamPicks = body.picks[p.team];
-				const pick = teamPicks[i % teamPicks.length];
-				if (!pick) throw new Error(`missing pick for ${p.team}`);
-				return {
-					userId: p.userId,
-					championId: pick.championId,
-				};
-			}),
+			stats,
 			participants,
 		});
 
 		// picks / bans 별도 INSERT
 		await db.setGamePicks(result.game.id, picksFlat);
 		const bansFlat: { team: Team; position: number; championName: string }[] = [];
-		for (const team of ["TEAM_1", "TEAM_2"] as const) {
+		for (const team of TEAMS) {
 			body.bans[team].forEach((cid, i) => {
 				bansFlat.push({
 					team,

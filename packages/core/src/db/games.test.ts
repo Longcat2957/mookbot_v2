@@ -5,6 +5,7 @@ import {
 	getGame,
 	getGameStats,
 	getRecentGamesForUser,
+	listHeadToHeadRecords,
 	listGamesInSeries,
 } from "./games.js";
 import { createSeason } from "./seasons.js";
@@ -139,6 +140,46 @@ describe("getRecentGamesForUser", () => {
 
 		const wrongSeason = await getRecentGamesForUser({ userId: "u1", seasonId: 99999 });
 		expect(wrongSeason).toEqual([]);
+	});
+});
+
+describe("listHeadToHeadRecords", () => {
+	it("참가자 풀의 같은 라인 상대 전적을 user 관점으로 집계", async () => {
+		const g1 = insertGame(1, "TEAM_1");
+		const g2 = insertGame(2, "TEAM_2");
+		for (const [gameId, u1Won] of [
+			[g1, 1],
+			[g2, 0],
+		] as const) {
+			db
+				.prepare(
+					"INSERT INTO game_stats (game_id, user_id, team, role, won) VALUES (?, 'u1', 'TEAM_1', 'TOP', ?)",
+				)
+				.run(gameId, u1Won);
+			db
+				.prepare(
+					"INSERT INTO game_stats (game_id, user_id, team, role, won) VALUES (?, 'u2', 'TEAM_2', 'TOP', ?)",
+				)
+				.run(gameId, u1Won ? 0 : 1);
+		}
+
+		const seasonRow = db.prepare("SELECT season_id FROM series WHERE id = ?").get(seriesId) as {
+			season_id: number;
+		};
+		const rows = await listHeadToHeadRecords({
+			userIds: ["u1", "u2"],
+			seasonId: seasonRow.season_id,
+		});
+		const u1 = rows.find((r) => r.user_id === "u1" && r.opponent_id === "u2");
+		const u2 = rows.find((r) => r.user_id === "u2" && r.opponent_id === "u1");
+
+		expect(u1).toMatchObject({ role: "TOP", plays: 2, wins: 1 });
+		expect(u2).toMatchObject({ role: "TOP", plays: 2, wins: 1 });
+	});
+
+	it("빈/단일 user 입력은 []", async () => {
+		expect(await listHeadToHeadRecords({ userIds: [] })).toEqual([]);
+		expect(await listHeadToHeadRecords({ userIds: ["u1"] })).toEqual([]);
 	});
 });
 

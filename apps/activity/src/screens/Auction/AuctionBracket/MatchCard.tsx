@@ -86,7 +86,7 @@ export function MatchCard({
 				</div>
 
 				{expanded && t1 && t2 ? (
-					<GameInputForm match={match} team1={t1} team2={t2} games={games} onRecorded={swr.refresh} />
+					<GameInputForm match={match} team1={t1} team2={t2} games={games} onRecorded={refresh} />
 				) : (
 					<div className="hidden xl:flex min-h-40 rounded-md border border-dashed border-base-content/15 items-center justify-center text-sm text-base-content/40">
 						{completed ? "매치 완료" : "Game 입력을 열면 이 영역에서 밴/픽을 기록합니다"}

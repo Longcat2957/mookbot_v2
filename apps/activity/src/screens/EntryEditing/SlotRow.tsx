@@ -7,6 +7,7 @@ import { LANE_LABEL, type Lane, type Participant, ROLE_LABEL } from "./types.js"
 export function SlotRow({
 	lane,
 	participant,
+	headToHead,
 	onDrop,
 	onClear,
 	onTap,
@@ -16,6 +17,7 @@ export function SlotRow({
 }: {
 	lane: Lane;
 	participant: Participant | null;
+	headToHead?: { opponentName: string; plays: number; wins: number; losses: number };
 	onDrop: (userId: string) => void;
 	onClear: () => void;
 	onTap?: () => void;
@@ -101,6 +103,16 @@ export function SlotRow({
 						imageUrl={participant.profileIconUrl ?? null}
 					/>
 					<span className="font-bold text-sm truncate flex-1">{participant.displayName}</span>
+					{headToHead && headToHead.plays > 0 && (
+						<StatusBadge
+							tone={headToHead.wins >= headToHead.losses ? "success" : "error"}
+							variant="outline"
+							size="xs"
+							className="shrink-0 max-w-[8rem] truncate"
+						>
+							vs {headToHead.opponentName} {headToHead.wins}-{headToHead.losses}
+						</StatusBadge>
+					)}
 					{participant.history.topRole && (
 						<StatusBadge tone="neutral" variant="outline" size="xs" className="shrink-0">
 							{ROLE_LABEL[participant.history.topRole.role] ?? participant.history.topRole.role}

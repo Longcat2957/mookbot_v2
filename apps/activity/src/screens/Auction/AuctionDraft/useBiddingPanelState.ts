@@ -33,10 +33,18 @@ export function useBiddingPanelState({
 	const [error, setError] = useState<string | null>(null);
 
 	const lastSyncedTargetRef = useRef<string | null>(null);
+	const currentTargetRef = useRef<string | null>(candidateUserId);
+	useEffect(() => {
+		currentTargetRef.current = candidateUserId;
+	}, [candidateUserId]);
 	useEffect(() => {
 		const uid = currentBidTarget?.userId ?? null;
 		if (uid === lastSyncedTargetRef.current) return;
 		lastSyncedTargetRef.current = uid;
+		if (intentTimerRef.current) {
+			window.clearTimeout(intentTimerRef.current);
+			intentTimerRef.current = null;
+		}
 		if (!currentBidTarget) {
 			setBidPoints({});
 			return;
@@ -49,17 +57,20 @@ export function useBiddingPanelState({
 	const intentTimerRef = useRef<number | null>(null);
 	const queueBidIntent = useCallback(
 		(teamId: number, raw: string) => {
+			const targetAtQueue = currentTargetRef.current;
+			if (!targetAtQueue) return;
 			if (intentTimerRef.current) window.clearTimeout(intentTimerRef.current);
 			intentTimerRef.current = window.setTimeout(() => {
 				intentTimerRef.current = null;
+				if (currentTargetRef.current !== targetAtQueue) return;
 				const trimmed = raw.trim();
 				if (trimmed === "") {
-					void onSetBidIntent({ teamId, points: null });
+					void onSetBidIntent({ teamId, points: null }).catch(() => undefined);
 					return;
 				}
 				const points = Number(trimmed);
 				if (!Number.isFinite(points) || points < 0) return;
-				void onSetBidIntent({ teamId, points });
+				void onSetBidIntent({ teamId, points }).catch(() => undefined);
 			}, BID_INTENT_DEBOUNCE_MS);
 		},
 		[onSetBidIntent],
