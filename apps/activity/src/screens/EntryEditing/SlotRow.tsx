@@ -92,31 +92,42 @@ export function SlotRow({
 								}
 					}
 					className={cx(
-						"flex-1 min-w-0 bg-base-300 rounded-md px-2 py-1.5 hover:bg-base-content/10 transition flex items-center gap-1.5",
+						"flex-1 min-w-0 bg-base-300 rounded-md px-2 py-1.5 hover:bg-base-content/10 transition",
 						coarse ? "cursor-pointer" : "cursor-grab active:cursor-grabbing",
 					)}
 				>
-					<UserAvatar
-						discordId={participant.userId}
-						displayName={participant.displayName}
-						size="xs"
-						imageUrl={participant.profileIconUrl ?? null}
-					/>
-					<span className="font-bold text-sm truncate flex-1">{participant.displayName}</span>
-					{headToHead && headToHead.plays > 0 && (
-						<StatusBadge
-							tone={headToHead.wins >= headToHead.losses ? "success" : "error"}
-							variant="outline"
+					<div className="flex items-center gap-1.5 min-w-0">
+						<UserAvatar
+							discordId={participant.userId}
+							displayName={participant.displayName}
 							size="xs"
-							className="shrink-0 max-w-[8rem] truncate"
+							imageUrl={participant.profileIconUrl ?? null}
+						/>
+						<span className="font-bold text-sm truncate flex-1 min-w-0">{participant.displayName}</span>
+						{participant.history.topRole && (
+							<StatusBadge tone="neutral" variant="outline" size="xs" className="shrink-0">
+								{ROLE_LABEL[participant.history.topRole.role] ?? participant.history.topRole.role}
+							</StatusBadge>
+						)}
+					</div>
+					{headToHead && headToHead.plays > 0 && (
+						<div
+							className={cx(
+								"mt-1 flex flex-wrap items-center gap-x-1.5 gap-y-0.5 rounded border px-2 py-1 text-[0.8125rem] leading-tight",
+								headToHead.wins >= headToHead.losses
+									? "border-success/30 bg-success/10 text-success-content"
+									: "border-error/30 bg-error/10 text-error-content",
+							)}
+							title={`상대전적 vs ${headToHead.opponentName}: ${headToHead.wins}-${headToHead.losses} (${headToHead.plays}G)`}
 						>
-							vs {headToHead.opponentName} {headToHead.wins}-{headToHead.losses}
-						</StatusBadge>
-					)}
-					{participant.history.topRole && (
-						<StatusBadge tone="neutral" variant="outline" size="xs" className="shrink-0">
-							{ROLE_LABEL[participant.history.topRole.role] ?? participant.history.topRole.role}
-						</StatusBadge>
+							<span className="font-semibold text-base-content/70">상대전적</span>
+							<span className="font-bold tabular-nums text-base-content">
+								{headToHead.wins}-{headToHead.losses}
+							</span>
+							<span className="min-w-0 max-w-full truncate text-base-content/60">
+								vs {headToHead.opponentName}
+							</span>
+						</div>
 					)}
 				</div>
 			) : (
