@@ -21,7 +21,7 @@ export interface Evidence {
 }
 
 export interface ScreeningReport {
-	version: "0.20.0-mvp";
+	version: "0.21.0";
 	generatedAt: string;
 	identity: {
 		gameName: string;
@@ -46,16 +46,51 @@ export interface ScreeningReport {
 		recentWinRate: number | null;
 		mainRoles: Array<{ role: string; games: number; rate: number }>;
 		mainChampions: Array<{ champion: string; games: number; wins: number; winRate: number }>;
+		championPool: number;
+		top1Concentration: number;
 	};
+	metrics: {
+		averageKda: number;
+		averageDpm: number;
+		averageGpm: number;
+		averageCsPerMin: number;
+		averageVisionPerMin: number;
+		averageDeathsPerMin: number;
+		winKda: number;
+		lossKda: number;
+		winDeaths: number;
+		lossDeaths: number;
+		winDpm: number;
+		lossDpm: number;
+	};
+	streaks: {
+		longestWinStreak: number;
+		longestLossStreak: number;
+	};
+	recentSequence: Array<"W" | "L">;
+	variability: {
+		kdaMean: number;
+		kdaStdev: number;
+		kdaCv: number;
+		dpmMean: number;
+		dpmStdev: number;
+		dpmCv: number;
+	};
+	timeOfDayHistogram: number[];
 	scores: {
 		smurfRisk: RiskScore;
 		rankMismatchRisk: RiskScore;
 		derankOrThrowRisk: RiskScore;
+		accountConsistencyRisk: RiskScore;
 		roleMismatchRisk: RiskScore;
 		dataQualityRisk: RiskScore;
 		overallReviewRisk: RiskScore;
 	};
 	evidence: Evidence[];
+	summary: {
+		headline: string;
+		primaryReasons: string[];
+	};
 	recommendation: Recommendation;
 }
 
@@ -81,6 +116,7 @@ interface MatchSummary {
 	goldPerMin: number;
 	damagePerMin: number;
 	visionPerMin: number;
+	deathsPerMin: number;
 	kda: number;
 }
 
@@ -88,11 +124,12 @@ const SOLO_QUEUE_ID = 420;
 const MATCH_DETAIL_CONCURRENCY = 5;
 const MIN_ANALYZABLE_SECONDS = 300;
 const VALID_LANES = new Set(["TOP", "JUNGLE", "MIDDLE", "BOTTOM", "UTILITY"]);
+const CONSISTENCY_MIN_SAMPLE = 20;
 
 export async function generateLolScreeningReport(input: GenerateInput): Promise<ScreeningReport> {
 	const region = input.region ?? "ASIA";
 	const platform = input.platform ?? "KR";
-	const requestedMatches = clampInt(input.sample ?? 30, 1, 50);
+	const requestedMatches = clampInt(input.sample ?? 50, 1, 50);
 	const client = getRiotClient();
 
 	const account = await client.getAccountByRiotId(input.gameName, input.tagLine, region);
@@ -105,20 +142,37 @@ export async function generateLolScreeningReport(input: GenerateInput): Promise<
 		client.getMatch(matchId, region),
 	);
 	const summaries = summarizeMatches(matches, account.puuid);
+	summaries.sort((a, b) => b.playedAt - a.playedAt);
 	const excludedMatches = matchIds.length - summaries.length;
 	const soloEntry = leagueEntries.find((entry) => entry.queueType === "RANKED_SOLO_5x5");
 	const evidence: Evidence[] = [];
 
 	const sampleConfidence = confidenceFor(summaries.length);
 	const profile = buildProfile(summaries, soloEntry);
+	const metrics = buildMetrics(summaries);
+	const streaks = buildStreaks(summaries);
+	const recentSequence = summaries.slice(0, 20).map((s) => (s.win ? "W" : "L") as "W" | "L");
+	const variability = buildVariability(summaries);
+	const timeOfDayHistogram = buildTimeOfDayHistogram(summaries);
+
+	const rankedGames = soloEntry ? soloEntry.wins + soloEntry.losses : null;
 	const smurfRisk = scoreSmurfRisk({
 		summonerLevel: summoner.summonerLevel,
-		soloEntry,
+		rankedGames,
 		summaries,
+		profile,
+		metrics,
 		evidence,
 	});
-	const rankMismatchRisk = scoreRankMismatchRisk({ summaries, evidence });
-	const derankOrThrowRisk = scoreDerankOrThrowRisk({ summaries, evidence });
+	const rankMismatchRisk = scoreRankMismatchRisk({ summaries, metrics, evidence });
+	const derankOrThrowRisk = scoreDerankOrThrowRisk({ summaries, metrics, evidence });
+	const accountConsistencyRisk = scoreAccountConsistencyRisk({
+		summaries,
+		variability,
+		profile,
+		timeOfDayHistogram,
+		evidence,
+	});
 	const roleMismatchRisk = scoreRoleMismatchRisk({ summaries, evidence });
 	const dataQualityRisk = scoreDataQualityRisk({
 		analyzedMatches: summaries.length,
@@ -130,13 +184,32 @@ export async function generateLolScreeningReport(input: GenerateInput): Promise<
 		smurfRisk,
 		rankMismatchRisk,
 		derankOrThrowRisk,
+		accountConsistencyRisk,
 		roleMismatchRisk,
 		dataQualityRisk,
 		confidence: sampleConfidence,
 	});
 
+	const recommendation = recommendationFor({
+		overall: overallReviewRisk.score,
+		consistency: accountConsistencyRisk.score,
+		smurf: smurfRisk.score,
+		confidence: sampleConfidence,
+		summonerLevel: summoner.summonerLevel,
+		rankedGames,
+	});
+
+	const summary = buildSummary({
+		overall: overallReviewRisk,
+		smurfRisk,
+		rankMismatchRisk,
+		derankOrThrowRisk,
+		accountConsistencyRisk,
+		recommendation,
+	});
+
 	return {
-		version: "0.20.0-mvp",
+		version: "0.21.0",
 		generatedAt: new Date().toISOString(),
 		identity: {
 			gameName: account.gameName,
@@ -155,16 +228,23 @@ export async function generateLolScreeningReport(input: GenerateInput): Promise<
 			confidence: sampleConfidence,
 		},
 		profile,
+		metrics,
+		streaks,
+		recentSequence,
+		variability,
+		timeOfDayHistogram,
 		scores: {
 			smurfRisk,
 			rankMismatchRisk,
 			derankOrThrowRisk,
+			accountConsistencyRisk,
 			roleMismatchRisk,
 			dataQualityRisk,
 			overallReviewRisk,
 		},
 		evidence,
-		recommendation: recommendationFor(overallReviewRisk.score, sampleConfidence),
+		summary,
+		recommendation,
 	};
 }
 
@@ -192,6 +272,7 @@ function summarizeMatches(matches: MatchDto[], puuid: string): MatchSummary[] {
 			goldPerMin: participant.goldEarned / minutes,
 			damagePerMin: participant.totalDamageDealtToChampions / minutes,
 			visionPerMin: participant.visionScore / minutes,
+			deathsPerMin: participant.deaths / minutes,
 			kda:
 				participant.deaths === 0
 					? participant.kills + participant.assists
@@ -206,6 +287,10 @@ function buildProfile(
 	soloEntry: LeagueEntryDto | undefined,
 ): ScreeningReport["profile"] {
 	const wins = summaries.filter((s) => s.win).length;
+	const championCounts = topChampionCounts(summaries);
+	const uniqueChampions = new Set(summaries.map((s) => s.champion)).size;
+	const top1 = championCounts[0];
+	const top1Concentration = summaries.length > 0 && top1 ? top1.games / summaries.length : 0;
 	return {
 		currentSoloRank: soloEntry
 			? `${soloEntry.tier} ${soloEntry.rank} ${soloEntry.leaguePoints}LP`
@@ -217,177 +302,332 @@ function buildProfile(
 			summaries.map((s) => s.lane).filter((lane): lane is string => lane !== null),
 			summaries.length,
 		).map(([role, games, rate]) => ({ role, games, rate })),
-		mainChampions: topChampionCounts(summaries),
+		mainChampions: championCounts,
+		championPool: uniqueChampions,
+		top1Concentration,
 	};
+}
+
+function buildMetrics(summaries: MatchSummary[]): ScreeningReport["metrics"] {
+	const wins = summaries.filter((s) => s.win);
+	const losses = summaries.filter((s) => !s.win);
+	return {
+		averageKda: average(summaries.map((s) => s.kda)),
+		averageDpm: average(summaries.map((s) => s.damagePerMin)),
+		averageGpm: average(summaries.map((s) => s.goldPerMin)),
+		averageCsPerMin: average(summaries.map((s) => s.csPerMin)),
+		averageVisionPerMin: average(summaries.map((s) => s.visionPerMin)),
+		averageDeathsPerMin: average(summaries.map((s) => s.deathsPerMin)),
+		winKda: average(wins.map((s) => s.kda)),
+		lossKda: average(losses.map((s) => s.kda)),
+		winDeaths: average(wins.map((s) => s.deaths)),
+		lossDeaths: average(losses.map((s) => s.deaths)),
+		winDpm: average(wins.map((s) => s.damagePerMin)),
+		lossDpm: average(losses.map((s) => s.damagePerMin)),
+	};
+}
+
+function buildStreaks(summaries: MatchSummary[]): ScreeningReport["streaks"] {
+	let curWin = 0;
+	let maxWin = 0;
+	let curLoss = 0;
+	let maxLoss = 0;
+	for (const s of summaries) {
+		if (s.win) {
+			curWin += 1;
+			curLoss = 0;
+			maxWin = Math.max(maxWin, curWin);
+		} else {
+			curLoss += 1;
+			curWin = 0;
+			maxLoss = Math.max(maxLoss, curLoss);
+		}
+	}
+	return { longestWinStreak: maxWin, longestLossStreak: maxLoss };
+}
+
+function buildVariability(summaries: MatchSummary[]): ScreeningReport["variability"] {
+	const kdas = summaries.map((s) => s.kda);
+	const dpms = summaries.map((s) => s.damagePerMin);
+	const kdaMean = average(kdas);
+	const kdaStdev = stdev(kdas, kdaMean);
+	const dpmMean = average(dpms);
+	const dpmStdev = stdev(dpms, dpmMean);
+	return {
+		kdaMean,
+		kdaStdev,
+		kdaCv: kdaMean > 0 ? kdaStdev / kdaMean : 0,
+		dpmMean,
+		dpmStdev,
+		dpmCv: dpmMean > 0 ? dpmStdev / dpmMean : 0,
+	};
+}
+
+function buildTimeOfDayHistogram(summaries: MatchSummary[]): number[] {
+	const buckets = new Array<number>(24).fill(0);
+	for (const s of summaries) {
+		if (!Number.isFinite(s.playedAt) || s.playedAt <= 0) continue;
+		const hour = new Date(s.playedAt).getUTCHours();
+		const koreaHour = (hour + 9) % 24;
+		buckets[koreaHour] = (buckets[koreaHour] ?? 0) + 1;
+	}
+	return buckets;
 }
 
 function scoreSmurfRisk(input: {
 	summonerLevel: number | undefined;
-	soloEntry: LeagueEntryDto | undefined;
+	rankedGames: number | null;
 	summaries: MatchSummary[];
+	profile: ScreeningReport["profile"];
+	metrics: ScreeningReport["metrics"];
 	evidence: Evidence[];
 }): RiskScore {
 	let score = 0;
 	const reasons: string[] = [];
-	const rankedGames = input.soloEntry ? input.soloEntry.wins + input.soloEntry.losses : null;
 	const winRate = rate(input.summaries.filter((s) => s.win).length, input.summaries.length);
-	const avgKda = average(input.summaries.map((s) => s.kda));
+	const avgKda = input.metrics.averageKda;
 	const stompRate = rate(
-		input.summaries.filter((s) => s.win && s.kda >= 4 && s.deaths <= 3).length,
+		input.summaries.filter((s) => s.win && (s.kda >= 3.5 || (s.kda >= 2.5 && s.deathsPerMin <= 0.12)))
+			.length,
 		input.summaries.length,
 	);
 
-	if (input.summonerLevel != null && input.summonerLevel < 50) {
-		score += 20;
-		add(
-			input.evidence,
-			"smurf",
-			"summonerLevel",
-			input.summonerLevel,
-			"< 50",
-			20,
-			"낮은 소환사 레벨은 신규/부계정 가능성 신호로만 취급합니다.",
-		);
-		reasons.push("소환사 레벨 50 미만");
+	if (input.summonerLevel != null) {
+		const lvl = input.summonerLevel;
+		let lvlScore = 0;
+		let bucket = "";
+		if (lvl < 30) {
+			lvlScore = 30;
+			bucket = "< 30";
+		} else if (lvl < 50) {
+			lvlScore = 20;
+			bucket = "< 50";
+		} else if (lvl < 80) {
+			lvlScore = 10;
+			bucket = "< 80";
+		}
+		if (lvlScore > 0) {
+			score += lvlScore;
+			addEvidence(
+				input.evidence,
+				"smurf",
+				"summonerLevel",
+				lvl,
+				bucket,
+				lvlScore,
+				"낮은 소환사 레벨은 부계정 신호로 취급합니다.",
+			);
+			reasons.push(`소환사 레벨 ${bucket}`);
+		}
 	}
-	if (rankedGames != null && rankedGames < 40) {
-		score += 15;
-		add(
-			input.evidence,
-			"smurf",
-			"soloRankedGames",
-			rankedGames,
-			"< 40",
-			15,
-			"솔로랭크 누적 표본이 작습니다.",
-		);
-		reasons.push("솔로랭크 누적 판수 40판 미만");
+	if (input.rankedGames != null) {
+		const rg = input.rankedGames;
+		let rgScore = 0;
+		let bucket = "";
+		if (rg < 20) {
+			rgScore = 20;
+			bucket = "< 20";
+		} else if (rg < 40) {
+			rgScore = 12;
+			bucket = "< 40";
+		} else if (rg < 80) {
+			rgScore = 5;
+			bucket = "< 80";
+		}
+		if (rgScore > 0) {
+			score += rgScore;
+			addEvidence(
+				input.evidence,
+				"smurf",
+				"soloRankedGames",
+				rg,
+				bucket,
+				rgScore,
+				"솔로랭크 누적 표본이 작습니다.",
+			);
+			reasons.push(`솔로랭크 누적 ${bucket}판`);
+		}
 	}
-	if (winRate >= 0.65) {
-		score += 35;
-		add(
+
+	const winRateScore = clamp(Math.round((winRate - 0.5) * 175), 0, 40);
+	if (winRateScore > 0) {
+		score += winRateScore;
+		addEvidence(
 			input.evidence,
 			"smurf",
 			"recentWinRate",
 			pct(winRate),
-			">= 65%",
-			35,
-			"최근 솔로랭크 승률이 높습니다.",
+			">= 50%",
+			winRateScore,
+			"최근 솔로랭크 승률 (50% 이상에서 연속 가중).",
 		);
-		reasons.push("최근 승률 65% 이상");
-	} else if (winRate >= 0.6) {
-		score += 22;
-		add(
-			input.evidence,
-			"smurf",
-			"recentWinRate",
-			pct(winRate),
-			">= 60%",
-			22,
-			"최근 솔로랭크 승률이 다소 높습니다.",
-		);
-		reasons.push("최근 승률 60% 이상");
+		if (winRate >= 0.6) reasons.push(`최근 승률 ${pct(winRate)}`);
 	}
-	if (avgKda >= 4) {
-		score += 15;
-		add(
+
+	const kdaScore = clamp(Math.round((avgKda - 3.0) * 7), 0, 25);
+	if (kdaScore > 0) {
+		score += kdaScore;
+		addEvidence(
 			input.evidence,
 			"smurf",
 			"averageKda",
 			round(avgKda, 2),
-			">= 4.0",
-			15,
-			"최근 경기 KDA가 높습니다.",
+			">= 3.0",
+			kdaScore,
+			"최근 평균 KDA (3.0 이상에서 연속 가중).",
 		);
-		reasons.push("최근 평균 KDA 4.0 이상");
+		if (avgKda >= 4) reasons.push(`평균 KDA ${round(avgKda, 2)}`);
 	}
-	if (stompRate >= 0.35) {
-		score += 15;
-		add(
+
+	if (stompRate >= 0.3) {
+		const stompScore = stompRate >= 0.45 ? 20 : 15;
+		score += stompScore;
+		addEvidence(
 			input.evidence,
 			"smurf",
 			"stompRate",
 			pct(stompRate),
-			">= 35%",
-			15,
-			"저데스 고관여 승리 비율이 높습니다.",
+			">= 30%",
+			stompScore,
+			"저데스 또는 고 KDA 승리 비율이 높습니다.",
 		);
-		reasons.push("압도적 승리 패턴 비율 높음");
+		reasons.push(`압도적 승리 비율 ${pct(stompRate)}`);
 	}
+
+	if (input.metrics.averageDeathsPerMin > 0 && input.metrics.averageDeathsPerMin < 0.15) {
+		score += 10;
+		addEvidence(
+			input.evidence,
+			"smurf",
+			"deathsPerMinute",
+			round(input.metrics.averageDeathsPerMin, 3),
+			"< 0.15",
+			10,
+			"분당 사망 빈도가 비현실적으로 낮습니다.",
+		);
+		reasons.push("분당 데스 매우 낮음");
+	}
+
+	const hasNewAccountSignal =
+		(input.summonerLevel != null && input.summonerLevel < 70) ||
+		(input.rankedGames != null && input.rankedGames < 80);
+	if (hasNewAccountSignal && winRate >= 0.58) {
+		score += 15;
+		addEvidence(
+			input.evidence,
+			"smurf",
+			"newAccountHighWinRate",
+			`${pct(winRate)} @ lvl ${input.summonerLevel ?? "?"} · ${input.rankedGames ?? "?"}판`,
+			"신규+승률 ≥ 58%",
+			15,
+			"신규 계정에서 높은 승률이 동시에 나타납니다.",
+		);
+		reasons.push("신규 계정 + 고승률 동시 발화");
+	}
+	if (
+		input.summonerLevel != null &&
+		input.summonerLevel < 60 &&
+		input.profile.top1Concentration >= 0.5 &&
+		input.summaries.length >= 10
+	) {
+		score += 10;
+		addEvidence(
+			input.evidence,
+			"smurf",
+			"newAccount1ChampFocus",
+			`Top1 ${pct(input.profile.top1Concentration)} @ lvl ${input.summonerLevel}`,
+			"신규+1챔 집중 ≥ 50%",
+			10,
+			"신규 계정에서 단일 챔피언 집중도가 높습니다.",
+		);
+		reasons.push("신규 계정 + 1챔 파기");
+	}
+
 	return risk(score, reasons);
 }
 
 function scoreRankMismatchRisk(input: {
 	summaries: MatchSummary[];
+	metrics: ScreeningReport["metrics"];
 	evidence: Evidence[];
 }): RiskScore {
 	let score = 0;
 	const reasons: string[] = [];
 	const winRate = rate(input.summaries.filter((s) => s.win).length, input.summaries.length);
-	const avgKda = average(input.summaries.map((s) => s.kda));
-	const avgDamage = average(input.summaries.map((s) => s.damagePerMin));
-	const avgGold = average(input.summaries.map((s) => s.goldPerMin));
+	const avgKda = input.metrics.averageKda;
+	const avgDamage = input.metrics.averageDpm;
+	const avgGold = input.metrics.averageGpm;
 	const carryRate = rate(
-		input.summaries.filter((s) => s.kda >= 4 && s.damagePerMin >= 700).length,
+		input.summaries.filter(
+			(s) => (s.kda >= 3.5 && s.damagePerMin >= 600) || (s.kda >= 2.5 && s.kda * s.minutes >= 50),
+		).length,
 		input.summaries.length,
 	);
 
-	if (winRate >= 0.65) {
-		score += 30;
-		reasons.push("최근 승률 65% 이상");
-	} else if (winRate >= 0.6) {
-		score += 20;
-		reasons.push("최근 승률 60% 이상");
+	const wrScore = clamp(Math.round((winRate - 0.5) * 150), 0, 35);
+	if (wrScore > 0) {
+		score += wrScore;
+		if (winRate >= 0.6) reasons.push(`최근 승률 ${pct(winRate)}`);
 	}
-	if (avgKda >= 4) {
-		score += 15;
-		add(
+
+	const kdaScore = clamp(Math.round((avgKda - 3.0) * 6), 0, 20);
+	if (kdaScore > 0) {
+		score += kdaScore;
+		addEvidence(
 			input.evidence,
 			"rankMismatch",
 			"averageKda",
 			round(avgKda, 2),
-			">= 4.0",
-			15,
-			"최근 경기 KDA가 표시 티어 대비 추가 검토 신호가 될 수 있습니다.",
+			">= 3.0",
+			kdaScore,
+			"표시 티어 대비 KDA 가 높을 수 있습니다.",
 		);
-		reasons.push("최근 평균 KDA 높음");
+		if (avgKda >= 4) reasons.push("최근 평균 KDA 높음");
 	}
-	if (avgDamage >= 700) {
-		score += 20;
-		add(
+
+	const dpmScore = clamp(Math.round((avgDamage - 550) / 8), 0, 25);
+	if (dpmScore > 0) {
+		score += dpmScore;
+		addEvidence(
 			input.evidence,
 			"rankMismatch",
 			"damagePerMinute",
 			Math.round(avgDamage),
-			">= 700",
-			20,
-			"분당 챔피언 피해량이 높습니다.",
+			">= 550",
+			dpmScore,
+			"분당 챔피언 피해량 (550 이상에서 연속 가중).",
 		);
-		reasons.push("분당 피해량 높음");
+		if (avgDamage >= 700) reasons.push(`분당 피해량 ${Math.round(avgDamage)}`);
 	}
-	if (avgGold >= 420) {
-		score += 15;
-		add(
-			input.evidence,
-			"rankMismatch",
-			"goldPerMinute",
-			Math.round(avgGold),
-			">= 420",
-			15,
-			"분당 골드가 높습니다.",
-		);
-		reasons.push("분당 골드 높음");
+
+	const gpmScore = clamp(Math.round((avgGold - 370) / 6), 0, 15);
+	if (gpmScore > 0) {
+		score += gpmScore;
+		if (avgGold >= 420) {
+			addEvidence(
+				input.evidence,
+				"rankMismatch",
+				"goldPerMinute",
+				Math.round(avgGold),
+				">= 370",
+				gpmScore,
+				"분당 골드가 높습니다.",
+			);
+			reasons.push("분당 골드 높음");
+		}
 	}
-	if (carryRate >= 0.35) {
-		score += 25;
-		add(
+
+	if (carryRate >= 0.3) {
+		const carryScore = carryRate >= 0.45 ? 25 : 18;
+		score += carryScore;
+		addEvidence(
 			input.evidence,
 			"rankMismatch",
 			"carryRate",
 			pct(carryRate),
-			">= 35%",
-			25,
-			"고 KDA와 높은 피해량이 함께 나온 경기 비율입니다.",
+			">= 30%",
+			carryScore,
+			"캐리형 경기 비율 (고 KDA + 고 DPM 또는 고 KDA 장기 경기).",
 		);
 		reasons.push("캐리형 경기 비율 높음");
 	}
@@ -396,21 +636,16 @@ function scoreRankMismatchRisk(input: {
 
 function scoreDerankOrThrowRisk(input: {
 	summaries: MatchSummary[];
+	metrics: ScreeningReport["metrics"];
 	evidence: Evidence[];
 }): RiskScore {
 	let score = 0;
 	const reasons: string[] = [];
 	const lossStreak = longestLossStreak(input.summaries);
-	const losses = input.summaries.filter((s) => !s.win);
-	const wins = input.summaries.filter((s) => s.win);
-	const lossKda = average(losses.map((s) => s.kda));
-	const winKda = average(wins.map((s) => s.kda));
-	const lossDeaths = average(losses.map((s) => s.deaths));
-	const lossDeathPerMin = average(losses.map((s) => s.deaths / s.minutes));
 
 	if (lossStreak >= 7) {
 		score += 25;
-		add(
+		addEvidence(
 			input.evidence,
 			"derankOrThrow",
 			"longestLossStreak",
@@ -422,37 +657,47 @@ function scoreDerankOrThrowRisk(input: {
 		reasons.push("최근 표본 내 7연패 이상");
 	} else if (lossStreak >= 5) {
 		score += 15;
+		addEvidence(
+			input.evidence,
+			"derankOrThrow",
+			"longestLossStreak",
+			lossStreak,
+			">= 5",
+			15,
+			"5연패 이상이 표본 안에 존재합니다.",
+		);
 		reasons.push("최근 표본 내 5연패 이상");
 	}
-	if (lossDeaths >= 8) {
+	if (input.metrics.lossDeaths >= 8) {
 		score += 15;
-		add(
+		addEvidence(
 			input.evidence,
 			"derankOrThrow",
 			"lossAverageDeaths",
-			round(lossDeaths, 1),
+			round(input.metrics.lossDeaths, 1),
 			">= 8",
 			15,
 			"패배 경기 평균 데스가 높습니다.",
 		);
 		reasons.push("패배 경기 평균 데스 높음");
 	}
-	if (lossKda > 0 && lossKda < 1.2 && winKda >= 2.5) {
+	if (input.metrics.lossKda > 0 && input.metrics.lossKda < 1.2 && input.metrics.winKda >= 2.5) {
 		score += 20;
-		add(
+		addEvidence(
 			input.evidence,
 			"derankOrThrow",
 			"lossVsWinKda",
-			`${round(lossKda, 2)} / ${round(winKda, 2)}`,
+			`${round(input.metrics.lossKda, 2)} / ${round(input.metrics.winKda, 2)}`,
 			"loss < 1.2, win >= 2.5",
 			20,
 			"승리/패배 구간의 기여도 차이가 큽니다.",
 		);
 		reasons.push("승패 구간 KDA 격차 큼");
 	}
+	const lossDeathPerMin = average(input.summaries.filter((s) => !s.win).map((s) => s.deathsPerMin));
 	if (lossDeathPerMin >= 0.35) {
 		score += 10;
-		add(
+		addEvidence(
 			input.evidence,
 			"derankOrThrow",
 			"lossDeathsPerMinute",
@@ -466,13 +711,138 @@ function scoreDerankOrThrowRisk(input: {
 	return risk(score, reasons);
 }
 
+function scoreAccountConsistencyRisk(input: {
+	summaries: MatchSummary[];
+	variability: ScreeningReport["variability"];
+	profile: ScreeningReport["profile"];
+	timeOfDayHistogram: number[];
+	evidence: Evidence[];
+}): RiskScore {
+	if (input.summaries.length < CONSISTENCY_MIN_SAMPLE) {
+		return risk(0, []);
+	}
+	let score = 0;
+	const reasons: string[] = [];
+
+	if (input.variability.kdaMean > 0 && input.variability.kdaCv >= 0.85) {
+		score += 20;
+		addEvidence(
+			input.evidence,
+			"accountConsistency",
+			"kdaCoefficientOfVariation",
+			round(input.variability.kdaCv, 2),
+			">= 0.85",
+			20,
+			"KDA 변동 폭이 크면 동일 사용자 일관성이 낮습니다.",
+		);
+		reasons.push("KDA 변동성 큼");
+	}
+
+	const swap = championSwap(input.summaries);
+	if (swap && swap.recentSize >= 5 && swap.earlierSize >= 5 && swap.distance >= 0.8) {
+		score += 25;
+		addEvidence(
+			input.evidence,
+			"accountConsistency",
+			"championSetJaccardDistance",
+			round(swap.distance, 2),
+			">= 0.80",
+			25,
+			"전후 표본 챔피언 풀이 거의 겹치지 않습니다.",
+		);
+		reasons.push("챔피언 풀 전환");
+	}
+
+	const laneSwap = laneSwapSignal(input.summaries);
+	if (laneSwap) {
+		score += 20;
+		addEvidence(
+			input.evidence,
+			"accountConsistency",
+			"laneSwap",
+			`${laneSwap.recentLane}/${pct(laneSwap.recentRate)} → ${laneSwap.earlierLane}/${pct(laneSwap.earlierRate)}`,
+			"주 라인 60% 이상 양쪽, 다른 라인",
+			20,
+			"전후 표본 주 라인이 바뀝니다.",
+		);
+		reasons.push("주 라인 전환");
+	}
+
+	const bimodality = bimodalTimeOfDay(input.timeOfDayHistogram, input.summaries.length);
+	if (bimodality) {
+		score += 15;
+		addEvidence(
+			input.evidence,
+			"accountConsistency",
+			"playTimeBimodality",
+			`${bimodality.first}시·${bimodality.second}시`,
+			"두 modal 간격 ≥ 8h, 각 ≥ 25%",
+			15,
+			"플레이 시간대가 두 클러스터로 갈립니다.",
+		);
+		reasons.push("플레이 시간대 이중 모달");
+	}
+
+	const meanAbsKdaDelta = meanAbsoluteDelta(input.summaries.map((s) => s.kda));
+	if (meanAbsKdaDelta >= 3.0) {
+		score += 15;
+		addEvidence(
+			input.evidence,
+			"accountConsistency",
+			"adjacentKdaDelta",
+			round(meanAbsKdaDelta, 2),
+			">= 3.0",
+			15,
+			"인접 경기 KDA 변동 폭이 큽니다.",
+		);
+		reasons.push("연속 경기 KDA 급변");
+	}
+
+	const split = splitWinRateDelta(input.summaries);
+	if (split && Math.abs(split.delta) >= 0.3) {
+		score += 15;
+		addEvidence(
+			input.evidence,
+			"accountConsistency",
+			"splitWinRateDelta",
+			`${pct(split.recent)} / ${pct(split.earlier)}`,
+			"양 끝 25% 승률 차 ≥ 30%p",
+			15,
+			"표본 전후 승률 격차가 큽니다.",
+		);
+		reasons.push("표본 전후 승률 분할");
+	}
+
+	const mainLaneDpms = mainLaneDpmSeries(input.summaries);
+	if (mainLaneDpms.length >= 8) {
+		const meanDpm = average(mainLaneDpms);
+		const stdDpm = stdev(mainLaneDpms, meanDpm);
+		const cv = meanDpm > 0 ? stdDpm / meanDpm : 0;
+		if (cv >= 0.45) {
+			score += 10;
+			addEvidence(
+				input.evidence,
+				"accountConsistency",
+				"mainLaneDpmCv",
+				round(cv, 2),
+				">= 0.45",
+				10,
+				"주 라인 경기 안에서도 분당 피해 변동 폭이 큽니다.",
+			);
+			reasons.push("주 라인 DPM 변동성 큼");
+		}
+	}
+
+	return risk(score, reasons);
+}
+
 function scoreRoleMismatchRisk(input: {
 	summaries: MatchSummary[];
 	evidence: Evidence[];
 }): RiskScore {
 	const lanes = input.summaries.map((s) => s.lane).filter((lane): lane is string => lane !== null);
 	if (lanes.length === 0) {
-		add(
+		addEvidence(
 			input.evidence,
 			"roleMismatch",
 			"validRoleSamples",
@@ -490,7 +860,7 @@ function scoreRoleMismatchRisk(input: {
 	const reasons: string[] = [];
 	if (top && top[2] < 0.5) {
 		score += 15;
-		add(
+		addEvidence(
 			input.evidence,
 			"roleMismatch",
 			"topRoleRate",
@@ -522,6 +892,9 @@ function scoreDataQualityRisk(input: {
 	} else if (input.analyzedMatches < 20) {
 		score += 25;
 		reasons.push("분석 가능 표본 20판 미만");
+	} else if (input.analyzedMatches < 35) {
+		score += 10;
+		reasons.push("분석 가능 표본 35판 미만");
 	}
 	const excludedRate = rate(input.excludedMatches, input.totalMatches);
 	if (excludedRate >= 0.25) {
@@ -529,12 +902,12 @@ function scoreDataQualityRisk(input: {
 		reasons.push("제외된 경기 비율 높음");
 	}
 	if (score > 0) {
-		add(
+		addEvidence(
 			input.evidence,
 			"dataQuality",
 			"analyzedMatches",
 			input.analyzedMatches,
-			">= 20",
+			">= 35",
 			score,
 			"리포트 신뢰도는 분석 가능한 솔로랭크 표본 수에 좌우됩니다.",
 		);
@@ -546,26 +919,30 @@ function scoreOverall(input: {
 	smurfRisk: RiskScore;
 	rankMismatchRisk: RiskScore;
 	derankOrThrowRisk: RiskScore;
+	accountConsistencyRisk: RiskScore;
 	roleMismatchRisk: RiskScore;
 	dataQualityRisk: RiskScore;
 	confidence: Confidence;
 }): RiskScore {
 	const weighted =
-		0.3 * input.smurfRisk.score +
-		0.25 * input.rankMismatchRisk.score +
-		0.25 * input.derankOrThrowRisk.score +
-		0.1 * input.roleMismatchRisk.score +
-		0.1 * input.dataQualityRisk.score;
+		0.22 * input.smurfRisk.score +
+		0.18 * input.rankMismatchRisk.score +
+		0.15 * input.derankOrThrowRisk.score +
+		0.2 * input.accountConsistencyRisk.score +
+		0.07 * input.roleMismatchRisk.score +
+		0.18 * input.dataQualityRisk.score;
 	const primaryMax = Math.max(
 		input.smurfRisk.score,
 		input.rankMismatchRisk.score,
 		input.derankOrThrowRisk.score,
+		input.accountConsistencyRisk.score,
 	);
-	const score = 0.55 * primaryMax + 0.45 * weighted;
+	const score = 0.45 * primaryMax + 0.55 * weighted;
 	const reasons = [
 		...input.smurfRisk.reasons.slice(0, 2),
-		...input.rankMismatchRisk.reasons.slice(0, 2),
-		...input.derankOrThrowRisk.reasons.slice(0, 2),
+		...input.rankMismatchRisk.reasons.slice(0, 1),
+		...input.derankOrThrowRisk.reasons.slice(0, 1),
+		...input.accountConsistencyRisk.reasons.slice(0, 2),
 	];
 	if (input.confidence === "LOW") reasons.push("데이터 신뢰도 낮음");
 	return risk(Math.round(score), reasons);
@@ -619,11 +996,78 @@ function confidenceFor(count: number): Confidence {
 	return "LOW";
 }
 
-function recommendationFor(score: number, confidence: Confidence): Recommendation {
-	if (confidence === "LOW") return score >= 45 ? "MANUAL_REVIEW" : "AUTO_PASS";
-	if (score >= 80) return "REJECT_OR_INTERVIEW";
-	if (score >= 40) return "MANUAL_REVIEW";
+function recommendationFor(input: {
+	overall: number;
+	consistency: number;
+	smurf: number;
+	confidence: Confidence;
+	summonerLevel: number | undefined;
+	rankedGames: number | null;
+}): Recommendation {
+	if (input.consistency >= 70) return "REJECT_OR_INTERVIEW";
+	if (input.overall >= 70) return "REJECT_OR_INTERVIEW";
+	if (input.consistency >= 50) return "MANUAL_REVIEW";
+	if (input.confidence === "LOW") {
+		const newAccount =
+			(input.summonerLevel != null && input.summonerLevel < 50) ||
+			(input.rankedGames != null && input.rankedGames < 30);
+		if (newAccount) return "MANUAL_REVIEW";
+		return input.overall >= 30 ? "MANUAL_REVIEW" : "AUTO_PASS";
+	}
+	if (input.overall >= 30) return "MANUAL_REVIEW";
 	return "AUTO_PASS";
+}
+
+function buildSummary(input: {
+	overall: RiskScore;
+	smurfRisk: RiskScore;
+	rankMismatchRisk: RiskScore;
+	derankOrThrowRisk: RiskScore;
+	accountConsistencyRisk: RiskScore;
+	recommendation: Recommendation;
+}): ScreeningReport["summary"] {
+	const reasons: string[] = [];
+	const candidates: Array<[number, string[]]> = [
+		[input.smurfRisk.score, input.smurfRisk.reasons],
+		[input.accountConsistencyRisk.score, input.accountConsistencyRisk.reasons],
+		[input.rankMismatchRisk.score, input.rankMismatchRisk.reasons],
+		[input.derankOrThrowRisk.score, input.derankOrThrowRisk.reasons],
+	];
+	candidates.sort((a, b) => b[0] - a[0]);
+	for (const [, list] of candidates) {
+		for (const r of list) {
+			if (!reasons.includes(r)) reasons.push(r);
+			if (reasons.length >= 3) break;
+		}
+		if (reasons.length >= 3) break;
+	}
+	const headlineLeader = leadCategory(input);
+	const action =
+		input.recommendation === "REJECT_OR_INTERVIEW"
+			? "추가 인증/인터뷰 필요"
+			: input.recommendation === "MANUAL_REVIEW"
+				? "운영 수동 검토 필요"
+				: "특이 신호 약함";
+	const headline = `${headlineLeader} · ${action}`;
+	return { headline, primaryReasons: reasons };
+}
+
+function leadCategory(input: {
+	smurfRisk: RiskScore;
+	rankMismatchRisk: RiskScore;
+	derankOrThrowRisk: RiskScore;
+	accountConsistencyRisk: RiskScore;
+}): string {
+	const items: Array<[string, number]> = [
+		["부계정 가능성", input.smurfRisk.score],
+		["계정 일관성 의심", input.accountConsistencyRisk.score],
+		["티어 불일치 의심", input.rankMismatchRisk.score],
+		["패배 패턴 의심", input.derankOrThrowRisk.score],
+	];
+	items.sort((a, b) => b[1] - a[1]);
+	const top = items[0];
+	if (!top || top[1] === 0) return "주요 신호 없음";
+	return `${top[0]} ${top[1]}점`;
 }
 
 function risk(score: number, reasons: string[]): RiskScore {
@@ -635,7 +1079,7 @@ function risk(score: number, reasons: string[]): RiskScore {
 	};
 }
 
-function add(
+function addEvidence(
 	evidence: Evidence[],
 	category: string,
 	metric: string,
@@ -661,6 +1105,23 @@ function average(values: number[]): number {
 	return values.reduce((sum, value) => sum + value, 0) / values.length;
 }
 
+function stdev(values: number[], mean: number): number {
+	if (values.length < 2) return 0;
+	const variance = values.reduce((sum, value) => sum + (value - mean) ** 2, 0) / (values.length - 1);
+	return Math.sqrt(variance);
+}
+
+function meanAbsoluteDelta(values: number[]): number {
+	if (values.length < 2) return 0;
+	let total = 0;
+	for (let i = 1; i < values.length; i += 1) {
+		const a = values[i] ?? 0;
+		const b = values[i - 1] ?? 0;
+		total += Math.abs(a - b);
+	}
+	return total / (values.length - 1);
+}
+
 function rate(part: number, total: number): number {
 	return total > 0 ? part / total : 0;
 }
@@ -679,9 +1140,104 @@ function longestLossStreak(summaries: MatchSummary[]): number {
 	return longest;
 }
 
+function clamp(value: number, min: number, max: number): number {
+	if (!Number.isFinite(value)) return min;
+	return Math.max(min, Math.min(max, value));
+}
+
 function clampInt(value: number, min: number, max: number): number {
 	if (!Number.isFinite(value)) return min;
 	return Math.max(min, Math.min(max, Math.trunc(value)));
+}
+
+function championSwap(
+	summaries: MatchSummary[],
+): { distance: number; recentSize: number; earlierSize: number } | null {
+	if (summaries.length < CONSISTENCY_MIN_SAMPLE) return null;
+	const half = Math.floor(summaries.length / 2);
+	const recent = new Set(summaries.slice(0, half).map((s) => s.champion));
+	const earlier = new Set(summaries.slice(half).map((s) => s.champion));
+	const distance = jaccardDistance(recent, earlier);
+	return { distance, recentSize: recent.size, earlierSize: earlier.size };
+}
+
+function jaccardDistance(a: Set<string>, b: Set<string>): number {
+	if (a.size === 0 && b.size === 0) return 0;
+	let intersection = 0;
+	for (const item of a) if (b.has(item)) intersection += 1;
+	const union = a.size + b.size - intersection;
+	if (union === 0) return 0;
+	return 1 - intersection / union;
+}
+
+function laneSwapSignal(
+	summaries: MatchSummary[],
+): { recentLane: string; recentRate: number; earlierLane: string; earlierRate: number } | null {
+	if (summaries.length < CONSISTENCY_MIN_SAMPLE) return null;
+	const half = Math.floor(summaries.length / 2);
+	const recentLanes = summaries
+		.slice(0, half)
+		.map((s) => s.lane)
+		.filter((l): l is string => l !== null);
+	const earlierLanes = summaries
+		.slice(half)
+		.map((s) => s.lane)
+		.filter((l): l is string => l !== null);
+	if (recentLanes.length < 5 || earlierLanes.length < 5) return null;
+	const recentTop = topCounts(recentLanes, recentLanes.length)[0];
+	const earlierTop = topCounts(earlierLanes, earlierLanes.length)[0];
+	if (!recentTop || !earlierTop) return null;
+	if (recentTop[0] === earlierTop[0]) return null;
+	if (recentTop[2] < 0.6 || earlierTop[2] < 0.6) return null;
+	return {
+		recentLane: recentTop[0],
+		recentRate: recentTop[2],
+		earlierLane: earlierTop[0],
+		earlierRate: earlierTop[2],
+	};
+}
+
+function bimodalTimeOfDay(
+	histogram: number[],
+	totalGames: number,
+): { first: number; second: number } | null {
+	if (totalGames < CONSISTENCY_MIN_SAMPLE) return null;
+	const buckets = histogram.map((count, hour) => ({ hour, count }));
+	buckets.sort((a, b) => b.count - a.count);
+	const first = buckets[0];
+	const second = buckets.find((b) => circularHourDistance(b.hour, first?.hour ?? 0) >= 8);
+	if (!first || !second) return null;
+	const firstShare = first.count / totalGames;
+	const secondShare = second.count / totalGames;
+	if (firstShare < 0.25 || secondShare < 0.25) return null;
+	return { first: first.hour, second: second.hour };
+}
+
+function circularHourDistance(a: number, b: number): number {
+	const diff = Math.abs(a - b);
+	return Math.min(diff, 24 - diff);
+}
+
+function splitWinRateDelta(
+	summaries: MatchSummary[],
+): { recent: number; earlier: number; delta: number } | null {
+	if (summaries.length < 20) return null;
+	const quartile = Math.max(10, Math.floor(summaries.length / 4));
+	const recent = summaries.slice(0, quartile);
+	const earlier = summaries.slice(-quartile);
+	if (recent.length < 10 || earlier.length < 10) return null;
+	const recentWr = rate(recent.filter((s) => s.win).length, recent.length);
+	const earlierWr = rate(earlier.filter((s) => s.win).length, earlier.length);
+	return { recent: recentWr, earlier: earlierWr, delta: recentWr - earlierWr };
+}
+
+function mainLaneDpmSeries(summaries: MatchSummary[]): number[] {
+	const lanes = summaries.map((s) => s.lane).filter((l): l is string => l !== null);
+	if (lanes.length === 0) return [];
+	const top = topCounts(lanes, lanes.length)[0];
+	if (!top) return [];
+	const mainLane = top[0];
+	return summaries.filter((s) => s.lane === mainLane).map((s) => s.damagePerMin);
 }
 
 async function mapConcurrent<T, R>(

@@ -171,7 +171,7 @@ function parsePlatform(value: string): Platform | null {
 }
 
 function parseSample(value: string | undefined): number {
-	const sample = Number(value ?? 30);
-	if (!Number.isFinite(sample)) return 30;
+	const sample = Number(value ?? 50);
+	if (!Number.isFinite(sample)) return 50;
 	return Math.max(1, Math.min(50, Math.trunc(sample)));
 }
