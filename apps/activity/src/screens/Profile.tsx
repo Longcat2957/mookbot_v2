@@ -14,9 +14,6 @@ const Preferences = lazy(() =>
 const MmrChart = lazy(() =>
 	import("./Profile/MmrChart.js").then((module) => ({ default: module.MmrChart })),
 );
-const ScreeningReport = lazy(() =>
-	import("./Profile/ScreeningReport.js").then((module) => ({ default: module.ScreeningReport })),
-);
 
 export function Profile({
 	userId,
@@ -34,7 +31,6 @@ export function Profile({
 	const { data, error } = useProfileData(userId);
 	const [shouldLoadPreferences, setShouldLoadPreferences] = useState(false);
 	const [shouldLoadMmrChart, setShouldLoadMmrChart] = useState(false);
-	const [shouldLoadScreening, setShouldLoadScreening] = useState(false);
 
 	if (error) {
 		return (
@@ -113,29 +109,6 @@ export function Profile({
 					)}
 				</div>
 			</details>
-
-			{perms.canEdit && (
-				<details
-					className="surface-soft rounded-lg"
-					onToggle={(event) => {
-						if (event.currentTarget.open) setShouldLoadScreening(true);
-					}}
-				>
-					<summary className="cursor-pointer text-sm font-medium px-3 py-2 select-none flex items-center gap-2">
-						🧪 운영 검토 리포트
-						<StatusBadge tone="warning" variant="ghost" size="xs">
-							운영자
-						</StatusBadge>
-					</summary>
-					<div className="px-3 pb-3 pt-1">
-						{shouldLoadScreening && (
-							<Suspense fallback={<div className="skeleton h-44 w-full rounded-lg" />}>
-								<ScreeningReport userId={userId} />
-							</Suspense>
-						)}
-					</div>
-				</details>
-			)}
 
 			<div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
 				<TopChampionsCard champions={data.topChampions} />

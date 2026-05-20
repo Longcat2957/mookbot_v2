@@ -238,78 +238,78 @@ function scoreSmurfRisk(input: {
 	);
 
 	if (input.summonerLevel != null && input.summonerLevel < 50) {
-		score += 15;
+		score += 20;
 		add(
 			input.evidence,
 			"smurf",
 			"summonerLevel",
 			input.summonerLevel,
 			"< 50",
-			15,
+			20,
 			"낮은 소환사 레벨은 신규/부계정 가능성 신호로만 취급합니다.",
 		);
 		reasons.push("소환사 레벨 50 미만");
 	}
 	if (rankedGames != null && rankedGames < 40) {
-		score += 10;
+		score += 15;
 		add(
 			input.evidence,
 			"smurf",
 			"soloRankedGames",
 			rankedGames,
 			"< 40",
-			10,
+			15,
 			"솔로랭크 누적 표본이 작습니다.",
 		);
 		reasons.push("솔로랭크 누적 판수 40판 미만");
 	}
 	if (winRate >= 0.65) {
-		score += 25;
+		score += 35;
 		add(
 			input.evidence,
 			"smurf",
 			"recentWinRate",
 			pct(winRate),
 			">= 65%",
-			25,
+			35,
 			"최근 솔로랭크 승률이 높습니다.",
 		);
 		reasons.push("최근 승률 65% 이상");
 	} else if (winRate >= 0.6) {
-		score += 15;
+		score += 22;
 		add(
 			input.evidence,
 			"smurf",
 			"recentWinRate",
 			pct(winRate),
 			">= 60%",
-			15,
+			22,
 			"최근 솔로랭크 승률이 다소 높습니다.",
 		);
 		reasons.push("최근 승률 60% 이상");
 	}
 	if (avgKda >= 4) {
-		score += 10;
+		score += 15;
 		add(
 			input.evidence,
 			"smurf",
 			"averageKda",
 			round(avgKda, 2),
 			">= 4.0",
-			10,
+			15,
 			"최근 경기 KDA가 높습니다.",
 		);
 		reasons.push("최근 평균 KDA 4.0 이상");
 	}
 	if (stompRate >= 0.35) {
-		score += 10;
+		score += 15;
 		add(
 			input.evidence,
 			"smurf",
 			"stompRate",
 			pct(stompRate),
 			">= 35%",
-			10,
+			15,
 			"저데스 고관여 승리 비율이 높습니다.",
 		);
 		reasons.push("압도적 승리 패턴 비율 높음");
@@ -324,6 +324,7 @@ function scoreRankMismatchRisk(input: {
 	let score = 0;
 	const reasons: string[] = [];
 	const winRate = rate(input.summaries.filter((s) => s.win).length, input.summaries.length);
+	const avgKda = average(input.summaries.map((s) => s.kda));
 	const avgDamage = average(input.summaries.map((s) => s.damagePerMin));
 	const avgGold = average(input.summaries.map((s) => s.goldPerMin));
 	const carryRate = rate(
@@ -332,47 +333,60 @@ function scoreRankMismatchRisk(input: {
 	);
 
 	if (winRate >= 0.65) {
-		score += 20;
+		score += 30;
 		reasons.push("최근 승률 65% 이상");
 	} else if (winRate >= 0.6) {
-		score += 12;
+		score += 20;
 		reasons.push("최근 승률 60% 이상");
 	}
+	if (avgKda >= 4) {
+		score += 15;
+		add(
+			input.evidence,
+			"rankMismatch",
+			"averageKda",
+			round(avgKda, 2),
+			">= 4.0",
+			15,
+			"최근 경기 KDA가 표시 티어 대비 추가 검토 신호가 될 수 있습니다.",
+		);
+		reasons.push("최근 평균 KDA 높음");
+	}
 	if (avgDamage >= 700) {
-		score += 10;
+		score += 20;
 		add(
 			input.evidence,
 			"rankMismatch",
 			"damagePerMinute",
 			Math.round(avgDamage),
 			">= 700",
-			10,
+			20,
 			"분당 챔피언 피해량이 높습니다.",
 		);
 		reasons.push("분당 피해량 높음");
 	}
 	if (avgGold >= 420) {
-		score += 10;
+		score += 15;
 		add(
 			input.evidence,
 			"rankMismatch",
 			"goldPerMinute",
 			Math.round(avgGold),
 			">= 420",
-			10,
+			15,
 			"분당 골드가 높습니다.",
 		);
 		reasons.push("분당 골드 높음");
 	}
 	if (carryRate >= 0.35) {
-		score += 15;
+		score += 25;
 		add(
 			input.evidence,
 			"rankMismatch",
 			"carryRate",
 			pct(carryRate),
 			">= 35%",
-			15,
+			25,
 			"고 KDA와 높은 피해량이 함께 나온 경기 비율입니다.",
 		);
 		reasons.push("캐리형 경기 비율 높음");
@@ -536,12 +550,18 @@ function scoreOverall(input: {
 	dataQualityRisk: RiskScore;
 	confidence: Confidence;
 }): RiskScore {
-	const score =
+	const weighted =
 		0.3 * input.smurfRisk.score +
 		0.25 * input.rankMismatchRisk.score +
 		0.25 * input.derankOrThrowRisk.score +
 		0.1 * input.roleMismatchRisk.score +
 		0.1 * input.dataQualityRisk.score;
+	const primaryMax = Math.max(
+		input.smurfRisk.score,
+		input.rankMismatchRisk.score,
+		input.derankOrThrowRisk.score,
+	);
+	const score = 0.55 * primaryMax + 0.45 * weighted;
 	const reasons = [
 		...input.smurfRisk.reasons.slice(0, 2),
 		...input.rankMismatchRisk.reasons.slice(0, 2),
@@ -600,9 +620,9 @@ function confidenceFor(count: number): Confidence {
 }
 
 function recommendationFor(score: number, confidence: Confidence): Recommendation {
-	if (confidence === "LOW") return score >= 60 ? "MANUAL_REVIEW" : "AUTO_PASS";
+	if (confidence === "LOW") return score >= 45 ? "MANUAL_REVIEW" : "AUTO_PASS";
 	if (score >= 80) return "REJECT_OR_INTERVIEW";
-	if (score >= 60) return "MANUAL_REVIEW";
+	if (score >= 40) return "MANUAL_REVIEW";
 	return "AUTO_PASS";
 }
 
