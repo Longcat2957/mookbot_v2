@@ -10,7 +10,7 @@ import { cloudflare, datadragon, db } from "@mookbot/core";
 import type { FastifyInstance } from "fastify";
 import { notifyBotAuctionTournamentCompleted } from "../bot/notify.js";
 import { invalidate, requireEditor, requireSession } from "./_helpers.js";
-import { TEAMS, type Role, type Team, validateDraftGameInput } from "./auction-match-validation.js";
+import { type Role, TEAMS, type Team, validateDraftGameInput } from "./auction-match-validation.js";
 
 type MatchRound = "SEMI" | "FINAL" | "SINGLE";
 type MatchFormat = "BO1" | "BO3";

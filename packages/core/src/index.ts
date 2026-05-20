@@ -5,3 +5,4 @@ export { closeRedis, getRedisClient, getRedisSubscriber } from "./kv/factory.js"
 export { log } from "./logger.js";
 export * as mmr from "./mmr/index.js";
 export * as riot from "./riot/index.js";
+export * as screening from "./screening/index.js";

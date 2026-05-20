@@ -32,8 +32,7 @@ export function AppFooter({
 					icon="📇"
 					label="내 프로필"
 					active={
-						(nav.stage === "PROFILE" && nav.profileUserId === user.id) ||
-						nav.stage === "MY_RIOT_ACCOUNTS"
+						(nav.stage === "PROFILE" && nav.profileUserId === user.id) || nav.stage === "MY_RIOT_ACCOUNTS"
 					}
 					onClick={() => nav.openProfile(user.id)}
 					onPrefetch={loadProfile}

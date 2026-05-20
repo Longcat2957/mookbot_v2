@@ -8,6 +8,7 @@
 	"exports": {
 		".": "./dist/index.js",
 		"./db": "./dist/db/index.js",
+		"./screening": "./dist/screening/index.js",
 		"./riot": "./dist/riot/index.js",
 		"./mmr": "./dist/mmr/index.js",
 		"./datadragon": "./dist/datadragon/index.js",

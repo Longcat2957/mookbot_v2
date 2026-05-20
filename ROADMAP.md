@@ -7,20 +7,31 @@
 활성 도메인: `bot.mooklol.com` (Cloudflare proxied → 단일 VPS · Docker compose 5컨테이너 stack: bot · api · activity · nginx · valkey).
 실서비스 운영 중.
 
-## 🔜 진행 중 (v0.19.3)
+## 🔜 진행 중 (v0.20.0)
 
-목표: Activity 전반의 하단 내비게이션 접근성을 높이고, `내 프로필` 페이지를 현재 추가된 Riot 계정/주력 라인 데이터에 맞게 더 읽기 좋게 재구성한다.
+목표: 신규 참가자/기존 참가자의 Riot 공개 전적을 기반으로 **부계정·위장티어·패작 의심을 단정하지 않고**, 운영진이 검토할 수 있는 `risk score + 근거 + 신뢰도` 리포트를 제공한다. 이 기능은 제재/확정 판정 도구가 아니라 내전 모집 검토 보조 도구다.
 
-- **Footer 노출 범위 확대** — 현재 `LIST / LEADERBOARD / MINIGAME / PROFILE` 중심인 footer 를 사용자가 자연스럽게 돌아다니는 대부분의 non-series 화면으로 확대한다. 단, PickBan/EntryEditing/경매 진행처럼 집중 흐름이 필요한 화면은 산만해지지 않도록 예외로 둔다.
-- **Footer UX 정리** — active 상태, 모바일 터치 영역, 페이지 전환 prefetch, 도움말 접근성을 점검한다. 화면이 짧거나 긴 경우에도 footer 가 어색하게 뜨거나 겹치지 않도록 레이아웃을 재확인한다.
-- **내 프로필 헤더 업그레이드** — 소환사 아이콘, Riot ID, 주력 라인, 시즌 전적, 대표 지표가 한눈에 보이게 정리한다. `main_position` / `main_position_updated_at` 표시를 프로필 경험 안에 자연스럽게 녹인다.
-- **내 프로필 정보 구조 개선** — 라인별 MMR, 주력 챔프, 최근 게임, 선호 챔프, Riot 계정 관리 진입점을 더 명확한 섹션으로 재배치한다.
-- **반응형 QA** — 모바일/데스크톱에서 텍스트 겹침, 과도한 카드 중첩, 버튼 크기 불균형, footer overlap 을 확인한다.
-- **검증 기준** — `pnpm test`, `pnpm typecheck`, `pnpm build` 통과. Activity 변경은 최소 1회 production build 로 chunk/타입 회귀 확인.
+- **원칙: 확률적 screening report** — 응답 문구는 "부계정입니다" 가 아니라 `부계정 가능성`, `위장티어 가능성`, `비정상 패배 패턴`, `데이터 신뢰도`, `운영 추천` 형태로 제한한다. 모든 점수는 근거와 함께 표시하고, 낮은 표본은 자동으로 낮은 confidence 로 처리한다.
+- **API 설계** — 내부 운영자 전용 `GET /api/screening/lol/:region/:gameName/:tagLine` 또는 등록된 사용자 기준 `GET /api/users/:id/screening-report` 를 추가한다. 반환 shape 는 `identity`, `sample`, `profile`, `scores`, `evidence`, `recommendation` 으로 나눈다.
+- **데이터 수집 계층** — Riot ID → PUUID → Summoner-V4 / League-V4 / Match-V5 순서로 조회한다. 솔로랭크는 `queue=420` 으로 제한하고, Match-V5 상세 조회는 rate-limit / timeout / cache / 진행률 표시를 갖춘다. `teamPosition` / `individualPosition` 이 비어 있거나 `INVALID` 인 경기는 제외한다.
+- **캐시/저장 전략** — `screening_reports` 또는 KV 캐시를 두어 동일 대상 반복 조회를 막는다. 리포트는 `fetched_at`, `sample_count`, `confidence`, `payload_json` 을 저장하고, 기본 TTL 은 24시간 이상으로 둔다. Riot API 장애 시 마지막 성공 리포트를 stale 로 반환할 수 있게 한다.
+- **데이터 신뢰도 점수** — 분석 경기 수, 최근성, 포지션 데이터 품질, 리메이크/짧은 경기 제외 비율, 주 라인 일관성을 기반으로 `LOW / MEDIUM / HIGH` 를 산출한다. 신뢰도 LOW 인 경우 overall risk 가 높아도 `MANUAL_REVIEW` 이상으로 자동 승격하지 않는다.
+- **부계정 가능성 점수** — 낮은 소환사 레벨, 낮은 솔로랭크 총 판수, 최근 20~50판 고승률, KDA/CS/min/gold/min/damage/min 이상치, 챔피언 숙련도 대비 고성과, 빠른 랭크 상승 신호를 가중합으로 계산한다.
+- **위장티어/실력 불일치 점수** — 표시 티어 대비 경기 영향력, 상대 평균 티어 대비 성과, 라인전 우위, carry consistency, 주 포지션 성능 편차를 본다. 티어/라인/챔피언/게임 길이 보정 없이 절대 KDA 만으로 판단하지 않는다.
+- **패작/고의 패배 의심 점수** — "패작 확정" 이 아니라 `비정상적 패배 패턴` 으로 표현한다. 연패 구간에서 개인 baseline 대비 KDA/damage/CS/vision 급락, death anomaly, 오프롤/비숙련 챔피언 반복, 비정상 아이템/스펠 반복을 근거로 삼는다.
+- **내전 운영 리스크 점수** — 주 포지션 안정성, 모집 포지션과 실제 포지션 일치, 챔피언 풀 깊이, 최근 폼, 변동성, 부정 패턴을 종합해 `overallReviewRisk` 와 `AUTO_PASS / MANUAL_REVIEW / REJECT_OR_INTERVIEW` 추천을 만든다.
+- **운영자 UI** — Activity 에 운영자 전용 screening report 화면을 추가한다. 점수 카드보다 근거 목록과 표본 품질을 우선 노출하고, 각 evidence 는 metric/value/threshold/weight/description 을 표시한다.
+- **감사/안전장치** — 리포트 조회는 audit log 에 남긴다. 결과 화면에는 "Riot API 기반 확률적 검토 보조이며 고의성/대리/계정 소유자를 확정하지 않음" 문구를 고정 표시한다. 일반 유저 공개 화면에는 기본 노출하지 않는다.
+- **검증 기준** — 점수 계산은 fixture 기반 단위 테스트로 검증한다. Riot API 호출 계층은 mock fetch 로 timeout/cache/rate-limit/partial failure 를 테스트한다. 배포 전 `pnpm test`, `pnpm typecheck`, `pnpm build` 통과.
 
 ## ✅ 완료 (Shipped)
 
 > Phase 0~15 (v0.1.0~v0.4.4) 는 오래된 → 최신 순, Phase 16~ (v0.4.5~) 는 최신 → 오래된 순으로 정렬. 새 릴리스는 Phase 16 블록 맨 위에 추가.
+
+### Phase 53 — Profile/Footer UI 정비 (v0.19.3)
+- **Footer 노출 범위 확대** — `MY_RIOT_ACCOUNTS`, `COMPLETED`, `AUCTION_RESULT` 까지 footer 노출 확대. `ENTRY_EDITING / IN_GAME / AUCTION_DRAFT / AUCTION_BRACKET` 은 집중 흐름 보호를 위해 제외.
+- **내 프로필 헤더 재구성** — 소환사 아이콘, Riot ID, 주력 라인, 최고 MMR 라인, 시즌 전적, Riot 계정 수를 한 패널에서 확인하도록 정리.
+- **프로필 본문 가독성 개선** — 라인별 MMR 섹션화, 주력 챔프/최근 게임 카드 밀도 개선, 스켈레톤 레이아웃 최신화.
 
 ### Phase 0 — 분리 (v0.1.0~0.1.1)
 - 모노레포 스캐폴드 (`apps/{api,bot,activity}`, `packages/core`)

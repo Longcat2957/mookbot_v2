@@ -70,9 +70,7 @@ export function PlayerRow({
 									<span className="tabular-nums text-xs text-base-content/65 shrink-0">
 										{champion.wins}승 {champion.losses}패
 									</span>
-									<span className={`badge badge-sm ${wrColorClass(wr)} shrink-0 tabular-nums`}>
-										{wr}%
-									</span>
+									<span className={`badge badge-sm ${wrColorClass(wr)} shrink-0 tabular-nums`}>{wr}%</span>
 								</li>
 							);
 						})}

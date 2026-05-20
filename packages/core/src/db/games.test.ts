@@ -5,8 +5,8 @@ import {
 	getGame,
 	getGameStats,
 	getRecentGamesForUser,
-	listHeadToHeadRecords,
 	listGamesInSeries,
+	listHeadToHeadRecords,
 } from "./games.js";
 import { createSeason } from "./seasons.js";
 import { createSeries } from "./series.js";

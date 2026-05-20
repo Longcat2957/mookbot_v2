@@ -37,10 +37,7 @@ export function SlotBoard({ state }: { state: UseEntryEditingStateResult }) {
 							const h2h =
 								assignedUserId && opponentUserId
 									? headToHead.find(
-											(h) =>
-												h.userId === assignedUserId &&
-												h.opponentId === opponentUserId &&
-												h.role === lane,
+											(h) => h.userId === assignedUserId && h.opponentId === opponentUserId && h.role === lane,
 										)
 									: undefined;
 							const h2hProp =
