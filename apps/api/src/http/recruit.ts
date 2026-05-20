@@ -1,11 +1,64 @@
 // 모집 (recruitment) 관련 라우트 — 목록 / 상세 / 엔트리 슬롯 draft.
 
-import { datadragon, db } from "@mookbot/core";
+import { datadragon, db, riot } from "@mookbot/core";
 import type { FastifyInstance } from "fastify";
 import { invalidate, requireEditor, requireSession, rewriteDD } from "./_helpers.js";
 import { emptyHistory, fetchPlayHistoryFor } from "./_history.js";
 
 const { listRecruitmentParticipants, getRecruitment } = db;
+
+type SoloRanked = {
+	tier: string;
+	rank: string;
+	leaguePoints: number;
+	wins: number;
+	losses: number;
+} | null;
+
+const SOLO_RANK_CACHE_TTL_MS = 5 * 60_000;
+
+async function fetchSoloRankedForMainAccounts(
+	accounts: Awaited<ReturnType<typeof db.listMainRiotAccounts>>,
+	log: { warn: (obj: unknown, msg: string) => void },
+): Promise<Map<string, SoloRanked>> {
+	const out = new Map<string, SoloRanked>();
+	await Promise.all(
+		accounts.map(async (account) => {
+			const cacheKey = `recruitment-solo-rank:${account.puuid}`;
+			const cached = await db.getKv(cacheKey);
+			if (cached) {
+				try {
+					const parsed = JSON.parse(cached) as { fetchedAt: number; data: SoloRanked };
+					if (parsed.fetchedAt + SOLO_RANK_CACHE_TTL_MS > Date.now()) {
+						out.set(account.user_id, parsed.data);
+						return;
+					}
+				} catch {
+					// broken cache; refetch below
+				}
+			}
+			let data: SoloRanked = null;
+			try {
+				const entries = await riot.getLeagueEntries(account.puuid);
+				const solo = entries.find((e) => e.queueType === "RANKED_SOLO_5x5");
+				if (solo) {
+					data = {
+						tier: solo.tier,
+						rank: solo.rank,
+						leaguePoints: solo.leaguePoints,
+						wins: solo.wins,
+						losses: solo.losses,
+					};
+				}
+			} catch (err) {
+				log.warn({ err, puuid: account.puuid }, "solo rank fetch failed");
+			}
+			await db.setKv(cacheKey, JSON.stringify({ fetchedAt: Date.now(), data }), "system");
+			out.set(account.user_id, data);
+		}),
+	);
+	return out;
+}
 
 export async function registerRecruitRoutes(app: FastifyInstance): Promise<void> {
 	// 엔트리 수정 대기 중인 모집 목록 (status = CLOSED)
@@ -70,6 +123,7 @@ export async function registerRecruitRoutes(app: FastifyInstance): Promise<void>
 		);
 
 		const stats = await fetchPlayHistoryFor(userIds);
+		const soloRankedById = await fetchSoloRankedForMainAccounts(mains, req.log);
 
 		const entryDraftRaw = await db.getKv(`entry:${id}`);
 		let entryDraft: unknown = null;
@@ -95,6 +149,7 @@ export async function registerRecruitRoutes(app: FastifyInstance): Promise<void>
 				roles: p.roles,
 				joinedAt: p.joined_at,
 				profileIconUrl: iconById.get(p.user_id) ?? null,
+				soloRanked: soloRankedById.get(p.user_id) ?? null,
 				history: stats.get(p.user_id) ?? emptyHistory(),
 			})),
 			headToHead: headToHead.map((h) => ({

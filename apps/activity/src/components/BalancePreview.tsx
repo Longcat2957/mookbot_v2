@@ -42,7 +42,7 @@ export function BalancePreview({ team1Side, participants }: Props) {
 
 	return (
 		<details className="collapse collapse-arrow bg-base-200 shadow-sm" open>
-			<summary className="collapse-title text-sm font-medium py-2 min-h-0 px-3">
+			<summary className="collapse-title text-base font-bold py-2.5 min-h-0 px-3">
 				🎯 밸런스 미리보기 (Game 1 · 1팀 {team1Side})
 			</summary>
 			<div className="collapse-content px-3 pb-3 space-y-3">

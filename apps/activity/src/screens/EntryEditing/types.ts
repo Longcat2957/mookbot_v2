@@ -55,6 +55,13 @@ export interface Participant {
 	joinedAt: number;
 	history: PlayHistory;
 	profileIconUrl?: string | null;
+	soloRanked?: {
+		tier: string;
+		rank: string;
+		leaguePoints: number;
+		wins: number;
+		losses: number;
+	} | null;
 }
 
 export interface HeadToHead {
