@@ -1,7 +1,7 @@
 // /api/me/riot-accounts/* 통합 테스트.
 // Riot API 는 global.fetch mock 으로 처리.
 
-// riotClient 는 lazy 생성자에서 process.env.RIOT_API_KEY 를 검사 — 테스트 환경에선
+// Riot client 는 lazy 생성자에서 process.env.RIOT_API_KEY 를 검사 — 테스트 환경에선
 // 실제 키 불요. 첫 호출 전에 더미 키만 set 하면 mock fetch 로 우회.
 process.env.RIOT_API_KEY ||= "test-riot-key";
 
@@ -69,7 +69,7 @@ function seedRiotAccount(
 const originalFetch = global.fetch;
 
 beforeEach(() => {
-	// riotClient 모듈 캐시는 테스트간 공유 — mock fetch 결과 격리를 위해 매번 비움.
+	// Riot client 모듈 캐시는 테스트간 공유 — mock fetch 결과 격리를 위해 매번 비움.
 	riot.__clearRiotCacheForTest();
 });
 

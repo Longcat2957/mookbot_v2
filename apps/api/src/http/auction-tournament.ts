@@ -4,10 +4,11 @@
 // 각 단계 전이 endpoint + 입찰 / 유찰 / 배치 / 매치 생성 / 게임 결과 + 강제 취소.
 // 게임 결과는 recordGameOnly (mmr 영향 0, game_stats 통합) 호출.
 
-import { datadragon, db } from "@mookbot/core";
+import { db } from "@mookbot/core";
 import type { FastifyInstance } from "fastify";
-import { clearBidIntents, getBidIntents, setBidIntent } from "../domain/auctionBidIntents.js";
-import { invalidate, requireEditor, requireSession, rewriteDD } from "./_helpers.js";
+import { invalidate, requireEditor, requireSession } from "./_helpers.js";
+import { clearBidIntents, setBidIntent } from "./auction-bid-intents.js";
+import { buildAuctionTournamentDetail } from "./auction-tournament-detail.js";
 
 export async function registerAuctionTournamentRoutes(app: FastifyInstance): Promise<void> {
 	// recruitment → tournament 전이 (운영자 [경매 시작])
@@ -66,110 +67,9 @@ export async function registerAuctionTournamentRoutes(app: FastifyInstance): Pro
 		if (!sid) return;
 		const id = Number(req.params.id);
 		if (!Number.isFinite(id)) return reply.code(400).send({ error: "invalid id" });
-		const t = await db.getAuctionTournament(id);
-		if (!t) return reply.code(404).send({ error: "not found" });
-
-		const rec = await db.getAuctionRecruitment(id);
-		const recruitParts = rec ? await db.listAuctionRecruitmentParticipants(id) : [];
-		const teams = await db.listAuctionTeams(id);
-		const allMembers = await db.listAuctionTeamMembersByTournament(id);
-		const matches = await db.listAuctionMatches(id);
-		const bids = await db.listAuctionBids(id);
-
-		const userIds = new Set<string>();
-		for (const p of recruitParts) userIds.add(p.user_id);
-		for (const m of allMembers) userIds.add(m.user_id);
-		for (const t of teams) userIds.add(t.captain_user_id);
-		if (t.current_bid_target_user_id) userIds.add(t.current_bid_target_user_id);
-		const userIdList = [...userIds];
-		const [users, mains] = await Promise.all([
-			userIdList.length > 0 ? db.listUsers(userIdList) : Promise.resolve([]),
-			userIdList.length > 0 ? db.listMainRiotAccounts(userIdList) : Promise.resolve([]),
-		]);
-		const nameById = new Map(users.map((u) => [u.discord_id, u.display_name]));
-		const iconByUser = new Map(
-			mains.flatMap((m) =>
-				m.profile_icon_id == null
-					? []
-					: [[m.user_id, rewriteDD(datadragon.getProfileIconUrl(m.profile_icon_id))] as const],
-			),
-		);
-
-		// team_id → members
-		const membersByTeam = new Map<number, typeof allMembers>();
-		for (const m of allMembers) {
-			const members = membersByTeam.get(m.team_id) ?? [];
-			members.push(m);
-			membersByTeam.set(m.team_id, members);
-		}
-		// 모든 팀원 user_id 모음 (unsold 계산용)
-		const placedUserIds = new Set(allMembers.map((m) => m.user_id));
-		const unsold = recruitParts
-			.filter((p) => !placedUserIds.has(p.user_id))
-			.map((p) => ({
-				userId: p.user_id,
-				displayName: nameById.get(p.user_id) ?? p.user_id,
-				profileIconUrl: iconByUser.get(p.user_id) ?? null,
-			}));
-
-		// v0.14: 현재 매물 + 입찰 의도 (transient) — BIDDING 화면 실시간 공유용.
-		const currentBidTargetUserId = t.current_bid_target_user_id;
-		const currentBidTarget = currentBidTargetUserId
-			? {
-					userId: currentBidTargetUserId,
-					displayName: nameById.get(currentBidTargetUserId) ?? currentBidTargetUserId,
-					profileIconUrl: iconByUser.get(currentBidTargetUserId) ?? null,
-					intents: await getBidIntents(id),
-				}
-			: null;
-
-		return {
-			tournament: {
-				id: t.id,
-				format: t.format,
-				status: t.status,
-				championTeamId: t.champion_team_id,
-				startedAt: t.started_at,
-				endedAt: t.ended_at,
-				currentBidTarget,
-			},
-			teams: teams.map((tt) => ({
-				id: tt.id,
-				teamIndex: tt.team_index,
-				captainUserId: tt.captain_user_id,
-				captainName: nameById.get(tt.captain_user_id) ?? tt.captain_user_id,
-				captainProfileIconUrl: iconByUser.get(tt.captain_user_id) ?? null,
-				teamName: tt.team_name,
-				initialPoints: tt.initial_points,
-				currentPoints: tt.current_points,
-				members: (membersByTeam.get(tt.id) ?? []).map((m) => ({
-					userId: m.user_id,
-					displayName: nameById.get(m.user_id) ?? m.user_id,
-					profileIconUrl: iconByUser.get(m.user_id) ?? null,
-					acquiredVia: m.acquired_via,
-					acquiredAtPoints: m.acquired_at_points,
-				})),
-			})),
-			unsold,
-			matches: matches.map((m) => ({
-				matchId: m.id,
-				round: m.round,
-				bracketIndex: m.bracket_index,
-				team1Id: m.team1_id,
-				team2Id: m.team2_id,
-				format: m.format,
-				status: m.status,
-				winningTeam: m.winning_team,
-			})),
-			bids: bids.map((b) => ({
-				id: b.id,
-				targetUserId: b.target_user_id,
-				teamId: b.team_id,
-				points: b.points,
-				isFinal: b.is_final === 1,
-				createdAt: b.created_at,
-			})),
-		};
+		const detail = await buildAuctionTournamentDetail(id);
+		if (!detail) return reply.code(404).send({ error: "not found" });
+		return detail;
 	});
 
 	// 팀장 4명/2명 set + 자동 POINT_ALLOC 진입

@@ -1,18 +1,18 @@
-import { riotClient } from "./client.js";
+import { getRiotClient } from "./client.js";
 import type { MatchDto, MatchParticipantDto } from "./types.js";
 
 /**
  * Get recent match IDs for a player.
  */
 export async function getMatchIds(puuid: string, count: number = 20): Promise<string[]> {
-	return riotClient.getMatchIds(puuid, count);
+	return getRiotClient().getMatchIds(puuid, count);
 }
 
 /**
  * Get full match details by match ID.
  */
 export async function getMatch(matchId: string): Promise<MatchDto> {
-	return riotClient.getMatch(matchId);
+	return getRiotClient().getMatch(matchId);
 }
 
 /**

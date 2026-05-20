@@ -1,4 +1,4 @@
-import { riotClient } from "./client.js";
+import { getRiotClient } from "./client.js";
 import type { AccountDto } from "./types.js";
 
 /**
@@ -18,12 +18,12 @@ export function parseRiotId(riotId: string): [gameName: string, tagLine: string]
  */
 export async function getAccountByRiotId(riotId: string): Promise<AccountDto> {
 	const [gameName, tagLine] = parseRiotId(riotId);
-	return riotClient.getAccountByRiotId(gameName, tagLine);
+	return getRiotClient().getAccountByRiotId(gameName, tagLine);
 }
 
 /**
  * Look up a Riot account by PUUID — Riot ID rename 추적용.
  */
 export async function getAccountByPuuid(puuid: string): Promise<AccountDto> {
-	return riotClient.getAccountByPuuid(puuid);
+	return getRiotClient().getAccountByPuuid(puuid);
 }

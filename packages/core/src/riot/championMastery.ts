@@ -1,11 +1,11 @@
-import { riotClient } from "./client.js";
+import { getRiotClient } from "./client.js";
 import type { ChampionMasteryDto } from "./types.js";
 
 /**
  * Get all champion masteries for a player (sorted by points descending).
  */
 export async function getChampionMasteries(puuid: string): Promise<ChampionMasteryDto[]> {
-	return riotClient.getChampionMasteries(puuid);
+	return getRiotClient().getChampionMasteries(puuid);
 }
 
 /**

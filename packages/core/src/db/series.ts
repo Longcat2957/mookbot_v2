@@ -238,19 +238,6 @@ export async function softDeleteSeries(seriesId: number): Promise<void> {
 }
 
 /**
- * @deprecated softDeleteSeries 사용. 호출자 마이그레이션 후 제거.
- *
- * 기존 hard-delete 시그니처 유지 — 내부적으로 soft-delete 로 라우팅.
- * recruitments.converted_series_id 는 caller 가 별도 정리.
- */
-export async function deleteSeriesPhysical(seriesId: number): Promise<void> {
-	await execute(`UPDATE recruitments SET converted_series_id = NULL WHERE converted_series_id = ?`, [
-		seriesId,
-	]);
-	await softDeleteSeries(seriesId);
-}
-
-/**
  * 진짜 물리 삭제 — admin 응급 / 데이터 정리 한정. 일반 흐름은 softDeleteSeries 사용.
  * CASCADE 로 series_participants/games/game_stats/mmr_changes 도 함께 삭제.
  */

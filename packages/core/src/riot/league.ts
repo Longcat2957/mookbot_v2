@@ -1,11 +1,11 @@
-import { formatTier, riotClient } from "./client.js";
+import { formatTier, getRiotClient } from "./client.js";
 import type { LeagueEntryDto, QueueType } from "./types.js";
 
 /**
  * Get all league entries for a player by puuid.
  */
 export async function getLeagueEntries(puuid: string): Promise<LeagueEntryDto[]> {
-	return riotClient.getLeagueEntries(puuid);
+	return getRiotClient().getLeagueEntries(puuid);
 }
 
 /**

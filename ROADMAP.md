@@ -2,10 +2,22 @@
 
 > 현재 버전 기준 진척 상태.
 
-## 현재 (v0.18.9)
+## 현재 (v0.18.10)
 
 활성 도메인: `bot.mooklol.com` (Cloudflare proxied → 단일 VPS · Docker compose 5컨테이너 stack: bot · api · activity · nginx · valkey).
 실서비스 운영 중.
+
+## 🔜 진행 중 (v0.19.0)
+
+목표: 기능 추가보다 코드베이스 정리. 빈 파일, 죽은 구조, 큰 파일, 오래된 legacy 경계를 줄여 다음 기능 개발 비용을 낮춘다.
+
+- **완료: 빈 파일 제거** — 이유 없이 남아 있던 0-byte placeholder 파일과 실제 파일이 이미 있는 디렉터리의 불필요한 `.gitkeep` 제거.
+- **완료: 구조 혼동 정리** — `ws/room.ts` vs `ws/rooms.ts`, 빈 `domain/*`, 빈 `sdk/auth.ts` 같은 초기 scaffold 흔적 제거. 경매 bid intent transient state 는 route helper 로 이동.
+- **완료: route helper 분리** — `auction-match` 게임 입력 검증과 `auction-tournament` 상세 응답 조립을 별도 helper 로 분리.
+- **완료: legacy/deprecated 제거** — `deleteSeriesPhysical` alias 제거, cleanup-stale 은 `clearRecruitmentConvertedSeries` + `softDeleteSeries` 를 명시 호출. `riotClient` deprecated proxy 제거 후 `getRiotClient()` 직접 사용.
+- **완료: docs/plans 기준 명확화** — 오래된 plan 문서는 보관용으로 표시하고 최신 상태 기준은 `ROADMAP.md` 로 고정.
+- **보류: schema deprecated 컬럼 제거** — `series.channel_id/message_id` 는 주석상 deprecated 이지만 모집 메시지/종료 카드 흐름과 복구 경로에 아직 연결된 코드가 있어 DB migration 대상으로 당장 제거하지 않는다.
+- **검증 기준** — `pnpm test`, `pnpm typecheck`, `pnpm build` 통과. 정리 변경은 동작 변경 없이 작게 나눠 커밋.
 
 ## ✅ 완료 (Shipped)
 

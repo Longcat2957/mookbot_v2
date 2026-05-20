@@ -22,7 +22,6 @@ function key(tournamentId: number): string {
 	return `bidIntent:${tournamentId}`;
 }
 
-// in-process 폴백 — Redis 없을 때 (dev/test) 만 사용
 const fallbackStore = new Map<number, Map<number, BidIntent>>();
 
 export async function getBidIntents(
@@ -37,7 +36,7 @@ export async function getBidIntents(
 				const parsed = JSON.parse(raw) as BidIntent;
 				out.push({ teamId: Number(teamIdStr), points: parsed.points });
 			} catch {
-				// invalid JSON — skip
+				// Invalid legacy/debug value; ignore this one field.
 			}
 		}
 		out.sort((a, b) => a.teamId - b.teamId);
@@ -93,7 +92,6 @@ export async function clearBidIntents(tournamentId: number): Promise<void> {
 	fallbackStore.delete(tournamentId);
 }
 
-// 테스트 / 디버깅용 — 모든 store reset
 export async function _resetAllBidIntents(): Promise<void> {
 	const redis = getRedisClient();
 	if (redis) {

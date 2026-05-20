@@ -8,8 +8,8 @@ export type { Platform, Region } from "./client.js";
 export {
 	__clearRiotCacheForTest,
 	formatTier,
+	getRiotClient,
 	RiotApiClient,
-	riotClient,
 	tierValue,
 } from "./client.js";
 export { formatLeagueEntries, getLeagueEntries, getLeagueEntry } from "./league.js";

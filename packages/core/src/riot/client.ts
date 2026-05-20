@@ -203,13 +203,6 @@ export function getRiotClient(): RiotApiClient {
 	return _riotClient;
 }
 
-/** @deprecated Use getRiotClient() instead. Lazy init requires explicit call after dotenv config. */
-export const riotClient = new Proxy({} as RiotApiClient, {
-	get(_, prop) {
-		return Reflect.get(getRiotClient(), prop);
-	},
-});
-
 // ============================================================
 // Tier/Rank display helpers
 // ============================================================

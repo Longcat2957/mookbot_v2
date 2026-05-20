@@ -6,7 +6,6 @@ import {
 	cancelSeries,
 	completeSeries,
 	createSeries,
-	deleteSeriesPhysical,
 	getSeries,
 	getSeriesParticipants,
 	listAllOpenSeries,
@@ -274,7 +273,7 @@ describe("listing", () => {
 	});
 });
 
-describe("deleteSeriesPhysical (legacy alias → soft-delete)", () => {
+describe("softDeleteSeries", () => {
 	it("series 가 read 쿼리에서 가려지고 같은 id 로 createSeries 시 revive", async () => {
 		const s = await createSeries({
 			seasonId,
@@ -286,7 +285,7 @@ describe("deleteSeriesPhysical (legacy alias → soft-delete)", () => {
 		});
 		expect(await getSeriesParticipants(s.id)).toHaveLength(2);
 
-		await deleteSeriesPhysical(s.id);
+		await softDeleteSeries(s.id);
 
 		// soft-delete: getSeries 는 가려주지만 row 는 남음
 		expect(await getSeries(s.id)).toBeUndefined();
@@ -331,7 +330,7 @@ describe("deleteSeriesPhysical (legacy alias → soft-delete)", () => {
 			 VALUES (?, 1, 'TEAM_1', 'BLUE', 1800)`,
 			)
 			.run(s.id);
-		await deleteSeriesPhysical(s.id);
+		await softDeleteSeries(s.id);
 		expect(await getSeries(s.id)).toBeUndefined();
 
 		await expect(

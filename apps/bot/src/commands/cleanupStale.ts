@@ -15,7 +15,8 @@ const {
 	listStaleOpenRecruitments,
 	listStaleOpenAuctionRecruitments,
 	listStaleOpenAuctionTournaments,
-	deleteSeriesPhysical,
+	clearRecruitmentConvertedSeries,
+	softDeleteSeries,
 	deleteRecruitment,
 	deleteAuctionRecruitment,
 	softDeleteAuctionTournament,
@@ -202,7 +203,8 @@ export async function handleButton(interaction: ButtonInteraction): Promise<void
 
 	for (const i of deletable) {
 		if (i.kind === "series") {
-			await deleteSeriesPhysical(i.id);
+			await clearRecruitmentConvertedSeries(i.id);
+			await softDeleteSeries(i.id);
 			deletedSeries.push(i.id);
 		} else if (i.kind === "recruitment") {
 			await deleteRecruitment(i.id);

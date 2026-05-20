@@ -77,6 +77,12 @@ export async function setRecruitmentStatus(
 	);
 }
 
+export async function clearRecruitmentConvertedSeries(seriesId: number): Promise<void> {
+	await execute(`UPDATE recruitments SET converted_series_id = NULL WHERE converted_series_id = ?`, [
+		seriesId,
+	]);
+}
+
 /**
  * 모집을 물리 삭제 — 운영자 [강제 마감] 시 "없었던 것으로" 처리.
  * recruitment_participants / recruitment_role_prefs 는 ON DELETE CASCADE 로 자동 정리.
