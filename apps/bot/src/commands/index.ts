@@ -24,6 +24,7 @@ import * as recruitMemberRemove from "./recruitMemberRemove.js";
 import * as refreshProfileIcon from "./refreshProfileIcon.js";
 import * as register from "./register.js";
 import * as resetSeasonResults from "./resetSeasonResults.js";
+import * as screeningReport from "./screeningReport.js";
 import * as seriesList from "./seriesList.js";
 import * as whoami from "./whoami.js";
 
@@ -48,6 +49,7 @@ export const ALL_COMMANDS = [
 	cleanupStale,
 	logs,
 	seriesList,
+	screeningReport,
 	auctionRecruit,
 	auctionRecruitMemberAdd,
 	auctionRecruitMemberRemove,
