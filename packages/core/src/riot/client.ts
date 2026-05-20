@@ -43,6 +43,7 @@ interface CacheEntry<T> {
 }
 
 const cache = new Map<string, CacheEntry<unknown>>();
+const inFlight = new Map<string, Promise<unknown>>();
 
 function getCache<T>(key: string): T | undefined {
 	const entry = cache.get(key);
@@ -64,6 +65,7 @@ function setCache<T>(key: string, data: T, ttlMs: number): void {
  */
 export function __clearRiotCacheForTest(): void {
 	cache.clear();
+	inFlight.clear();
 }
 
 // ============================================================
@@ -71,15 +73,26 @@ export function __clearRiotCacheForTest(): void {
 // ============================================================
 
 let lastRequestTime = 0;
+let requestQueue: Promise<void> = Promise.resolve();
 const MIN_INTERVAL_MS = 50; // ~20 req/s for production key
 
 async function waitForRateLimit(): Promise<void> {
-	const now = Date.now();
-	const elapsed = now - lastRequestTime;
-	if (elapsed < MIN_INTERVAL_MS) {
-		await new Promise((resolve) => setTimeout(resolve, MIN_INTERVAL_MS - elapsed));
+	const previous = requestQueue;
+	let release!: () => void;
+	requestQueue = new Promise<void>((resolve) => {
+		release = resolve;
+	});
+	await previous;
+	try {
+		const now = Date.now();
+		const elapsed = now - lastRequestTime;
+		if (elapsed < MIN_INTERVAL_MS) {
+			await new Promise((resolve) => setTimeout(resolve, MIN_INTERVAL_MS - elapsed));
+		}
+		lastRequestTime = Date.now();
+	} finally {
+		release();
 	}
-	lastRequestTime = Date.now();
 }
 
 // ============================================================
@@ -111,7 +124,19 @@ export class RiotApiClient {
 		// Check cache first
 		const cached = getCache<T>(url);
 		if (cached !== undefined) return cached;
+		const pending = inFlight.get(url);
+		if (pending) return pending as Promise<T>;
 
+		const request = this.requestUncached<T>(url, ttlMs);
+		inFlight.set(url, request);
+		try {
+			return await request;
+		} finally {
+			inFlight.delete(url);
+		}
+	}
+
+	private async requestUncached<T>(url: string, ttlMs: number): Promise<T> {
 		// Rate limit
 		await waitForRateLimit();
 
@@ -123,7 +148,7 @@ export class RiotApiClient {
 			const retryAfter = Number(res.headers.get("Retry-After") ?? "1") * 1000;
 			console.warn(`Rate limited. Retrying after ${retryAfter}ms...`);
 			await new Promise((resolve) => setTimeout(resolve, retryAfter));
-			return this.request<T>(url, ttlMs);
+			return this.requestUncached<T>(url, ttlMs);
 		}
 
 		if (!res.ok) {
@@ -173,8 +198,16 @@ export class RiotApiClient {
 		);
 	}
 
-	async getMatchIds(puuid: string, count: number = 20, region: Region = "ASIA") {
-		const path = `/lol/match/v5/matches/by-puuid/${encodeURIComponent(puuid)}/ids?count=${count}`;
+	async getMatchIds(
+		puuid: string,
+		count: number = 20,
+		region: Region = "ASIA",
+		options: { queue?: number; type?: string } = {},
+	) {
+		const params = new URLSearchParams({ count: String(count) });
+		if (options.queue != null) params.set("queue", String(options.queue));
+		if (options.type) params.set("type", options.type);
+		const path = `/lol/match/v5/matches/by-puuid/${encodeURIComponent(puuid)}/ids?${params.toString()}`;
 		return this.request<string[]>(this.regionUrl(region, path), 3 * 60_000);
 	}
 

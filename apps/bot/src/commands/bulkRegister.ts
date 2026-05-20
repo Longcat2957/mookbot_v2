@@ -34,6 +34,10 @@ type Outcome =
 	| { kind: "noPattern"; mention: string; displayName: string }
 	| { kind: "apiFailed"; mention: string; displayName: string; tried: string };
 
+interface ProcessContext {
+	mainPositionRefreshes: Map<string, Promise<void>>;
+}
+
 export async function execute(interaction: ChatInputCommandInteraction): Promise<void> {
 	if (!interaction.guild) {
 		await interaction.reply({ content: "서버에서만 사용 가능", ephemeral: true });
@@ -80,9 +84,12 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
 		noPattern: [],
 		apiFailed: [],
 	};
+	const ctx: ProcessContext = {
+		mainPositionRefreshes: new Map(),
+	};
 
 	for (const m of humans) {
-		const o = await processMember(m, dryRun);
+		const o = await processMember(m, dryRun, ctx);
 		buckets[o.kind].push(o);
 	}
 
@@ -140,7 +147,11 @@ function pushField(
 	eb.addFields({ name: `${label} (${items.length})`, value });
 }
 
-async function processMember(member: GuildMember, dryRun: boolean): Promise<Outcome> {
+async function processMember(
+	member: GuildMember,
+	dryRun: boolean,
+	ctx: ProcessContext,
+): Promise<Outcome> {
 	const userId = member.id;
 	// GuildMember.displayName — 닉 → globalName → username chain (resolveGuildDisplayName 1순위와 동일)
 	const displayName = member.displayName;
@@ -156,6 +167,7 @@ async function processMember(member: GuildMember, dryRun: boolean): Promise<Outc
 	const existingMain = await db.getMainRiotAccount(userId);
 
 	if (!extracted) {
+		if (existingMain && !dryRun) await refreshMainPositionIfMissing(existingMain, ctx);
 		return existingMain
 			? { kind: "unchanged", mention, displayName }
 			: { kind: "noPattern", mention, displayName };
@@ -166,6 +178,7 @@ async function processMember(member: GuildMember, dryRun: boolean): Promise<Outc
 		existingMain.game_name.toLowerCase() === extracted.gameName.toLowerCase() &&
 		existingMain.tag_line.toLowerCase() === extracted.tagLine.toLowerCase()
 	) {
+		if (!dryRun) await refreshMainPositionIfMissing(existingMain, ctx);
 		return { kind: "unchanged", mention, displayName };
 	}
 
@@ -219,6 +232,7 @@ async function processMember(member: GuildMember, dryRun: boolean): Promise<Outc
 			profileIconId,
 		});
 		await db.setMainRiotAccount(userId, account.puuid);
+		await refreshMainPosition(account.puuid, ctx);
 		return {
 			kind: "newlyLinked",
 			mention,
@@ -239,6 +253,7 @@ async function processMember(member: GuildMember, dryRun: boolean): Promise<Outc
 			tagLine: account.tagLine,
 			profileIconId,
 		});
+		await refreshMainPosition(account.puuid, ctx);
 		if (sameIdentity) return { kind: "unchanged", mention, displayName };
 		return {
 			kind: "renamed",
@@ -260,6 +275,7 @@ async function processMember(member: GuildMember, dryRun: boolean): Promise<Outc
 		profileIconId,
 	});
 	await db.setMainRiotAccount(userId, account.puuid);
+	await refreshMainPosition(account.puuid, ctx);
 	return {
 		kind: "mainSwitched",
 		mention,
@@ -267,4 +283,29 @@ async function processMember(member: GuildMember, dryRun: boolean): Promise<Outc
 		from: `${existingMain.game_name}#${existingMain.tag_line}`,
 		to: `${account.gameName}#${account.tagLine}`,
 	};
+}
+
+async function refreshMainPositionIfMissing(
+	account: NonNullable<Awaited<ReturnType<typeof db.getMainRiotAccount>>>,
+	ctx: ProcessContext,
+): Promise<void> {
+	if (account.main_position != null) return;
+	await refreshMainPosition(account.puuid, ctx);
+}
+
+async function refreshMainPosition(puuid: string, ctx: ProcessContext): Promise<void> {
+	const existing = ctx.mainPositionRefreshes.get(puuid);
+	if (existing) return existing;
+	const refresh = refreshMainPositionOnce(puuid);
+	ctx.mainPositionRefreshes.set(puuid, refresh);
+	return refresh;
+}
+
+async function refreshMainPositionOnce(puuid: string): Promise<void> {
+	try {
+		const inferred = await riot.inferMainPositionFromSoloRanked(puuid, 50);
+		await db.setRiotAccountMainPosition(puuid, inferred.role);
+	} catch {
+		// Match-V5 실패는 등록 자체를 막지 않는다. 다음 /일괄등록 때 재시도.
+	}
 }

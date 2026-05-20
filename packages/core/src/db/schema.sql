@@ -26,6 +26,8 @@ CREATE TABLE IF NOT EXISTS riot_accounts (
     tag_line        TEXT    NOT NULL,
     is_main         INTEGER NOT NULL DEFAULT 0,
     profile_icon_id INTEGER,                 -- v0.3.20: League 소환사 아이콘 (RP/BE 구매)
+    main_position   TEXT CHECK (main_position IS NULL OR main_position IN ('TOP', 'JUNGLE', 'MID', 'BOTTOM', 'SUPPORT', 'FLEX')),
+                                             -- v0.19.3: 최근 솔로랭크 Match-V5 기반 추정 주 포지션
     created_at      INTEGER NOT NULL DEFAULT (unixepoch()),
     updated_at      INTEGER NOT NULL DEFAULT (unixepoch())
 );
@@ -459,6 +461,9 @@ CREATE INDEX IF NOT EXISTS idx_series_deleted_at ON series(deleted_at);
 -- v0.3.20: League 소환사 아이콘 (Summoner-V4 의 profileIconId).
 -- 신규 등록은 자동 저장, 기존 등록은 별도 backfill 로 채움.
 ALTER TABLE riot_accounts ADD COLUMN profile_icon_id INTEGER;
+
+-- v0.19.3: 최근 솔로랭크 match history 기반 추정 주 포지션 (TOP/JUNGLE/MID/BOTTOM/SUPPORT/FLEX).
+ALTER TABLE riot_accounts ADD COLUMN main_position TEXT;
 
 -- v0.14: 경매 BIDDING 단계의 현재 매물 후보 — 모든 화면에 실시간 sync.
 ALTER TABLE auction_tournaments ADD COLUMN current_bid_target_user_id TEXT REFERENCES users(discord_id);

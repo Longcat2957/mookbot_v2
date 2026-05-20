@@ -15,6 +15,7 @@ export interface RiotAccountRow {
 	tag_line: string;
 	is_main: 0 | 1;
 	profile_icon_id: number | null;
+	main_position: string | null;
 	created_at: number;
 	updated_at: number;
 }
@@ -173,6 +174,16 @@ export async function setRiotAccountProfileIcon(
 	await execute(
 		`UPDATE riot_accounts SET profile_icon_id = ?, updated_at = unixepoch() WHERE puuid = ?`,
 		[profileIconId, puuid],
+	);
+}
+
+export async function setRiotAccountMainPosition(
+	puuid: string,
+	mainPosition: string | null,
+): Promise<void> {
+	await execute(
+		`UPDATE riot_accounts SET main_position = ?, updated_at = unixepoch() WHERE puuid = ?`,
+		[mainPosition, puuid],
 	);
 }
 

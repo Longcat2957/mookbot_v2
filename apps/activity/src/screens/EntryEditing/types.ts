@@ -18,6 +18,7 @@ export const ROLE_LABEL: Record<string, string> = {
 	MID: "미드",
 	BOTTOM: "원딜",
 	SUPPORT: "서폿",
+	FLEX: "FLEX",
 };
 
 export const TEAM_LABEL: Record<Team, string> = {
@@ -55,6 +56,7 @@ export interface Participant {
 	joinedAt: number;
 	history: PlayHistory;
 	profileIconUrl?: string | null;
+	mainPosition?: string | null;
 	soloRanked?: {
 		tier: string;
 		rank: string;

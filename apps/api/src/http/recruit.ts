@@ -121,6 +121,7 @@ export async function registerRecruitRoutes(app: FastifyInstance): Promise<void>
 				.filter((m) => m.profile_icon_id != null)
 				.map((m) => [m.user_id, rewriteDD(datadragon.getProfileIconUrl(m.profile_icon_id as number))]),
 		);
+		const mainPositionById = new Map(mains.map((m) => [m.user_id, m.main_position]));
 
 		const stats = await fetchPlayHistoryFor(userIds);
 		const soloRankedById = await fetchSoloRankedForMainAccounts(mains, req.log);
@@ -150,6 +151,7 @@ export async function registerRecruitRoutes(app: FastifyInstance): Promise<void>
 				joinedAt: p.joined_at,
 				profileIconUrl: iconById.get(p.user_id) ?? null,
 				soloRanked: soloRankedById.get(p.user_id) ?? null,
+				mainPosition: mainPositionById.get(p.user_id) ?? null,
 				history: stats.get(p.user_id) ?? emptyHistory(),
 			})),
 			headToHead: headToHead.map((h) => ({

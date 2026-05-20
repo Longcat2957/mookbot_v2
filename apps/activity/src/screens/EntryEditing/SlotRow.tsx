@@ -17,6 +17,10 @@ const TIER_TEXT_CLASS: Record<string, string> = {
 	IRON: "text-base-content/50",
 };
 
+function mainPositionLabel(position: string): string {
+	return ROLE_LABEL[position] ?? position;
+}
+
 export function SlotRow({
 	lane,
 	participant,
@@ -177,7 +181,14 @@ function SlotMetaLine({
 		return (
 			<div className="mt-1 flex min-h-7 flex-wrap items-center gap-x-1.5 gap-y-0.5 rounded border border-info/25 bg-info/10 px-2 py-1 text-[0.8125rem] leading-tight">
 				<span className="font-semibold text-base-content/70">솔랭</span>
-				<span className={cx("font-bold tabular-nums", TIER_TEXT_CLASS[ranked.tier] ?? "text-base-content")}>
+				{participant.mainPosition && (
+					<span className="badge badge-xs badge-info shrink-0">
+						{mainPositionLabel(participant.mainPosition)}
+					</span>
+				)}
+				<span
+					className={cx("font-bold tabular-nums", TIER_TEXT_CLASS[ranked.tier] ?? "text-base-content")}
+				>
 					{ranked.tier} {ranked.rank}
 				</span>
 				<span className="text-base-content/60 tabular-nums">{ranked.leaguePoints}LP</span>

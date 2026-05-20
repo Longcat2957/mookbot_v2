@@ -13,7 +13,14 @@ export {
 	tierValue,
 } from "./client.js";
 export { formatLeagueEntries, getLeagueEntries, getLeagueEntry } from "./league.js";
-export { findParticipant, formatKDA, getMatch, getMatchIds, getRecentMatches } from "./match.js";
+export {
+	findParticipant,
+	formatKDA,
+	getMatch,
+	getMatchIds,
+	getRecentMatches,
+	inferMainPositionFromSoloRanked,
+} from "./match.js";
 export { getCurrentGameByPuuid } from "./spectator.js";
 export { getSummonerByPuuid } from "./summoner.js";
 
