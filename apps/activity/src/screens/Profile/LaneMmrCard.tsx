@@ -8,7 +8,7 @@ export function LaneMmrCard({ mmr }: { mmr: LaneMmr }) {
 
 	return (
 		<div
-			className={`rounded-lg p-3 border ${empty ? "border-base-300 bg-base-200/30 opacity-60" : "border-base-300 bg-base-100"}`}
+			className={`rounded-lg p-3 border min-h-28 ${empty ? "border-base-300 bg-base-200/30 opacity-60" : "border-base-300 bg-base-100"}`}
 		>
 			<div className="flex items-center justify-between">
 				<div className="text-[10px] uppercase tracking-wide text-base-content/60">

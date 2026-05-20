@@ -7,17 +7,16 @@
 활성 도메인: `bot.mooklol.com` (Cloudflare proxied → 단일 VPS · Docker compose 5컨테이너 stack: bot · api · activity · nginx · valkey).
 실서비스 운영 중.
 
-## 🔜 진행 중 (v0.19.0)
+## 🔜 진행 중 (v0.19.3)
 
-목표: 기능 추가보다 코드베이스 정리. 빈 파일, 죽은 구조, 큰 파일, 오래된 legacy 경계를 줄여 다음 기능 개발 비용을 낮춘다.
+목표: Activity 전반의 하단 내비게이션 접근성을 높이고, `내 프로필` 페이지를 현재 추가된 Riot 계정/주력 라인 데이터에 맞게 더 읽기 좋게 재구성한다.
 
-- **완료: 빈 파일 제거** — 이유 없이 남아 있던 0-byte placeholder 파일과 실제 파일이 이미 있는 디렉터리의 불필요한 `.gitkeep` 제거.
-- **완료: 구조 혼동 정리** — `ws/room.ts` vs `ws/rooms.ts`, 빈 `domain/*`, 빈 `sdk/auth.ts` 같은 초기 scaffold 흔적 제거. 경매 bid intent transient state 는 route helper 로 이동.
-- **완료: route helper 분리** — `auction-match` 게임 입력 검증과 `auction-tournament` 상세 응답 조립을 별도 helper 로 분리.
-- **완료: legacy/deprecated 제거** — `deleteSeriesPhysical` alias 제거, cleanup-stale 은 `clearRecruitmentConvertedSeries` + `softDeleteSeries` 를 명시 호출. `riotClient` deprecated proxy 제거 후 `getRiotClient()` 직접 사용.
-- **완료: docs/plans 기준 명확화** — 오래된 plan 문서는 보관용으로 표시하고 최신 상태 기준은 `ROADMAP.md` 로 고정.
-- **보류: schema deprecated 컬럼 제거** — `series.channel_id/message_id` 는 주석상 deprecated 이지만 모집 메시지/종료 카드 흐름과 복구 경로에 아직 연결된 코드가 있어 DB migration 대상으로 당장 제거하지 않는다.
-- **검증 기준** — `pnpm test`, `pnpm typecheck`, `pnpm build` 통과. 정리 변경은 동작 변경 없이 작게 나눠 커밋.
+- **Footer 노출 범위 확대** — 현재 `LIST / LEADERBOARD / MINIGAME / PROFILE` 중심인 footer 를 사용자가 자연스럽게 돌아다니는 대부분의 non-series 화면으로 확대한다. 단, PickBan/EntryEditing/경매 진행처럼 집중 흐름이 필요한 화면은 산만해지지 않도록 예외로 둔다.
+- **Footer UX 정리** — active 상태, 모바일 터치 영역, 페이지 전환 prefetch, 도움말 접근성을 점검한다. 화면이 짧거나 긴 경우에도 footer 가 어색하게 뜨거나 겹치지 않도록 레이아웃을 재확인한다.
+- **내 프로필 헤더 업그레이드** — 소환사 아이콘, Riot ID, 주력 라인, 시즌 전적, 대표 지표가 한눈에 보이게 정리한다. `main_position` / `main_position_updated_at` 표시를 프로필 경험 안에 자연스럽게 녹인다.
+- **내 프로필 정보 구조 개선** — 라인별 MMR, 주력 챔프, 최근 게임, 선호 챔프, Riot 계정 관리 진입점을 더 명확한 섹션으로 재배치한다.
+- **반응형 QA** — 모바일/데스크톱에서 텍스트 겹침, 과도한 카드 중첩, 버튼 크기 불균형, footer overlap 을 확인한다.
+- **검증 기준** — `pnpm test`, `pnpm typecheck`, `pnpm build` 통과. Activity 변경은 최소 1회 production build 로 chunk/타입 회귀 확인.
 
 ## ✅ 완료 (Shipped)
 

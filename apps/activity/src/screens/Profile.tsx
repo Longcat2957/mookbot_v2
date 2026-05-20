@@ -1,5 +1,5 @@
 import { lazy, Suspense, useState } from "react";
-import { InlineNotice, StatusBadge } from "../components/DesignPrimitives.js";
+import { InlineNotice, SectionHeader, StatusBadge } from "../components/DesignPrimitives.js";
 import { usePerms } from "../state/perms.js";
 import { LaneMmrCard } from "./Profile/LaneMmrCard.js";
 import { ProfileHeader } from "./Profile/ProfileHeader.js";
@@ -55,11 +55,18 @@ export function Profile({
 				{...(onManageRiotAccounts ? { onManageRiotAccounts } : {})}
 			/>
 
-			<div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
-				{data.laneMmrs.map((m) => (
-					<LaneMmrCard key={m.role} mmr={m} />
-				))}
-			</div>
+			<section className="space-y-2">
+				<SectionHeader
+					title="라인별 MMR"
+					description="현재 시즌 기준 라인별 성과입니다."
+					className="px-1"
+				/>
+				<div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
+					{data.laneMmrs.map((m) => (
+						<LaneMmrCard key={m.role} mmr={m} />
+					))}
+				</div>
+			</section>
 
 			{/* 라인별 선호 챔프 (게시판 텍스트 풀이의 페이지 대체) */}
 			<details

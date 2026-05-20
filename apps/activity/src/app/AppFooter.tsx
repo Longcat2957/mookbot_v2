@@ -12,22 +12,29 @@ export function AppFooter({
 	nav: AppNavigation;
 	onOpenHelp: () => void;
 }) {
-	if (
-		nav.stage !== "LIST" &&
-		nav.stage !== "LEADERBOARD" &&
-		nav.stage !== "MINIGAME" &&
-		nav.stage !== "PROFILE"
-	) {
+	const showFooter =
+		nav.stage === "LIST" ||
+		nav.stage === "LEADERBOARD" ||
+		nav.stage === "MINIGAME" ||
+		nav.stage === "PROFILE" ||
+		nav.stage === "MY_RIOT_ACCOUNTS" ||
+		nav.stage === "COMPLETED" ||
+		nav.stage === "AUCTION_RESULT";
+
+	if (!showFooter) {
 		return null;
 	}
 
 	return (
-		<footer className="footer footer-center bg-base-200/60 border-t border-base-300 text-base-content/70 p-4">
+		<footer className="footer footer-center bg-base-200/70 border-t border-base-300 text-base-content/70 p-3 sm:p-4">
 			<nav className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 w-full max-w-screen-md">
 				<FooterButton
 					icon="📇"
 					label="내 프로필"
-					active={nav.stage === "PROFILE" && nav.profileUserId === user.id}
+					active={
+						(nav.stage === "PROFILE" && nav.profileUserId === user.id) ||
+						nav.stage === "MY_RIOT_ACCOUNTS"
+					}
 					onClick={() => nav.openProfile(user.id)}
 					onPrefetch={loadProfile}
 				/>

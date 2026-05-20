@@ -22,7 +22,7 @@ export function FooterButton({
 		<button
 			type="button"
 			onClick={onClick}
-			className={`btn btn-sm gap-2 ${active ? "btn-primary btn-soft" : "btn-ghost"}`}
+			className={`btn btn-sm min-h-10 gap-2 ${active ? "btn-primary btn-soft" : "btn-ghost"}`}
 			{...prefetchProps}
 		>
 			<span className="text-base">{icon}</span>
