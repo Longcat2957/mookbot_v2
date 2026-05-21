@@ -213,17 +213,11 @@ export async function generateLolScreeningReport(input: GenerateInput): Promise<
 		totalMatches: matchIds.length,
 		evidence,
 	});
-	const overallReviewRisk = scoreOverall({
-		accountTierMismatchRisk,
-		derankOrThrowRisk,
-		accountConsistencyRisk,
-		roleMismatchRisk,
-		dataQualityRisk,
-		confidence: sampleConfidence,
-	});
+	const overallReviewRisk = risk(0, []);
 
 	const recommendation = recommendationFor({
-		overall: overallReviewRisk.score,
+		accountTierMismatch: accountTierMismatchRisk.score,
+		derankOrThrow: derankOrThrowRisk.score,
 		consistency: accountConsistencyRisk.score,
 		confidence: sampleConfidence,
 		summonerLevel: summoner.summonerLevel,
@@ -231,7 +225,6 @@ export async function generateLolScreeningReport(input: GenerateInput): Promise<
 	});
 
 	const summary = buildSummary({
-		overall: overallReviewRisk,
 		accountTierMismatchRisk,
 		derankOrThrowRisk,
 		accountConsistencyRisk,
@@ -1005,33 +998,6 @@ function scoreDataQualityRisk(input: {
 	return risk(score, reasons);
 }
 
-function scoreOverall(input: {
-	accountTierMismatchRisk: RiskScore;
-	derankOrThrowRisk: RiskScore;
-	accountConsistencyRisk: RiskScore;
-	roleMismatchRisk: RiskScore;
-	dataQualityRisk: RiskScore;
-	confidence: Confidence;
-}): RiskScore {
-	const weighted =
-		0.55 * input.accountTierMismatchRisk.score +
-		0.2 * input.derankOrThrowRisk.score +
-		0.25 * input.accountConsistencyRisk.score;
-	const primaryMax = Math.max(
-		input.accountTierMismatchRisk.score,
-		input.derankOrThrowRisk.score,
-		input.accountConsistencyRisk.score,
-	);
-	const score = 0.45 * primaryMax + 0.55 * weighted;
-	const reasons = [
-		...input.accountTierMismatchRisk.reasons.slice(0, 2),
-		...input.derankOrThrowRisk.reasons.slice(0, 1),
-		...input.accountConsistencyRisk.reasons.slice(0, 2),
-	];
-	if (input.confidence === "LOW") reasons.push("데이터 신뢰도 낮음");
-	return risk(Math.round(score), reasons);
-}
-
 function normalizeLane(participant: MatchParticipantDto): string | null {
 	const lane = participant.teamPosition || participant.individualPosition;
 	return VALID_LANES.has(lane) ? lane : null;
@@ -1168,28 +1134,29 @@ function confidenceFor(count: number): Confidence {
 }
 
 function recommendationFor(input: {
-	overall: number;
+	accountTierMismatch: number;
+	derankOrThrow: number;
 	consistency: number;
 	confidence: Confidence;
 	summonerLevel: number | undefined;
 	rankedGames: number | null;
 }): Recommendation {
 	if (input.consistency >= 70) return "REJECT_OR_INTERVIEW";
-	if (input.overall >= 70) return "REJECT_OR_INTERVIEW";
+	if (input.accountTierMismatch >= 70 && (input.derankOrThrow >= 40 || input.consistency >= 40)) {
+		return "REJECT_OR_INTERVIEW";
+	}
 	if (input.consistency >= 50) return "MANUAL_REVIEW";
+	if (input.accountTierMismatch >= 40 || input.derankOrThrow >= 40) return "MANUAL_REVIEW";
 	if (input.confidence === "LOW") {
 		const newAccount =
 			(input.summonerLevel != null && input.summonerLevel < 50) ||
 			(input.rankedGames != null && input.rankedGames < 30);
 		if (newAccount) return "MANUAL_REVIEW";
-		return input.overall >= 30 ? "MANUAL_REVIEW" : "AUTO_PASS";
 	}
-	if (input.overall >= 30) return "MANUAL_REVIEW";
 	return "AUTO_PASS";
 }
 
 function buildSummary(input: {
-	overall: RiskScore;
 	accountTierMismatchRisk: RiskScore;
 	derankOrThrowRisk: RiskScore;
 	accountConsistencyRisk: RiskScore;

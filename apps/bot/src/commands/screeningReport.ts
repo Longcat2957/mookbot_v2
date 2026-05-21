@@ -158,20 +158,22 @@ async function readCachedReport(key: string): Promise<CachedReport | null> {
 }
 
 function buildReportEmbed(report: screening.ScreeningReport, cached: boolean): EmbedBuilder {
-	const overall = report.scores.overallReviewRisk;
+	const leadRisk = leadDisplayRisk(report);
 	const title = `🧪 ${report.identity.gameName}#${report.identity.tagLine}`;
 	const status = `${cached ? "캐시" : "신규"} · 신뢰도 ${confidenceDots(report.sample.confidence)} · 표본 ${report.sample.analyzedMatches}/${report.sample.soloRankedMatches}`;
-	const overallLine = `🟦 종합 **${overall.score}/100** ${labelRisk(overall.level)}  →  ${labelRecommendation(report.recommendation)}`;
+	const recommendationLine = `운영 추천: ${labelRecommendation(report.recommendation)}`;
 	const headline = report.summary.headline ? `📌 ${report.summary.headline}` : "";
 	const reasonsLine =
 		report.summary.primaryReasons.length > 0
 			? `주근거: ${report.summary.primaryReasons.slice(0, 3).join(" · ")}`
 			: "";
-	const description = [status, "", overallLine, headline, reasonsLine].filter(Boolean).join("\n");
+	const description = [status, "", recommendationLine, headline, reasonsLine]
+		.filter(Boolean)
+		.join("\n");
 
 	const embed = new EmbedBuilder()
 		.setTitle(title)
-		.setColor(colorFor(overall.level))
+		.setColor(colorFor(leadRisk.level))
 		.setDescription(description);
 
 	embed.addFields(
@@ -226,17 +228,13 @@ function buildCategoryBars(report: screening.ScreeningReport): string {
 }
 
 function buildCalculationBlock(report: screening.ScreeningReport): string {
-	const account = getAccountTierMismatchRisk(report).score;
-	const pattern = report.scores.derankOrThrowRisk.score;
-	const consistency = report.scores.accountConsistencyRisk.score;
-	const weighted = 0.55 * account + 0.2 * pattern + 0.25 * consistency;
-	const primaryMax = Math.max(account, pattern, consistency);
-	const overall = Math.round(0.45 * primaryMax + 0.55 * weighted);
 	const accountParts = accountTierParts(report);
+	const patternParts = categoryParts(report, "derankOrThrow");
+	const consistencyParts = categoryParts(report, "accountConsistency");
 	const lines = [
-		`종합 = 최고(${primaryMax})*0.45 + 가중합(${round(weighted, 1)})*0.55 = ${overall}`,
-		`가중 = 계정/티어 ${account}*0.55 + 패턴 ${pattern}*0.20 + 일관성 ${consistency}*0.25`,
-		`계정/티어 = 기준선 ${accountParts.benchmark} + 계정 ${accountParts.context} + 최근 ${accountParts.recent} = ${account}`,
+		`계정/티어 = 기준선 ${accountParts.benchmark} + 계정 ${accountParts.context} + 최근 ${accountParts.recent} = ${getAccountTierMismatchRisk(report).score}`,
+		`패배패턴 = ${patternParts.length > 0 ? patternParts.join(" + ") : "신호 없음"} = ${report.scores.derankOrThrowRisk.score}`,
+		`계정일관성 = ${consistencyParts.length > 0 ? consistencyParts.join(" + ") : "신호 없음"} = ${report.scores.accountConsistencyRisk.score}`,
 	];
 	return codeBlock(lines.join("\n"));
 }
@@ -471,6 +469,28 @@ function getAccountTierMismatchRisk(report: screening.ScreeningReport): screenin
 	return scores.accountTierMismatchRisk ?? report.scores.rankMismatchRisk ?? report.scores.smurfRisk;
 }
 
+function leadDisplayRisk(report: screening.ScreeningReport): screening.RiskScore {
+	return (
+		[
+			getAccountTierMismatchRisk(report),
+			report.scores.derankOrThrowRisk,
+			report.scores.accountConsistencyRisk,
+		].sort((a, b) => b.score - a.score)[0] ?? riskFallback()
+	);
+}
+
+function riskFallback(): screening.RiskScore {
+	return { score: 0, level: "LOW", reasons: [] };
+}
+
+function categoryParts(report: screening.ScreeningReport, category: string): string[] {
+	return report.evidence
+		.filter((evidence) => evidence.category === category)
+		.sort((a, b) => b.weight - a.weight)
+		.map((evidence) => `${evidence.metric} ${evidence.weight}`)
+		.slice(0, 4);
+}
+
 function accountTierParts(report: screening.ScreeningReport): {
 	benchmark: number;
 	context: number;
@@ -544,12 +564,6 @@ function clampSample(value: number): number {
 
 function pct(value: number): string {
 	return `${Math.round(value * 100)}%`;
-}
-
-function labelRisk(value: screening.RiskLevel): string {
-	if (value === "HIGH") return "**HIGH**";
-	if (value === "MEDIUM") return "**MEDIUM**";
-	return "**LOW**";
 }
 
 function labelRecommendation(value: screening.Recommendation): string {
