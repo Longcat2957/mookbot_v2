@@ -76,6 +76,12 @@ export interface UserRecentGameRow {
 	season_id: number;
 }
 
+export interface UserRankedSideRecordRow {
+	side: Side;
+	games: number;
+	wins: number;
+}
+
 /**
  * 한 사용자의 최근 게임 목록 — Profile 화면용. game_stats / games / mmr_changes JOIN.
  * 본인 perspective (team / side / champion / KDA / W·L / MMR delta).
@@ -126,6 +132,38 @@ export async function getRecentGamesForUser(input: {
 		   AND (am.id IS NULL OR (am.deleted_at IS NULL AND am_season.deleted_at IS NULL))
 		 ORDER BY g.played_at DESC
 		 LIMIT ?`,
+		params,
+	);
+}
+
+/**
+ * 한 사용자의 RANKED 게임 사이드별 전적 — Profile 화면용.
+ * TEAM_1/TEAM_2 배정은 game.team1_side 기준으로 BLUE/RED 관점으로 변환한다.
+ */
+export async function getRankedSideRecordsForUser(input: {
+	userId: string;
+	seasonId?: number;
+}): Promise<UserRankedSideRecordRow[]> {
+	const params: unknown[] = [input.userId];
+	const conditions = ["gs.user_id = ?", "g.ranked_series_id IS NOT NULL"];
+	if (input.seasonId !== undefined) {
+		conditions.push("s.season_id = ?");
+		params.push(input.seasonId);
+	}
+	return query<UserRankedSideRecordRow>(
+		`SELECT
+		   CASE
+		     WHEN gs.team = 'TEAM_1' THEN g.team1_side
+		     ELSE CASE WHEN g.team1_side = 'BLUE' THEN 'RED' ELSE 'BLUE' END
+		   END AS side,
+		   COUNT(*) AS games,
+		   SUM(CASE WHEN gs.won = 1 THEN 1 ELSE 0 END) AS wins
+		 FROM game_stats gs
+		 JOIN games g ON g.id = gs.game_id
+		 JOIN series s ON s.id = g.ranked_series_id
+		 WHERE ${conditions.join(" AND ")}
+		   AND s.deleted_at IS NULL
+		 GROUP BY side`,
 		params,
 	);
 }

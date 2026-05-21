@@ -5,6 +5,7 @@ import { LaneMmrCard } from "./Profile/LaneMmrCard.js";
 import { ProfileHeader } from "./Profile/ProfileHeader.js";
 import { ProfileSkeleton } from "./Profile/ProfileSkeleton.js";
 import { RecentGamesCard } from "./Profile/RecentGamesCard.js";
+import { SoloRankedSideRecords } from "./Profile/SoloRankedSideRecords.js";
 import { TopChampionsCard } from "./Profile/TopChampionsCard.js";
 import { useProfileData } from "./Profile/useProfileData.js";
 
@@ -67,6 +68,8 @@ export function Profile({
 					))}
 				</div>
 			</section>
+
+			<SoloRankedSideRecords records={data.soloRankedSideRecords} />
 
 			{/* 라인별 선호 챔프 (게시판 텍스트 풀이의 페이지 대체) */}
 			<details

@@ -96,7 +96,7 @@ export async function registerUsersRoutes(app: FastifyInstance): Promise<void> {
 				seasonName = cur.name;
 			}
 
-			const [riotAccounts, mainAccount, mmrs, recentGames, history] = await Promise.all([
+			const [riotAccounts, mainAccount, mmrs, recentGames, sideRecords, history] = await Promise.all([
 				db.getRiotAccountsByUser(userId),
 				db.getMainRiotAccount(userId),
 				db.getLaneMmrs(
@@ -104,6 +104,7 @@ export async function registerUsersRoutes(app: FastifyInstance): Promise<void> {
 					seasonId,
 				),
 				db.getRecentGamesForUser({ userId, seasonId, limit: 20 }),
+				db.getRankedSideRecordsForUser({ userId, seasonId }),
 				fetchPlayHistoryFor([userId]),
 			]);
 
@@ -157,6 +158,18 @@ export async function registerUsersRoutes(app: FastifyInstance): Promise<void> {
 					losses: totals.games - totals.wins,
 					winrate: totals.games > 0 ? totals.wins / totals.games : 0,
 				},
+				soloRankedSideRecords: (["BLUE", "RED"] as const).map((side) => {
+					const record = sideRecords.find((r) => r.side === side);
+					const games = record?.games ?? 0;
+					const wins = record?.wins ?? 0;
+					return {
+						side,
+						games,
+						wins,
+						losses: games - wins,
+						winrate: games > 0 ? wins / games : 0,
+					};
+				}),
 				topChampions: (userHistory?.topChampions ?? []).map((c) => ({
 					championId: c.championId,
 					championName: c.championName,

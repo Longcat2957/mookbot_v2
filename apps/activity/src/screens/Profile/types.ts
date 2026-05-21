@@ -25,6 +25,14 @@ export interface LaneMmr {
 	winrate: number;
 }
 
+export interface SoloRankedSideRecord {
+	side: "BLUE" | "RED";
+	games: number;
+	wins: number;
+	losses: number;
+	winrate: number;
+}
+
 export interface TopChampion {
 	championId: number;
 	championName: string;
@@ -58,6 +66,7 @@ export interface ProfileResponse {
 	season: { id: number; name: string };
 	laneMmrs: LaneMmr[];
 	totals: { games: number; wins: number; losses: number; winrate: number };
+	soloRankedSideRecords: SoloRankedSideRecord[];
 	topChampions: TopChampion[];
 	recentGames: RecentGame[];
 }

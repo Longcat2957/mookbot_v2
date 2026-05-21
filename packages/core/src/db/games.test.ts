@@ -4,6 +4,7 @@ import {
 	countSeriesWins,
 	getGame,
 	getGameStats,
+	getRankedSideRecordsForUser,
 	getRecentGamesForUser,
 	listGamesInSeries,
 	listHeadToHeadRecords,
@@ -140,6 +141,53 @@ describe("getRecentGamesForUser", () => {
 
 		const wrongSeason = await getRecentGamesForUser({ userId: "u1", seasonId: 99999 });
 		expect(wrongSeason).toEqual([]);
+	});
+});
+
+describe("getRankedSideRecordsForUser", () => {
+	it("user perspective BLUE/RED 전적을 RANKED 게임만 집계", async () => {
+		const g1 = insertGame(1, "TEAM_1", "BLUE");
+		const g2 = insertGame(2, "TEAM_2", "BLUE");
+		const g3 = insertGame(3, "TEAM_2", "RED");
+		for (const [gameId, team, won] of [
+			[g1, "TEAM_1", 1],
+			[g2, "TEAM_2", 1],
+			[g3, "TEAM_1", 0],
+		] as const) {
+			db
+				.prepare(
+					"INSERT INTO game_stats (game_id, user_id, team, role, won) VALUES (?, 'u1', ?, 'TOP', ?)",
+				)
+				.run(gameId, team, won);
+		}
+
+		const seasonRow = db.prepare("SELECT season_id FROM series WHERE id = ?").get(seriesId) as {
+			season_id: number;
+		};
+		const rows = await getRankedSideRecordsForUser({
+			userId: "u1",
+			seasonId: seasonRow.season_id,
+		});
+
+		expect(rows.find((r) => r.side === "BLUE")).toMatchObject({ games: 1, wins: 1 });
+		expect(rows.find((r) => r.side === "RED")).toMatchObject({ games: 2, wins: 1 });
+	});
+
+	it("seasonId 필터", async () => {
+		const g = insertGame(1, "TEAM_1", "BLUE");
+		db
+			.prepare(
+				"INSERT INTO game_stats (game_id, user_id, team, role, won) VALUES (?, 'u1', 'TEAM_1', 'TOP', 1)",
+			)
+			.run(g);
+
+		const seasonRow = db.prepare("SELECT season_id FROM series WHERE id = ?").get(seriesId) as {
+			season_id: number;
+		};
+		expect(
+			await getRankedSideRecordsForUser({ userId: "u1", seasonId: seasonRow.season_id }),
+		).toHaveLength(1);
+		expect(await getRankedSideRecordsForUser({ userId: "u1", seasonId: 99999 })).toEqual([]);
 	});
 });
 
