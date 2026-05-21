@@ -8,10 +8,17 @@ import {
 import { requireOperator } from "../utils/operator.js";
 
 const CACHE_TTL_MS = 24 * 60 * 60_000;
+const CACHE_VERSION = "v2";
 
 type CachedReport = {
 	fetchedAt: number;
 	report: screening.ScreeningReport;
+};
+
+type BenchmarkComparison = {
+	value: number;
+	baseline: number;
+	deltaPct: number;
 };
 
 export const data = new SlashCommandBuilder()
@@ -203,16 +210,12 @@ function buildReportEmbed(report: screening.ScreeningReport, cached: boolean): E
 }
 
 function buildCategoryBars(report: screening.ScreeningReport): string {
+	const accountTier = getAccountTierMismatchRisk(report);
 	const rows: Array<{ label: string; score: number; level: screening.RiskLevel }> = [
 		{
-			label: "부계정    ",
-			score: report.scores.smurfRisk.score,
-			level: report.scores.smurfRisk.level,
-		},
-		{
-			label: "티어불일치",
-			score: report.scores.rankMismatchRisk.score,
-			level: report.scores.rankMismatchRisk.level,
+			label: "계정/티어",
+			score: accountTier.score,
+			level: accountTier.level,
 		},
 		{
 			label: "패배패턴  ",
@@ -267,7 +270,37 @@ function buildProfileBlock(report: screening.ScreeningReport): string {
 
 function buildMetricsBlock(report: screening.ScreeningReport): string {
 	const m = report.metrics;
-	const header = "          값        벤치    판정";
+	const benchmarkReport = report as screening.ScreeningReport & {
+		benchmarks?: {
+			roleComparisons?: Array<{
+				kda: BenchmarkComparison | null;
+				csm: BenchmarkComparison | null;
+				kills: BenchmarkComparison | null;
+				deaths: BenchmarkComparison | null;
+			}>;
+		};
+	};
+	const mainBenchmark = benchmarkReport.benchmarks?.roleComparisons?.[0];
+	if (mainBenchmark) {
+		const lines = [
+			"          값      기준      차이    판정",
+			benchmarkRow("KDA  ", mainBenchmark.kda),
+			benchmarkRow("CS/M ", mainBenchmark.csm),
+			benchmarkRow("킬   ", mainBenchmark.kills),
+			benchmarkRow("데스 ", mainBenchmark.deaths, true),
+			row("DPM  ", Math.round(m.averageDpm).toString(), "보조", arrow(m.averageDpm, 650)),
+			row("GPM  ", Math.round(m.averageGpm).toString(), "보조", arrow(m.averageGpm, 400)),
+			row(
+				"시야/M",
+				round(m.averageVisionPerMin, 2).toFixed(2),
+				"보조",
+				arrow(m.averageVisionPerMin, 1.5),
+			),
+		];
+		return codeBlock(lines.join("\n"));
+	}
+
+	const header = "          값        기준    판정";
 	const lines = [
 		header,
 		row("KDA  ", round(m.averageKda, 2).toFixed(2), "3.50", arrow(m.averageKda, 3.5)),
@@ -288,6 +321,17 @@ function buildMetricsBlock(report: screening.ScreeningReport): string {
 		),
 	];
 	return codeBlock(lines.join("\n"));
+}
+
+function benchmarkRow(label: string, item: BenchmarkComparison | null, inverse = false): string {
+	if (!item) return row(label, "-", "-", "·");
+	const verdict = deltaArrow(item.deltaPct, inverse);
+	return row(
+		label,
+		round(item.value, 2).toFixed(2),
+		round(item.baseline, 2).toFixed(2),
+		`${signedPct(item.deltaPct)} ${verdict}`,
+	);
 }
 
 function buildWinLossSplit(report: screening.ScreeningReport): string {
@@ -404,6 +448,8 @@ function buildEvidenceBlock(report: screening.ScreeningReport): string {
 
 function categoryLabel(category: string): string {
 	switch (category) {
+		case "accountTierMismatch":
+			return "계정/티어";
 		case "smurf":
 			return "부계정";
 		case "rankMismatch":
@@ -473,10 +519,30 @@ function arrowInverse(value: number, bench: number): string {
 	return " ↓";
 }
 
+function deltaArrow(deltaPct: number, inverse: boolean): string {
+	const signal = inverse ? -deltaPct : deltaPct;
+	if (signal >= 0.2) return "↑↑";
+	if (signal >= 0.1) return " ↑";
+	if (signal <= -0.2) return " ↓";
+	return " ·";
+}
+
 function signed(value: number, digits: number): string {
 	if (!Number.isFinite(value)) return "-";
 	const sign = value > 0 ? "+" : value < 0 ? "" : "";
 	return `${sign}${round(value, digits).toFixed(digits)}`;
+}
+
+function signedPct(value: number): string {
+	const rounded = Math.round(value * 100);
+	return `${rounded >= 0 ? "+" : ""}${rounded}%`;
+}
+
+function getAccountTierMismatchRisk(report: screening.ScreeningReport): screening.RiskScore {
+	const scores = report.scores as screening.ScreeningReport["scores"] & {
+		accountTierMismatchRisk?: screening.RiskScore;
+	};
+	return scores.accountTierMismatchRisk ?? report.scores.rankMismatchRisk ?? report.scores.smurfRisk;
 }
 
 function codeBlock(content: string): string {
@@ -505,7 +571,7 @@ function round(value: number, digits: number): number {
 
 function cacheKey(gameName: string, tagLine: string, sample: number): string {
 	const riotId = `${gameName}#${tagLine}`.toLocaleLowerCase("ko-KR");
-	return `screening:lol:ASIA:KR:${sample}:${encodeURIComponent(riotId)}`;
+	return `screening:lol:${CACHE_VERSION}:ASIA:KR:${sample}:${encodeURIComponent(riotId)}`;
 }
 
 function clampSample(value: number): number {

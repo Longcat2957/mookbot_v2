@@ -42,9 +42,11 @@ describe("generateLolScreeningReport", () => {
 		expect(report.streaks.longestWinStreak).toBe(5);
 		expect(report.recentSequence.length).toBe(5);
 		expect(report.timeOfDayHistogram).toHaveLength(24);
-		expect(report.scores.smurfRisk.reasons.some((r) => r.includes("소환사 레벨"))).toBe(true);
-		expect(report.evidence.some((item) => item.category === "smurf")).toBe(true);
-		expect(report.summary.headline).toContain("부계정");
+		expect(report.scores.accountTierMismatchRisk.reasons.some((r) => r.includes("소환사 레벨"))).toBe(
+			true,
+		);
+		expect(report.evidence.some((item) => item.category === "accountTierMismatch")).toBe(true);
+		expect(report.summary.headline).toContain("계정/티어");
 		expect(report.recommendation).not.toBe("AUTO_PASS");
 	});
 

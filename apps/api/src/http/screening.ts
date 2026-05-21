@@ -5,6 +5,7 @@ import type { FastifyInstance } from "fastify";
 import { requireEditor } from "./_helpers.js";
 
 const CACHE_TTL_MS = 24 * 60 * 60_000;
+const CACHE_VERSION = "v2";
 const REGIONS = new Set<Region>(["AMERICAS", "ASIA", "EUROPE", "SEA"]);
 const PLATFORMS = new Set<Platform>([
 	"KR",
@@ -157,7 +158,7 @@ function cacheKey(input: {
 	sample: number;
 }): string {
 	const riotId = `${input.gameName}#${input.tagLine}`.toLocaleLowerCase("ko-KR");
-	return `screening:lol:${input.region}:${input.platform}:${input.sample}:${encodeURIComponent(riotId)}`;
+	return `screening:lol:${CACHE_VERSION}:${input.region}:${input.platform}:${input.sample}:${encodeURIComponent(riotId)}`;
 }
 
 function parseRegion(value: string): Region | null {
