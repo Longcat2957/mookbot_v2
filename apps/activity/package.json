@@ -8,11 +8,11 @@
 		"typecheck": "tsc --noEmit"
 	},
 	"dependencies": {
-		"@discord/embedded-app-sdk": "^2.4.1",
+		"@discord/embedded-app-sdk": "^2.5.0",
 		"@fontsource/exo-2": "^5.2.8",
-		"react": "^19.2.5",
-		"react-dom": "^19.2.5",
-		"zustand": "^5.0.12"
+		"react": "^19.2.6",
+		"react-dom": "^19.2.6",
+		"zustand": "^5.0.13"
 	},
 	"devDependencies": {
 		"@tailwindcss/vite": "^4.2.4",
