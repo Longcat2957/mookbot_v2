@@ -5,7 +5,7 @@ import type { FastifyInstance } from "fastify";
 import { requireEditor } from "./_helpers.js";
 
 const CACHE_TTL_MS = 24 * 60 * 60_000;
-const CACHE_VERSION = "v2";
+const CACHE_VERSION = "v3";
 const REGIONS = new Set<Region>(["AMERICAS", "ASIA", "EUROPE", "SEA"]);
 const PLATFORMS = new Set<Platform>([
 	"KR",

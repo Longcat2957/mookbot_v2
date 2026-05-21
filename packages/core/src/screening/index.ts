@@ -27,7 +27,7 @@ export interface Evidence {
 }
 
 export interface ScreeningReport {
-	version: "0.22.0";
+	version: "0.23.0";
 	generatedAt: string;
 	identity: {
 		gameName: string;
@@ -96,6 +96,7 @@ export interface ScreeningReport {
 	timeOfDayHistogram: number[];
 	scores: {
 		accountTierMismatchRisk: RiskScore;
+		tierUnderperformanceRisk: RiskScore;
 		/** @deprecated Use accountTierMismatchRisk. Kept for cached reports and old clients. */
 		smurfRisk: RiskScore;
 		/** @deprecated Use accountTierMismatchRisk. Kept for cached reports and old clients. */
@@ -198,6 +199,12 @@ export async function generateLolScreeningReport(input: GenerateInput): Promise<
 	});
 	const smurfRisk = accountTierMismatchRisk;
 	const rankMismatchRisk = accountTierMismatchRisk;
+	const tierUnderperformanceRisk = scoreTierUnderperformanceRisk({
+		summaries,
+		metrics,
+		benchmarks,
+		evidence,
+	});
 	const derankOrThrowRisk = scoreDerankOrThrowRisk({ summaries, metrics, benchmarks, evidence });
 	const accountConsistencyRisk = scoreAccountConsistencyRisk({
 		summaries,
@@ -217,6 +224,7 @@ export async function generateLolScreeningReport(input: GenerateInput): Promise<
 
 	const recommendation = recommendationFor({
 		accountTierMismatch: accountTierMismatchRisk.score,
+		tierUnderperformance: tierUnderperformanceRisk.score,
 		derankOrThrow: derankOrThrowRisk.score,
 		consistency: accountConsistencyRisk.score,
 		confidence: sampleConfidence,
@@ -226,13 +234,14 @@ export async function generateLolScreeningReport(input: GenerateInput): Promise<
 
 	const summary = buildSummary({
 		accountTierMismatchRisk,
+		tierUnderperformanceRisk,
 		derankOrThrowRisk,
 		accountConsistencyRisk,
 		recommendation,
 	});
 
 	return {
-		version: "0.22.0",
+		version: "0.23.0",
 		generatedAt: new Date().toISOString(),
 		identity: {
 			gameName: account.gameName,
@@ -259,6 +268,7 @@ export async function generateLolScreeningReport(input: GenerateInput): Promise<
 		timeOfDayHistogram,
 		scores: {
 			accountTierMismatchRisk,
+			tierUnderperformanceRisk,
 			smurfRisk,
 			rankMismatchRisk,
 			derankOrThrowRisk,
@@ -807,6 +817,128 @@ function scoreDerankOrThrowRisk(input: {
 	return risk(score, reasons);
 }
 
+function scoreTierUnderperformanceRisk(input: {
+	summaries: MatchSummary[];
+	metrics: ScreeningReport["metrics"];
+	benchmarks: ScreeningReport["benchmarks"];
+	evidence: Evidence[];
+}): RiskScore {
+	let score = 0;
+	const reasons: string[] = [];
+	let benchmarkScore = 0;
+	let underSignalCount = 0;
+	let mainRoleUnderSignalCount = 0;
+
+	for (const role of input.benchmarks.roleComparisons) {
+		const sampleFactor = role.games < 8 ? 0.5 : 1;
+		const roleLabel = koBenchmarkRole(role.role);
+		const addMetric = (
+			metric: "kda" | "kills" | "csm" | "deaths",
+			comparison: MetricComparison | null,
+			points: number,
+			reasonThreshold: number,
+		) => {
+			if (!comparison || points <= 0) return;
+			const weighted = Math.round(points * sampleFactor);
+			if (weighted <= 0) return;
+			benchmarkScore += weighted;
+			underSignalCount += 1;
+			if (role === input.benchmarks.roleComparisons[0]) mainRoleUnderSignalCount += 1;
+			addEvidence(
+				input.evidence,
+				"tierUnderperformance",
+				`${role.role}.${metric}`,
+				round(comparison.value, metric === "csm" || metric === "kda" ? 2 : 1),
+				`${input.benchmarks.tier ?? "?"}/${roleLabel} ${round(comparison.baseline, 2)} (${signedPct(comparison.deltaPct)})`,
+				weighted,
+				`${roleLabel} ${labelMetric(metric)}가 같은 티어/포지션 기준선보다 낮은 방향으로 크게 벗어납니다.`,
+			);
+			if (metric === "deaths") {
+				if (comparison.deltaPct >= reasonThreshold) {
+					reasons.push(`${roleLabel} 데스 ${signedPct(comparison.deltaPct)}`);
+				}
+			} else if (comparison.deltaPct <= -reasonThreshold) {
+				reasons.push(`${roleLabel} ${labelMetric(metric)} ${signedPct(comparison.deltaPct)}`);
+			}
+		};
+
+		addMetric(
+			"kda",
+			role.kda,
+			scorePositiveDelta(-(role.kda?.deltaPct ?? 0), [0.15, 0.25, 0.4], [6, 12, 18]),
+			0.25,
+		);
+		addMetric(
+			"kills",
+			role.kills,
+			scorePositiveDelta(-(role.kills?.deltaPct ?? 0), [0.15, 0.25, 0.4], [4, 8, 12]),
+			0.25,
+		);
+		addMetric(
+			"csm",
+			role.csm,
+			scorePositiveDelta(-(role.csm?.deltaPct ?? 0), [0.1, 0.18, 0.3], [4, 8, 12]),
+			0.18,
+		);
+		addMetric(
+			"deaths",
+			role.deaths,
+			scorePositiveDelta(role.deaths?.deltaPct ?? 0, [0.12, 0.22, 0.35], [4, 8, 15]),
+			0.22,
+		);
+	}
+
+	score += Math.min(60, benchmarkScore);
+
+	const winRate = rate(input.summaries.filter((s) => s.win).length, input.summaries.length);
+	if (benchmarkScore >= 10 && winRate <= 0.45) {
+		const winRateScore = winRate <= 0.32 ? 12 : winRate <= 0.38 ? 8 : 4;
+		score += winRateScore;
+		addEvidence(
+			input.evidence,
+			"tierUnderperformance",
+			"lowRecentWinRate",
+			pct(winRate),
+			"<= 45% + benchmark 저성과",
+			winRateScore,
+			"최근 승률 저하가 포지션 benchmark 저성과와 동반됩니다.",
+		);
+		reasons.push(`최근 승률 ${pct(winRate)}`);
+	}
+
+	const mainRole = input.benchmarks.roleComparisons[0];
+	if (mainRole && mainRole.games >= 20 && mainRoleUnderSignalCount >= 2) {
+		const mainRoleScore = mainRoleUnderSignalCount >= 3 ? 18 : 12;
+		score += mainRoleScore;
+		addEvidence(
+			input.evidence,
+			"tierUnderperformance",
+			"mainRoleUnderperformance",
+			`${koBenchmarkRole(mainRole.role)} ${mainRole.games}판`,
+			`${mainRoleUnderSignalCount}개 지표 저성과`,
+			mainRoleScore,
+			"주 포지션에서 여러 핵심 지표가 장기 표본으로 동시에 낮습니다.",
+		);
+		reasons.push("주 포지션 동시 저성과");
+	}
+
+	if (underSignalCount >= 4 && benchmarkScore >= 30) {
+		score += 10;
+		addEvidence(
+			input.evidence,
+			"tierUnderperformance",
+			"multiRoleUnderperformance",
+			`${underSignalCount}개 신호`,
+			"여러 포지션/지표 저성과",
+			10,
+			"여러 benchmark 지표에서 낮은 방향의 이탈이 반복됩니다.",
+		);
+		reasons.push("여러 지표 저성과 반복");
+	}
+
+	return risk(score, reasons);
+}
+
 function scoreAccountConsistencyRisk(input: {
 	summaries: MatchSummary[];
 	variability: ScreeningReport["variability"];
@@ -1135,6 +1267,7 @@ function confidenceFor(count: number): Confidence {
 
 function recommendationFor(input: {
 	accountTierMismatch: number;
+	tierUnderperformance: number;
 	derankOrThrow: number;
 	consistency: number;
 	confidence: Confidence;
@@ -1145,8 +1278,17 @@ function recommendationFor(input: {
 	if (input.accountTierMismatch >= 70 && (input.derankOrThrow >= 40 || input.consistency >= 40)) {
 		return "REJECT_OR_INTERVIEW";
 	}
+	if (input.tierUnderperformance >= 70 && (input.derankOrThrow >= 40 || input.consistency >= 40)) {
+		return "REJECT_OR_INTERVIEW";
+	}
 	if (input.consistency >= 50) return "MANUAL_REVIEW";
-	if (input.accountTierMismatch >= 40 || input.derankOrThrow >= 40) return "MANUAL_REVIEW";
+	if (
+		input.accountTierMismatch >= 40 ||
+		input.tierUnderperformance >= 40 ||
+		input.derankOrThrow >= 40
+	) {
+		return "MANUAL_REVIEW";
+	}
 	if (input.confidence === "LOW") {
 		const newAccount =
 			(input.summonerLevel != null && input.summonerLevel < 50) ||
@@ -1158,6 +1300,7 @@ function recommendationFor(input: {
 
 function buildSummary(input: {
 	accountTierMismatchRisk: RiskScore;
+	tierUnderperformanceRisk: RiskScore;
 	derankOrThrowRisk: RiskScore;
 	accountConsistencyRisk: RiskScore;
 	recommendation: Recommendation;
@@ -1165,6 +1308,7 @@ function buildSummary(input: {
 	const reasons: string[] = [];
 	const candidates: Array<[number, string[]]> = [
 		[input.accountTierMismatchRisk.score, input.accountTierMismatchRisk.reasons],
+		[input.tierUnderperformanceRisk.score, input.tierUnderperformanceRisk.reasons],
 		[input.accountConsistencyRisk.score, input.accountConsistencyRisk.reasons],
 		[input.derankOrThrowRisk.score, input.derankOrThrowRisk.reasons],
 	];
@@ -1189,11 +1333,13 @@ function buildSummary(input: {
 
 function leadCategory(input: {
 	accountTierMismatchRisk: RiskScore;
+	tierUnderperformanceRisk: RiskScore;
 	derankOrThrowRisk: RiskScore;
 	accountConsistencyRisk: RiskScore;
 }): string {
 	const items: Array<[string, number]> = [
 		["계정/티어 불일치", input.accountTierMismatchRisk.score],
+		["티어 대비 저성과", input.tierUnderperformanceRisk.score],
 		["계정 일관성 의심", input.accountConsistencyRisk.score],
 		["패배 패턴 의심", input.derankOrThrowRisk.score],
 	];

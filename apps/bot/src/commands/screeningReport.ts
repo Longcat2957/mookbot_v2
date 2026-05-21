@@ -8,7 +8,7 @@ import {
 import { requireOperator } from "../utils/operator.js";
 
 const CACHE_TTL_MS = 24 * 60 * 60_000;
-const CACHE_VERSION = "v2";
+const CACHE_VERSION = "v3";
 
 type CachedReport = {
 	fetchedAt: number;
@@ -211,6 +211,11 @@ function buildCategoryBars(report: screening.ScreeningReport): string {
 			level: accountTier.level,
 		},
 		{
+			label: "저성과    ",
+			score: getTierUnderperformanceRisk(report).score,
+			level: getTierUnderperformanceRisk(report).level,
+		},
+		{
 			label: "패배패턴  ",
 			score: report.scores.derankOrThrowRisk.score,
 			level: report.scores.derankOrThrowRisk.level,
@@ -229,10 +234,12 @@ function buildCategoryBars(report: screening.ScreeningReport): string {
 
 function buildCalculationBlock(report: screening.ScreeningReport): string {
 	const accountParts = accountTierParts(report);
+	const underperformanceParts = categoryParts(report, "tierUnderperformance");
 	const patternParts = categoryParts(report, "derankOrThrow");
 	const consistencyParts = categoryParts(report, "accountConsistency");
 	const lines = [
 		`계정/티어 = 기준선 ${accountParts.benchmark} + 계정 ${accountParts.context} + 최근 ${accountParts.recent} = ${getAccountTierMismatchRisk(report).score}`,
+		`저성과 = ${underperformanceParts.length > 0 ? underperformanceParts.join(" + ") : "신호 없음"} = ${getTierUnderperformanceRisk(report).score}`,
 		`패배패턴 = ${patternParts.length > 0 ? patternParts.join(" + ") : "신호 없음"} = ${report.scores.derankOrThrowRisk.score}`,
 		`계정일관성 = ${consistencyParts.length > 0 ? consistencyParts.join(" + ") : "신호 없음"} = ${report.scores.accountConsistencyRisk.score}`,
 	];
@@ -381,7 +388,7 @@ function buildEvidenceBlock(report: screening.ScreeningReport): string {
 		.slice(0, 8)
 		.map(
 			(e) =>
-				`[${categoryLabel(e.category)}] ${e.metric} ${e.value}${e.threshold ? ` (${e.threshold})` : ""} +${e.weight}`,
+				`[${categoryLabel(e.category)}] ${metricLabel(e.metric)} ${e.value}${e.threshold ? ` (${e.threshold})` : ""} +${e.weight}`,
 		);
 	if (top.length === 0) return "_특이 신호 없음_";
 	return codeBlock(top.join("\n"));
@@ -391,6 +398,8 @@ function categoryLabel(category: string): string {
 	switch (category) {
 		case "accountTierMismatch":
 			return "계정/티어";
+		case "tierUnderperformance":
+			return "저성과";
 		case "smurf":
 			return "부계정";
 		case "rankMismatch":
@@ -469,10 +478,18 @@ function getAccountTierMismatchRisk(report: screening.ScreeningReport): screenin
 	return scores.accountTierMismatchRisk ?? report.scores.rankMismatchRisk ?? report.scores.smurfRisk;
 }
 
+function getTierUnderperformanceRisk(report: screening.ScreeningReport): screening.RiskScore {
+	const scores = report.scores as screening.ScreeningReport["scores"] & {
+		tierUnderperformanceRisk?: screening.RiskScore;
+	};
+	return scores.tierUnderperformanceRisk ?? riskFallback();
+}
+
 function leadDisplayRisk(report: screening.ScreeningReport): screening.RiskScore {
 	return (
 		[
 			getAccountTierMismatchRisk(report),
+			getTierUnderperformanceRisk(report),
 			report.scores.derankOrThrowRisk,
 			report.scores.accountConsistencyRisk,
 		].sort((a, b) => b.score - a.score)[0] ?? riskFallback()
@@ -487,8 +504,100 @@ function categoryParts(report: screening.ScreeningReport, category: string): str
 	return report.evidence
 		.filter((evidence) => evidence.category === category)
 		.sort((a, b) => b.weight - a.weight)
-		.map((evidence) => `${evidence.metric} ${evidence.weight}`)
+		.map((evidence) => `${metricLabel(evidence.metric)} ${evidence.weight}`)
 		.slice(0, 4);
+}
+
+function metricLabel(metric: string): string {
+	const [role, roleMetric] = metric.split(".");
+	if (role && roleMetric) {
+		return `${roleLabel(role)} ${metricName(roleMetric)}`;
+	}
+	switch (metric) {
+		case "summonerLevel":
+			return "소환사 레벨";
+		case "soloRankedGames":
+			return "솔로랭크 판수";
+		case "newAccountBenchmarkOutlier":
+			return "신규/저판수 과성과";
+		case "newAccount1ChampFocus":
+			return "신규 계정 1챔 집중";
+		case "recentWinRate":
+			return "최근 승률";
+		case "lowRecentWinRate":
+			return "낮은 최근 승률";
+		case "stompRate":
+			return "압도적 승리 비율";
+		case "carryRate":
+			return "캐리형 경기 비율";
+		case "mainRoleDominance":
+			return "주 포지션 동시 과성과";
+		case "mainRoleUnderperformance":
+			return "주 포지션 동시 저성과";
+		case "multiRoleUnderperformance":
+			return "복수 지표 저성과";
+		case "longestLossStreak":
+			return "최장 연패";
+		case "lossDeathsVsBenchmark":
+			return "패배 데스 기준선 초과";
+		case "lossVsWinKda":
+			return "승패 KDA 격차";
+		case "lossDeathsPerMinute":
+			return "패배 사망 빈도";
+		case "kdaCoefficientOfVariation":
+			return "KDA 변동성";
+		case "championSetJaccardDistance":
+		case "championSetJacardDistance":
+			return "챔피언 풀 변화";
+		case "laneSwap":
+			return "주 라인 전환";
+		case "playTimeBimodality":
+			return "플레이 시간대 분리";
+		case "adjacentKdaDelta":
+			return "연속 경기 KDA 급변";
+		case "splitWinRateDelta":
+			return "표본 전후 승률 차";
+		case "topRoleRate":
+			return "주 포지션 비율";
+		case "validRoleSamples":
+			return "포지션 표본";
+		case "analyzedMatches":
+			return "분석 표본";
+		default:
+			return metric;
+	}
+}
+
+function roleLabel(role: string): string {
+	switch (role.toUpperCase()) {
+		case "TOP":
+			return "탑";
+		case "JUNGLE":
+			return "정글";
+		case "MIDDLE":
+			return "미드";
+		case "BOTTOM":
+			return "원딜";
+		case "UTILITY":
+			return "서폿";
+		default:
+			return role;
+	}
+}
+
+function metricName(metric: string): string {
+	switch (metric) {
+		case "kda":
+			return "KDA";
+		case "kills":
+			return "킬";
+		case "deaths":
+			return "데스";
+		case "csm":
+			return "CS/M";
+		default:
+			return metric;
+	}
 }
 
 function accountTierParts(report: screening.ScreeningReport): {

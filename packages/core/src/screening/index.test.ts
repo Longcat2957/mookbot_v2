@@ -161,6 +161,39 @@ describe("generateLolScreeningReport", () => {
 		});
 		expect(report.scores.accountConsistencyRisk.score).toBeLessThan(40);
 	});
+
+	it("티어/포지션 benchmark 대비 저성과도 별도 위험도로 잡는다", async () => {
+		const matchIds = Array.from({ length: 24 }, (_, i) => `m${i}`);
+		stubRiotFetch({
+			summonerLevel: 220,
+			soloRankedWins: 40,
+			soloRankedLosses: 60,
+			matchIds,
+			customizer: (matchId) => {
+				const index = Number.parseInt(matchId.slice(1), 10);
+				return {
+					champion: "Aatrox",
+					lane: "TOP",
+					playedAt: 1_700_000_000_000 - index * HOUR_MS,
+					win: index % 5 === 0,
+					kills: 1,
+					deaths: 12,
+					assists: 2,
+					gameDuration: 1800,
+				};
+			},
+		});
+
+		const report = await generateLolScreeningReport({
+			gameName: "테스트",
+			tagLine: "KR1",
+			sample: 24,
+		});
+
+		expect(report.scores.tierUnderperformanceRisk.score).toBeGreaterThanOrEqual(40);
+		expect(report.evidence.some((item) => item.category === "tierUnderperformance")).toBe(true);
+		expect(report.summary.headline).toContain("저성과");
+	});
 });
 
 interface MatchFixture {
