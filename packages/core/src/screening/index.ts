@@ -615,23 +615,6 @@ function scoreAccountTierMismatchRisk(input: {
 		}
 	}
 
-	if (
-		input.metrics.averageDpm >= 700 &&
-		(performanceScore >= 10 || (input.rankedGames != null && input.rankedGames < 40))
-	) {
-		score += 8;
-		addEvidence(
-			input.evidence,
-			"accountTierMismatch",
-			"damagePerMinute",
-			Math.round(input.metrics.averageDpm),
-			"보조: >= 700 + 저판수/benchmark 신호",
-			8,
-			"DPM은 benchmark 핵심 지표가 아니므로 저판수 또는 포지션 benchmark 신호가 있을 때만 보조로 사용합니다.",
-		);
-		reasons.push(`분당 피해량 ${Math.round(input.metrics.averageDpm)}`);
-	}
-
 	const winRateScore = winRate >= 0.65 ? 14 : winRate >= 0.58 ? 8 : winRate >= 0.52 ? 4 : 0;
 	if (winRateScore > 0) {
 		score += winRateScore;
@@ -939,26 +922,6 @@ function scoreAccountConsistencyRisk(input: {
 		reasons.push("표본 전후 승률 분할");
 	}
 
-	const mainLaneDpms = mainLaneDpmSeries(input.summaries);
-	if (mainLaneDpms.length >= 8) {
-		const meanDpm = average(mainLaneDpms);
-		const stdDpm = stdev(mainLaneDpms, meanDpm);
-		const cv = meanDpm > 0 ? stdDpm / meanDpm : 0;
-		if (cv >= 0.45) {
-			score += 10;
-			addEvidence(
-				input.evidence,
-				"accountConsistency",
-				"mainLaneDpmCv",
-				round(cv, 2),
-				">= 0.45",
-				10,
-				"주 라인 경기 안에서도 분당 피해 변동 폭이 큽니다.",
-			);
-			reasons.push("주 라인 DPM 변동성 큼");
-		}
-	}
-
 	if (score >= 50 && strongSignals < 2) return risk(39, reasons);
 	return risk(score, reasons);
 }
@@ -1051,11 +1014,9 @@ function scoreOverall(input: {
 	confidence: Confidence;
 }): RiskScore {
 	const weighted =
-		0.35 * input.accountTierMismatchRisk.score +
-		0.15 * input.derankOrThrowRisk.score +
-		0.2 * input.accountConsistencyRisk.score +
-		0.07 * input.roleMismatchRisk.score +
-		0.23 * input.dataQualityRisk.score;
+		0.55 * input.accountTierMismatchRisk.score +
+		0.2 * input.derankOrThrowRisk.score +
+		0.25 * input.accountConsistencyRisk.score;
 	const primaryMax = Math.max(
 		input.accountTierMismatchRisk.score,
 		input.derankOrThrowRisk.score,
@@ -1429,15 +1390,6 @@ function splitWinRateDelta(
 	const recentWr = rate(recent.filter((s) => s.win).length, recent.length);
 	const earlierWr = rate(earlier.filter((s) => s.win).length, earlier.length);
 	return { recent: recentWr, earlier: earlierWr, delta: recentWr - earlierWr };
-}
-
-function mainLaneDpmSeries(summaries: MatchSummary[]): number[] {
-	const lanes = summaries.map((s) => s.lane).filter((l): l is string => l !== null);
-	if (lanes.length === 0) return [];
-	const top = topCounts(lanes, lanes.length)[0];
-	if (!top) return [];
-	const mainLane = top[0];
-	return summaries.filter((s) => s.lane === mainLane).map((s) => s.damagePerMin);
 }
 
 async function mapConcurrent<T, R>(

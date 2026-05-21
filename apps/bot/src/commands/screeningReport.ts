@@ -181,14 +181,9 @@ function buildReportEmbed(report: screening.ScreeningReport, cached: boolean): E
 		{ name: "🎯 분당 평균", value: buildMetricsBlock(report), inline: false },
 		{ name: "⚖️ 승패 갈림", value: buildWinLossSplit(report), inline: false },
 		{
-			name: "🧭 포지션",
-			value: buildRolesBlock(report) || "_표본 없음_",
-			inline: true,
-		},
-		{
 			name: "🐉 챔피언 풀",
 			value: buildChampionsBlock(report) || "_표본 없음_",
-			inline: true,
+			inline: false,
 		},
 		{ name: "📈 최근 W/L (좌=최근)", value: buildSequenceBlock(report) },
 	);
@@ -197,11 +192,6 @@ function buildReportEmbed(report: screening.ScreeningReport, cached: boolean): E
 	if (timeHistogram) {
 		embed.addFields({ name: "🕒 시간대 분포 (KST)", value: timeHistogram });
 	}
-	const variabilityBlock = buildVariabilityBlock(report);
-	if (variabilityBlock) {
-		embed.addFields({ name: "📉 변동성", value: variabilityBlock });
-	}
-
 	embed.addFields({ name: "🔎 신호", value: buildEvidenceBlock(report) });
 
 	embed.setFooter({
@@ -228,16 +218,6 @@ function buildCategoryBars(report: screening.ScreeningReport): string {
 			score: report.scores.accountConsistencyRisk.score,
 			level: report.scores.accountConsistencyRisk.level,
 		},
-		{
-			label: "포지션    ",
-			score: report.scores.roleMismatchRisk.score,
-			level: report.scores.roleMismatchRisk.level,
-		},
-		{
-			label: "데이터품질",
-			score: report.scores.dataQualityRisk.score,
-			level: report.scores.dataQualityRisk.level,
-		},
 	];
 	const lines = rows.map(
 		(r) => `${r.label} ${bar(r.score)} ${pad3(r.score)} ${labelRiskShort(r.level)}`,
@@ -249,17 +229,14 @@ function buildCalculationBlock(report: screening.ScreeningReport): string {
 	const account = getAccountTierMismatchRisk(report).score;
 	const pattern = report.scores.derankOrThrowRisk.score;
 	const consistency = report.scores.accountConsistencyRisk.score;
-	const role = report.scores.roleMismatchRisk.score;
-	const quality = report.scores.dataQualityRisk.score;
-	const weighted =
-		0.35 * account + 0.15 * pattern + 0.2 * consistency + 0.07 * role + 0.23 * quality;
+	const weighted = 0.55 * account + 0.2 * pattern + 0.25 * consistency;
 	const primaryMax = Math.max(account, pattern, consistency);
 	const overall = Math.round(0.45 * primaryMax + 0.55 * weighted);
 	const accountParts = accountTierParts(report);
 	const lines = [
 		`종합 = 최고(${primaryMax})*0.45 + 가중합(${round(weighted, 1)})*0.55 = ${overall}`,
-		`가중 = 계정/티어 ${account}*0.35 + 패턴 ${pattern}*0.15 + 일관성 ${consistency}*0.20 + 포지션 ${role}*0.07 + 품질 ${quality}*0.23`,
-		`계정/티어 = 기준선 ${accountParts.benchmark} + 계정 ${accountParts.context} + 최근 ${accountParts.recent} + 보조 ${accountParts.aux} = ${account}`,
+		`가중 = 계정/티어 ${account}*0.55 + 패턴 ${pattern}*0.20 + 일관성 ${consistency}*0.25`,
+		`계정/티어 = 기준선 ${accountParts.benchmark} + 계정 ${accountParts.context} + 최근 ${accountParts.recent} = ${account}`,
 	];
 	return codeBlock(lines.join("\n"));
 }
@@ -308,14 +285,6 @@ function buildMetricsBlock(report: screening.ScreeningReport): string {
 			benchmarkRow("CS/M ", mainBenchmark.csm),
 			benchmarkRow("킬   ", mainBenchmark.kills),
 			benchmarkRow("데스 ", mainBenchmark.deaths, true),
-			row("DPM  ", Math.round(m.averageDpm).toString(), "보조", arrow(m.averageDpm, 650)),
-			row("GPM  ", Math.round(m.averageGpm).toString(), "보조", arrow(m.averageGpm, 400)),
-			row(
-				"시야/M",
-				round(m.averageVisionPerMin, 2).toFixed(2),
-				"보조",
-				arrow(m.averageVisionPerMin, 1.5),
-			),
 		];
 		return codeBlock(lines.join("\n"));
 	}
@@ -324,15 +293,7 @@ function buildMetricsBlock(report: screening.ScreeningReport): string {
 	const lines = [
 		header,
 		row("KDA  ", round(m.averageKda, 2).toFixed(2), "3.50", arrow(m.averageKda, 3.5)),
-		row("DPM  ", Math.round(m.averageDpm).toString(), "650 ", arrow(m.averageDpm, 650)),
-		row("GPM  ", Math.round(m.averageGpm).toString(), "400 ", arrow(m.averageGpm, 400)),
 		row("CS/M ", round(m.averageCsPerMin, 1).toFixed(1), "7.0 ", arrow(m.averageCsPerMin, 7.0)),
-		row(
-			"시야/M",
-			round(m.averageVisionPerMin, 2).toFixed(2),
-			"1.50",
-			arrow(m.averageVisionPerMin, 1.5),
-		),
 		row(
 			"데스/M",
 			round(m.averageDeathsPerMin, 2).toFixed(2),
@@ -371,21 +332,8 @@ function buildWinLossSplit(report: screening.ScreeningReport): string {
 			round(m.lossDeaths, 1).toFixed(1),
 			signed(m.winDeaths - m.lossDeaths, 1),
 		),
-		row(
-			"DPM  ",
-			Math.round(m.winDpm).toString(),
-			Math.round(m.lossDpm).toString(),
-			signed(m.winDpm - m.lossDpm, 0),
-		),
 	];
 	return codeBlock(lines.join("\n"));
-}
-
-function buildRolesBlock(report: screening.ScreeningReport): string {
-	return report.profile.mainRoles
-		.slice(0, 5)
-		.map((r) => `${koLane(r.role)} ${r.games}판 ${pct(r.rate)}`)
-		.join("\n");
 }
 
 function buildChampionsBlock(report: screening.ScreeningReport): string {
@@ -425,31 +373,6 @@ function buildTimeHistogramBlock(report: screening.ScreeningReport): string | nu
 	return codeBlock(lines.join("\n"));
 }
 
-function buildVariabilityBlock(report: screening.ScreeningReport): string | null {
-	if (report.sample.analyzedMatches < 20) return null;
-	const v = report.variability;
-	const lines = [
-		"        μ        σ        CV",
-		row(
-			"KDA  ",
-			round(v.kdaMean, 2).toFixed(2),
-			round(v.kdaStdev, 2).toFixed(2),
-			round(v.kdaCv, 2).toFixed(2),
-		) + cvFlag(v.kdaCv, 0.85),
-		row(
-			"DPM  ",
-			Math.round(v.dpmMean).toString(),
-			Math.round(v.dpmStdev).toString(),
-			round(v.dpmCv, 2).toFixed(2),
-		) + cvFlag(v.dpmCv, 0.45),
-	];
-	return codeBlock(lines.join("\n"));
-}
-
-function cvFlag(cv: number, threshold: number): string {
-	return cv >= threshold ? " ⚠" : "";
-}
-
 function pad2(n: number): string {
 	return String(n).padStart(2, "0");
 }
@@ -484,23 +407,6 @@ function categoryLabel(category: string): string {
 			return "품질";
 		default:
 			return category;
-	}
-}
-
-function koLane(lane: string): string {
-	switch (lane) {
-		case "TOP":
-			return "탑    ";
-		case "JUNGLE":
-			return "정글  ";
-		case "MIDDLE":
-			return "미드  ";
-		case "BOTTOM":
-			return "원딜  ";
-		case "UTILITY":
-			return "서폿  ";
-		default:
-			return lane;
 	}
 }
 
@@ -589,8 +495,6 @@ function accountTierParts(report: screening.ScreeningReport): {
 			evidence.metric === "carryRate"
 		) {
 			parts.recent += evidence.weight;
-		} else {
-			parts.aux += evidence.weight;
 		}
 	}
 	const score = getAccountTierMismatchRisk(report).score;
