@@ -683,6 +683,30 @@ function scoreAccountTierMismatchRisk(input: {
 		reasons.push("캐리형 경기 비율 높음");
 	}
 
+	const mainRoleDominance = input.benchmarks.roleComparisons[0];
+	if (
+		mainRoleDominance &&
+		mainRoleDominance.games >= 20 &&
+		(mainRoleDominance.kda?.deltaPct ?? 0) >= 0.2 &&
+		(mainRoleDominance.deaths?.deltaPct ?? 0) <= -0.25 &&
+		((mainRoleDominance.csm?.deltaPct ?? 0) >= 0.08 ||
+			winRate >= 0.58 ||
+			stompRate >= 0.45 ||
+			carryRate >= 0.55)
+	) {
+		score += 18;
+		addEvidence(
+			input.evidence,
+			"accountTierMismatch",
+			"mainRoleDominance",
+			`${koBenchmarkRole(mainRoleDominance.role)} ${mainRoleDominance.games}판`,
+			`KDA ${signedPct(mainRoleDominance.kda?.deltaPct ?? 0)} · 데스 ${signedPct(mainRoleDominance.deaths?.deltaPct ?? 0)}`,
+			18,
+			"주 포지션에서 KDA 상승과 데스 하락이 장기 표본으로 동시에 나타납니다.",
+		);
+		reasons.push("주 포지션 동시 과성과");
+	}
+
 	const hasNewAccountSignal =
 		(input.summonerLevel != null && input.summonerLevel < 70) ||
 		(input.rankedGames != null && input.rankedGames < 80);

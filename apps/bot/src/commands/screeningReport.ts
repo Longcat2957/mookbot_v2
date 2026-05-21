@@ -176,6 +176,7 @@ function buildReportEmbed(report: screening.ScreeningReport, cached: boolean): E
 
 	embed.addFields(
 		{ name: "📊 카테고리 위험도", value: buildCategoryBars(report) },
+		{ name: "🧮 계산", value: buildCalculationBlock(report), inline: false },
 		{ name: "👤 프로필 / 표본", value: buildProfileBlock(report), inline: false },
 		{ name: "🎯 분당 평균", value: buildMetricsBlock(report), inline: false },
 		{ name: "⚖️ 승패 갈림", value: buildWinLossSplit(report), inline: false },
@@ -241,6 +242,25 @@ function buildCategoryBars(report: screening.ScreeningReport): string {
 	const lines = rows.map(
 		(r) => `${r.label} ${bar(r.score)} ${pad3(r.score)} ${labelRiskShort(r.level)}`,
 	);
+	return codeBlock(lines.join("\n"));
+}
+
+function buildCalculationBlock(report: screening.ScreeningReport): string {
+	const account = getAccountTierMismatchRisk(report).score;
+	const pattern = report.scores.derankOrThrowRisk.score;
+	const consistency = report.scores.accountConsistencyRisk.score;
+	const role = report.scores.roleMismatchRisk.score;
+	const quality = report.scores.dataQualityRisk.score;
+	const weighted =
+		0.35 * account + 0.15 * pattern + 0.2 * consistency + 0.07 * role + 0.23 * quality;
+	const primaryMax = Math.max(account, pattern, consistency);
+	const overall = Math.round(0.45 * primaryMax + 0.55 * weighted);
+	const accountParts = accountTierParts(report);
+	const lines = [
+		`종합 = 최고(${primaryMax})*0.45 + 가중합(${round(weighted, 1)})*0.55 = ${overall}`,
+		`가중 = 계정/티어 ${account}*0.35 + 패턴 ${pattern}*0.15 + 일관성 ${consistency}*0.20 + 포지션 ${role}*0.07 + 품질 ${quality}*0.23`,
+		`계정/티어 = 기준선 ${accountParts.benchmark} + 계정 ${accountParts.context} + 최근 ${accountParts.recent} + 보조 ${accountParts.aux} = ${account}`,
+	];
 	return codeBlock(lines.join("\n"));
 }
 
@@ -543,6 +563,46 @@ function getAccountTierMismatchRisk(report: screening.ScreeningReport): screenin
 		accountTierMismatchRisk?: screening.RiskScore;
 	};
 	return scores.accountTierMismatchRisk ?? report.scores.rankMismatchRisk ?? report.scores.smurfRisk;
+}
+
+function accountTierParts(report: screening.ScreeningReport): {
+	benchmark: number;
+	context: number;
+	recent: number;
+	aux: number;
+} {
+	const parts = { benchmark: 0, context: 0, recent: 0, aux: 0 };
+	for (const evidence of report.evidence) {
+		if (evidence.category !== "accountTierMismatch") continue;
+		if (evidence.metric.includes(".") || evidence.metric === "mainRoleDominance") {
+			parts.benchmark += evidence.weight;
+		} else if (
+			evidence.metric === "summonerLevel" ||
+			evidence.metric === "soloRankedGames" ||
+			evidence.metric === "newAccountBenchmarkOutlier" ||
+			evidence.metric === "newAccount1ChampFocus"
+		) {
+			parts.context += evidence.weight;
+		} else if (
+			evidence.metric === "recentWinRate" ||
+			evidence.metric === "stompRate" ||
+			evidence.metric === "carryRate"
+		) {
+			parts.recent += evidence.weight;
+		} else {
+			parts.aux += evidence.weight;
+		}
+	}
+	const score = getAccountTierMismatchRisk(report).score;
+	const total = parts.benchmark + parts.context + parts.recent + parts.aux;
+	if (total > score && total > 0) {
+		const ratio = score / total;
+		parts.benchmark = Math.round(parts.benchmark * ratio);
+		parts.context = Math.round(parts.context * ratio);
+		parts.recent = Math.round(parts.recent * ratio);
+		parts.aux = Math.max(0, score - parts.benchmark - parts.context - parts.recent);
+	}
+	return parts;
 }
 
 function codeBlock(content: string): string {
