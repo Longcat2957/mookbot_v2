@@ -37,7 +37,7 @@ export function BiddingTeamCard({
 	return (
 		<PanelCard
 			className={cx("h-full transition", isBidding && !full ? "ring-2 ring-primary/40" : "")}
-			bodyClassName="p-4 gap-2 h-full"
+			bodyClassName="p-2.5 gap-1 h-full"
 		>
 			<BiddingTeamHeader team={team} pointPct={pointPct} />
 			<BiddingTeamFillMeter memberCount={team.members.length} />

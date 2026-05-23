@@ -6,9 +6,33 @@
 
 import { db } from "@mookbot/core";
 import type { FastifyInstance } from "fastify";
-import { invalidate, requireEditor, requireSession } from "./_helpers.js";
+import { invalidate, requireEditor, requireOwner, requireSession } from "./_helpers.js";
 import { clearBidIntents, setBidIntent } from "./auction-bid-intents.js";
 import { buildAuctionTournamentDetail } from "./auction-tournament-detail.js";
+
+function parseBidCandidateQueue(raw: string | null): string[] {
+	if (!raw) return [];
+	try {
+		const parsed = JSON.parse(raw);
+		if (!Array.isArray(parsed)) return [];
+		return parsed.filter((value): value is string => typeof value === "string" && value.length > 0);
+	} catch {
+		return [];
+	}
+}
+
+function uniqueUserIds(userIds: string[]): string[] {
+	return [...new Set(userIds)];
+}
+
+function shuffled(userIds: string[]): string[] {
+	const out = [...userIds];
+	for (let i = out.length - 1; i > 0; i--) {
+		const j = Math.floor(Math.random() * (i + 1));
+		[out[i], out[j]] = [out[j] as string, out[i] as string];
+	}
+	return out;
+}
 
 export async function registerAuctionTournamentRoutes(app: FastifyInstance): Promise<void> {
 	// recruitment → tournament 전이 (운영자 [경매 시작])
@@ -21,6 +45,7 @@ export async function registerAuctionTournamentRoutes(app: FastifyInstance): Pro
 		}
 		const rec = await db.getAuctionRecruitment(recruitmentId);
 		if (!rec) return reply.code(404).send({ error: "recruitment not found" });
+		if (!requireOwner(sid, rec.created_by, reply)) return;
 		// OPEN (정원 도달 직후 직접 변환) 또는 CLOSED (봇 [▶ 경매 시작] 으로 마감된 상태) 둘 다 허용.
 		// CONVERTED 면 이미 토너먼트 있음 — 별도 endpoint 로 진입.
 		if (rec.status !== "OPEN" && rec.status !== "CLOSED") {
@@ -67,7 +92,7 @@ export async function registerAuctionTournamentRoutes(app: FastifyInstance): Pro
 		if (!sid) return;
 		const id = Number(req.params.id);
 		if (!Number.isFinite(id)) return reply.code(400).send({ error: "invalid id" });
-		const detail = await buildAuctionTournamentDetail(id);
+		const detail = await buildAuctionTournamentDetail(id, sid);
 		if (!detail) return reply.code(404).send({ error: "not found" });
 		return detail;
 	});
@@ -82,6 +107,7 @@ export async function registerAuctionTournamentRoutes(app: FastifyInstance): Pro
 			if (!Number.isFinite(id)) return reply.code(400).send({ error: "invalid id" });
 			const t = await db.getAuctionTournament(id);
 			if (!t) return reply.code(404).send({ error: "not found" });
+			if (!requireOwner(sid, t.created_by, reply)) return;
 			if (t.status !== "CAPTAIN_PICK") {
 				return reply.code(409).send({ error: `status=${t.status} — 팀장 set 불가` });
 			}
@@ -141,6 +167,7 @@ export async function registerAuctionTournamentRoutes(app: FastifyInstance): Pro
 		if (!Number.isFinite(id)) return reply.code(400).send({ error: "invalid id" });
 		const t = await db.getAuctionTournament(id);
 		if (!t) return reply.code(404).send({ error: "not found" });
+		if (!requireOwner(sid, t.created_by, reply)) return;
 		if (t.status !== "POINT_ALLOC" && t.status !== "BIDDING") {
 			return reply.code(409).send({ error: `status=${t.status} — 포인트 조정 불가` });
 		}
@@ -170,6 +197,7 @@ export async function registerAuctionTournamentRoutes(app: FastifyInstance): Pro
 			const id = Number(req.params.id);
 			const t = await db.getAuctionTournament(id);
 			if (!t) return reply.code(404).send({ error: "not found" });
+			if (!requireOwner(sid, t.created_by, reply)) return;
 			if (t.status !== "POINT_ALLOC") {
 				return reply.code(409).send({ error: `status=${t.status}` });
 			}
@@ -180,40 +208,61 @@ export async function registerAuctionTournamentRoutes(app: FastifyInstance): Pro
 		},
 	);
 
-	// 🎲 다음 인원 추출 — 미배치 비-팀장 중 random 1명. 서버가 결정 (조작 방지).
+	// 🎲 다음 인원 추출 — BIDDING 진입 후 만들어진 stable queue 에서 1명씩 pop.
 	app.post<{ Params: { id: string } }>("/api/auction-tournaments/:id/draw", async (req, reply) => {
 		const sid = await requireEditor(req, reply);
 		if (!sid) return;
 		const id = Number(req.params.id);
 		const t = await db.getAuctionTournament(id);
 		if (!t) return reply.code(404).send({ error: "not found" });
+		if (!requireOwner(sid, t.created_by, reply)) return;
 		if (t.status !== "BIDDING") {
 			return reply.code(409).send({ error: `status=${t.status}` });
+		}
+		if (t.current_bid_target_user_id) {
+			const users = await db.listUsers([t.current_bid_target_user_id]);
+			return {
+				userId: t.current_bid_target_user_id,
+				displayName: users[0]?.display_name ?? t.current_bid_target_user_id,
+				remainingCount: parseBidCandidateQueue(t.bid_candidate_queue_user_ids).length + 1,
+				done: false,
+			};
 		}
 		const recruitParts = await db.listAuctionRecruitmentParticipants(id);
 		const allMembers = await db.listAuctionTeamMembersByTournament(id);
 		const placed = new Set(allMembers.map((m) => m.user_id));
-		const remaining = recruitParts.filter((p) => !placed.has(p.user_id));
-		if (remaining.length === 0) {
+		const remainingUserIds = recruitParts
+			.map((p) => p.user_id)
+			.filter((userId) => !placed.has(userId));
+		if (remainingUserIds.length === 0) {
 			// 정상 종료 — 모두 배치 완료. 현재 매물 잔재가 있으면 cleanup + broadcast.
 			if (t.current_bid_target_user_id) {
-				await db.setAuctionCurrentBidTarget(id, null);
+				await db.setAuctionCurrentBidTargetAndQueue(id, null, null);
 				await clearBidIntents(id);
 				invalidate(`auction-tournament:${id}`, sid);
 			}
 			return { userId: null, displayName: null, remainingCount: 0, done: true };
 		}
-		const pick = remaining[Math.floor(Math.random() * remaining.length)];
-		if (!pick) return { userId: null, displayName: null, remainingCount: 0, done: true };
-		const users = await db.listUsers([pick.user_id]);
-		// v0.14: DB 에 현재 매물 set + 이전 매물의 입찰 의도 잔재 clear → 모든 화면 sync.
-		await db.setAuctionCurrentBidTarget(id, pick.user_id);
+		const remaining = new Set(remainingUserIds);
+		let queue = parseBidCandidateQueue(t.bid_candidate_queue_user_ids).filter((userId) =>
+			remaining.has(userId),
+		);
+		if (queue.length === 0) {
+			queue = shuffled(remainingUserIds);
+		}
+		const pickUserId = queue.shift();
+		if (!pickUserId) {
+			return { userId: null, displayName: null, remainingCount: 0, done: true };
+		}
+		const users = await db.listUsers([pickUserId]);
+		// DB 에 현재 매물 + 남은 queue 저장. 이후 draw 는 queue 앞에서만 pop 한다.
+		await db.setAuctionCurrentBidTargetAndQueue(id, pickUserId, queue);
 		await clearBidIntents(id);
 		invalidate(`auction-tournament:${id}`, sid);
 		return {
-			userId: pick.user_id,
-			displayName: users[0]?.display_name ?? pick.user_id,
-			remainingCount: remaining.length,
+			userId: pickUserId,
+			displayName: users[0]?.display_name ?? pickUserId,
+			remainingCount: queue.length + 1,
 			done: false,
 		};
 	});
@@ -228,6 +277,7 @@ export async function registerAuctionTournamentRoutes(app: FastifyInstance): Pro
 		const id = Number(req.params.id);
 		const t = await db.getAuctionTournament(id);
 		if (!t) return reply.code(404).send({ error: "not found" });
+		if (!requireOwner(sid, t.created_by, reply)) return;
 		if (t.status !== "BIDDING") return reply.code(409).send({ error: `status=${t.status}` });
 
 		const { targetUserId, teamId, points } = req.body ?? {};
@@ -274,7 +324,10 @@ export async function registerAuctionTournamentRoutes(app: FastifyInstance): Pro
 			payload: { targetUserId, teamId, points },
 		});
 		// v0.14: 매물 확정 — 현재 매물 + 입찰 의도 clear.
-		await db.setAuctionCurrentBidTarget(id, null);
+		const queue = parseBidCandidateQueue(t.bid_candidate_queue_user_ids).filter(
+			(userId) => userId !== targetUserId,
+		);
+		await db.setAuctionCurrentBidTargetAndQueue(id, null, queue);
 		await clearBidIntents(id);
 		invalidate(`auction-tournament:${id}`, sid);
 		return { ok: true };
@@ -290,6 +343,7 @@ export async function registerAuctionTournamentRoutes(app: FastifyInstance): Pro
 		const id = Number(req.params.id);
 		const t = await db.getAuctionTournament(id);
 		if (!t) return reply.code(404).send({ error: "not found" });
+		if (!requireOwner(sid, t.created_by, reply)) return;
 		if (t.status !== "BIDDING") return reply.code(409).send({ error: `status=${t.status}` });
 
 		const { targetUserId, teamId } = req.body ?? {};
@@ -316,7 +370,10 @@ export async function registerAuctionTournamentRoutes(app: FastifyInstance): Pro
 		});
 		// v0.14: 수동 배치도 현재 매물 + 입찰 의도 clear (manual-assign 은 보통 현재 매물 + 다른
 		// teamId 조합이지만, 안전을 위해 매물 ID 일치 여부 무관하게 clear).
-		await db.setAuctionCurrentBidTarget(id, null);
+		const queue = parseBidCandidateQueue(t.bid_candidate_queue_user_ids).filter(
+			(userId) => userId !== targetUserId,
+		);
+		await db.setAuctionCurrentBidTargetAndQueue(id, null, queue);
 		await clearBidIntents(id);
 		invalidate(`auction-tournament:${id}`, sid);
 		return { ok: true };
@@ -332,9 +389,27 @@ export async function registerAuctionTournamentRoutes(app: FastifyInstance): Pro
 			const id = Number(req.params.id);
 			const t = await db.getAuctionTournament(id);
 			if (!t) return reply.code(404).send({ error: "not found" });
+			if (!requireOwner(sid, t.created_by, reply)) return;
 			if (t.status !== "BIDDING") return reply.code(409).send({ error: `status=${t.status}` });
 			if (!t.current_bid_target_user_id) return { ok: true }; // 이미 비어 있음 (멱등)
-			await db.setAuctionCurrentBidTarget(id, null);
+			const recruitParts = await db.listAuctionRecruitmentParticipants(id);
+			const allMembers = await db.listAuctionTeamMembersByTournament(id);
+			const placed = new Set(allMembers.map((m) => m.user_id));
+			const participantIds = new Set(recruitParts.map((p) => p.user_id));
+			const currentUserId = t.current_bid_target_user_id;
+			const remainingOtherIds = recruitParts
+				.map((p) => p.user_id)
+				.filter((userId) => !placed.has(userId) && userId !== currentUserId);
+			let queue = parseBidCandidateQueue(t.bid_candidate_queue_user_ids).filter(
+				(userId) => userId !== currentUserId && !placed.has(userId) && participantIds.has(userId),
+			);
+			if (queue.length === 0 && remainingOtherIds.length > 0) {
+				queue = shuffled(remainingOtherIds);
+			}
+			if (!placed.has(currentUserId) && participantIds.has(currentUserId)) {
+				queue = uniqueUserIds([...queue, currentUserId]);
+			}
+			await db.setAuctionCurrentBidTargetAndQueue(id, null, queue);
 			await clearBidIntents(id);
 			invalidate(`auction-tournament:${id}`, sid);
 			return { ok: true };
@@ -353,6 +428,7 @@ export async function registerAuctionTournamentRoutes(app: FastifyInstance): Pro
 		const id = Number(req.params.id);
 		const t = await db.getAuctionTournament(id);
 		if (!t) return reply.code(404).send({ error: "not found" });
+		if (!requireOwner(sid, t.created_by, reply)) return;
 		if (t.status !== "BIDDING") return reply.code(409).send({ error: `status=${t.status}` });
 		if (!t.current_bid_target_user_id) {
 			return reply.code(409).send({ error: "현재 매물 없음 — 먼저 /draw" });
@@ -383,6 +459,7 @@ export async function registerAuctionTournamentRoutes(app: FastifyInstance): Pro
 			const id = Number(req.params.id);
 			const t = await db.getAuctionTournament(id);
 			if (!t) return reply.code(404).send({ error: "not found" });
+			if (!requireOwner(sid, t.created_by, reply)) return;
 			if (t.status !== "BIDDING") return reply.code(409).send({ error: `status=${t.status}` });
 
 			const targetUserId = req.body?.targetUserId;
@@ -400,6 +477,15 @@ export async function registerAuctionTournamentRoutes(app: FastifyInstance): Pro
 			}
 			await db.removeAuctionTeamMember(team.id, targetUserId);
 			await db.deleteAuctionBidsForTarget(id, targetUserId);
+			const recruitParts = await db.listAuctionRecruitmentParticipants(id);
+			const participantIds = new Set(recruitParts.map((p) => p.user_id));
+			if (participantIds.has(targetUserId) && t.current_bid_target_user_id !== targetUserId) {
+				const queue = uniqueUserIds([
+					...parseBidCandidateQueue(t.bid_candidate_queue_user_ids),
+					targetUserId,
+				]);
+				await db.setAuctionBidCandidateQueue(id, queue);
+			}
 
 			await db.recordAudit({
 				operatorId: sid,
@@ -427,6 +513,7 @@ export async function registerAuctionTournamentRoutes(app: FastifyInstance): Pro
 		const id = Number(req.params.id);
 		const t = await db.getAuctionTournament(id);
 		if (!t) return reply.code(404).send({ error: "not found" });
+		if (!requireOwner(sid, t.created_by, reply)) return;
 		// COMPLETED / CANCELLED / IN_GAME 이상은 매치 결과 영향 — 강제 취소 사용 권장.
 		if (t.status === "COMPLETED" || t.status === "CANCELLED") {
 			return reply.code(409).send({ error: `status=${t.status} — 단계 되돌리기 불가` });
@@ -493,6 +580,7 @@ export async function registerAuctionTournamentRoutes(app: FastifyInstance): Pro
 			const id = Number(req.params.id);
 			const t = await db.getAuctionTournament(id);
 			if (!t) return reply.code(404).send({ error: "not found" });
+			if (!requireOwner(sid, t.created_by, reply)) return;
 			if (t.status !== "BIDDING") return reply.code(409).send({ error: `status=${t.status}` });
 
 			const recruitParts = await db.listAuctionRecruitmentParticipants(id);
@@ -516,6 +604,7 @@ export async function registerAuctionTournamentRoutes(app: FastifyInstance): Pro
 		const id = Number(req.params.id);
 		const t = await db.getAuctionTournament(id);
 		if (!t) return reply.code(404).send({ error: "not found" });
+		if (!requireOwner(sid, t.created_by, reply)) return;
 		if (t.status === "COMPLETED" || t.status === "CANCELLED") {
 			return reply.code(409).send({ error: `status=${t.status}` });
 		}

@@ -116,11 +116,11 @@ function useFinalParticipants(
 	useEffect(() => {
 		if (m1Id === null) return;
 		return wsClient.subscribe(`auction-match:${m1Id}`, () => m1Swr.refresh());
-	}, [m1Id, m1Swr]);
+	}, [m1Id, m1Swr.refresh]);
 	useEffect(() => {
 		if (m2Id === null) return;
 		return wsClient.subscribe(`auction-match:${m2Id}`, () => m2Swr.refresh());
-	}, [m2Id, m2Swr]);
+	}, [m2Id, m2Swr.refresh]);
 
 	const [semi1, semi2] = semis;
 	if (

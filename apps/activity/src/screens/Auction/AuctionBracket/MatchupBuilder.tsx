@@ -4,10 +4,14 @@ import type { AuctionTournamentDetail } from "../types.js";
 
 export function MatchupBuilder({
 	teams,
+	currentUserId,
+	canEdit,
 	onPair,
 	submitting,
 }: {
 	teams: AuctionTournamentDetail["teams"];
+	currentUserId: string;
+	canEdit: boolean;
 	onPair: (team1Id: number, team2Id: number) => Promise<void>;
 	submitting: boolean;
 }) {
@@ -20,6 +24,10 @@ export function MatchupBuilder({
 		setT1(null);
 		setT2(null);
 	};
+	const includesMyCaptainTeam = teams.some(
+		(team) => team.captainUserId === currentUserId && (team.id === t1 || team.id === t2),
+	);
+	const canSubmit = canEdit || includesMyCaptainTeam;
 
 	return (
 		<div className="space-y-3">
@@ -43,9 +51,9 @@ export function MatchupBuilder({
 				type="button"
 				className="btn btn-primary btn-lg w-full"
 				onClick={submit}
-				disabled={!t1 || !t2 || submitting}
+				disabled={!t1 || !t2 || submitting || !canSubmit}
 			>
-				매치업 생성
+				팀장 매치업 보고
 			</button>
 		</div>
 	);

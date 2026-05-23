@@ -40,6 +40,18 @@ export async function requireEditor(
 	return sid;
 }
 
+export function requireOwner(
+	sid: string,
+	ownerId: string | null | undefined,
+	reply: FastifyReply,
+): boolean {
+	if (ownerId && ownerId === sid) return true;
+	reply.code(403).send({
+		error: "이 Activity 방을 연 사람만 화면을 조작할 수 있습니다.",
+	});
+	return false;
+}
+
 export function requireInternalKey(req: FastifyRequest, reply: FastifyReply): boolean {
 	const expected = process.env.INTERNAL_API_KEY;
 	if (!expected) {

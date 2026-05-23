@@ -45,19 +45,19 @@ export function BiddingTeamBidControls({
 	}
 
 	return (
-		<div className="flex items-center gap-1.5 surface-quiet-soft rounded-md p-1.5">
+		<div className="flex items-center gap-1 surface-quiet-soft rounded-md p-1">
 			<input
 				type="number"
 				placeholder="입찰가"
 				value={localValue}
 				onChange={(e) => onBidInput(team.id, e.target.value)}
 				min={0}
-				className="input input-bordered input-sm flex-1 text-right tabular-nums"
+				className="input input-bordered input-xs flex-1 text-right tabular-nums"
 				aria-label={`팀${team.teamIndex} 입찰가`}
 			/>
 			<button
 				type="button"
-				className="btn btn-success btn-sm"
+				className="btn btn-success btn-xs"
 				onClick={() => onFinalize(team.id)}
 				disabled={submitting}
 			>
@@ -65,7 +65,7 @@ export function BiddingTeamBidControls({
 			</button>
 			<button
 				type="button"
-				className="btn btn-ghost btn-sm"
+				className="btn btn-ghost btn-xs"
 				onClick={() => onManualAssign(team.id)}
 				disabled={submitting}
 				title="포인트 무관 수동 배치"

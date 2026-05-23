@@ -11,13 +11,15 @@ export function usePickBanGameShortcuts({
 	draft,
 	detail,
 	setDraft,
+	canEdit,
 }: {
 	draft: PickBanDraft | null;
 	detail: SeriesDetail | null;
 	setDraft: Dispatch<SetStateAction<PickBanDraft | null>>;
+	canEdit: boolean;
 }) {
 	useEffect(() => {
-		if (!draft) return;
+		if (!draft || !canEdit) return;
 		const completedSet = completedGameSet(detail);
 		const onKey = (event: KeyboardEvent) => {
 			if (event.key !== "1" && event.key !== "2" && event.key !== "3") return;
@@ -30,5 +32,5 @@ export function usePickBanGameShortcuts({
 		};
 		window.addEventListener("keydown", onKey);
 		return () => window.removeEventListener("keydown", onKey);
-	}, [draft, detail, setDraft]);
+	}, [draft, detail, setDraft, canEdit]);
 }

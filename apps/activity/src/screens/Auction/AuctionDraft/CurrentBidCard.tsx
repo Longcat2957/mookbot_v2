@@ -31,10 +31,10 @@ export function CurrentBidCard({
 	onCancelDraw: () => void;
 }) {
 	return (
-		<PanelCard status="primary" bodyClassName="p-4 gap-3">
+		<PanelCard status="primary" className="xl:h-full" bodyClassName="p-2.5 gap-1.5 xl:h-full">
 			<SectionHeader
 				title={
-					<span className="text-base flex items-center gap-2">
+					<span className="text-sm flex items-center gap-2">
 						📦 현재 매물
 						{currentBidTarget && (
 							<span className="inline-block size-2.5 rounded-full bg-success animate-pulse" aria-hidden />
@@ -42,12 +42,16 @@ export function CurrentBidCard({
 					</span>
 				}
 				actions={
-					<div className="flex items-center gap-2">
-						{currentBidTarget && <StatusBadge tone="success">진행 중</StatusBadge>}
+					<div className="flex items-center gap-1.5">
+						{currentBidTarget && (
+							<StatusBadge tone="success" size="xs">
+								진행 중
+							</StatusBadge>
+						)}
 						{currentBidTarget && canEdit && (
 							<button
 								type="button"
-								className="btn btn-ghost btn-sm"
+								className="btn btn-ghost btn-xs"
 								onClick={onCancelDraw}
 								disabled={submitting}
 								title="매물 취소 — 배치 없이 닫고 다음으로"
@@ -58,7 +62,7 @@ export function CurrentBidCard({
 						{canEdit && (
 							<button
 								type="button"
-								className="btn btn-primary btn-sm"
+								className="btn btn-primary btn-xs"
 								onClick={onDraw}
 								disabled={allPlaced || currentBidTarget !== null}
 								title={
@@ -83,11 +87,11 @@ export function CurrentBidCard({
 					candidateRiotIcon={candidateRiotIcon}
 				/>
 			) : allPlaced ? (
-				<div className="text-lg text-success font-medium">
+				<div className="text-base text-success font-medium">
 					✅ 모두 배치 완료 — 아래 [▶ 토너먼트 진행] 클릭하세요.
 				</div>
 			) : (
-				<div className="text-base text-base-content/60">
+				<div className="text-sm text-base-content/60">
 					🎲 버튼으로 다음 인원 추출 (다른 화면 함께 sync)
 				</div>
 			)}
@@ -108,21 +112,21 @@ function CurrentCandidate({
 }) {
 	return (
 		<>
-			<div className="flex items-center gap-3 py-1">
+			<div className="flex items-center gap-2 py-0.5">
 				<UserAvatar
 					discordId={currentBidTarget.userId}
 					displayName={currentBidTarget.displayName}
-					size="lg"
+					size="md"
 					imageUrl={candidateRiotIcon ?? currentBidTarget.profileIconUrl}
 				/>
 				<div className="flex-1 min-w-0">
-					<div className="text-2xl font-bold truncate">{currentBidTarget.displayName}</div>
-					<div className="text-sm text-base-content/60">매물 진행 중 · 보이스에서 입찰 협의</div>
+					<div className="text-lg font-bold truncate">{currentBidTarget.displayName}</div>
+					<div className="text-xs text-base-content/60">매물 진행 중 · 보이스에서 입찰 협의</div>
 				</div>
 			</div>
 
-			<div className="grid grid-cols-1 2xl:grid-cols-2 gap-3">
-				<section className="space-y-2 min-w-0">
+			<div className="grid grid-cols-1 xl:grid-cols-2 gap-2">
+				<section className="space-y-1.5 min-w-0">
 					<div className="text-xs font-bold text-base-content/60">🎮 라이엇 연동</div>
 					<CandidateRiotSection
 						key={`riot-${currentBidTarget.userId}`}
@@ -130,7 +134,7 @@ function CurrentCandidate({
 						error={candidateError}
 					/>
 				</section>
-				<section className="space-y-2 min-w-0">
+				<section className="space-y-1.5 min-w-0">
 					<div className="text-xs font-bold text-base-content/60">⚔️ 내전 기록</div>
 					<CandidateMookSection key={`mook-${currentBidTarget.userId}`} data={candidateData} />
 				</section>

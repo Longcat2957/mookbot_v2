@@ -16,9 +16,9 @@ export function BiddingProgressFooter({
 	onStartBracket: () => Promise<void>;
 }) {
 	return (
-		<PanelCard status={allPlaced ? "success" : "neutral"} bodyClassName="p-4 gap-2">
+		<PanelCard status={allPlaced ? "success" : "neutral"} bodyClassName="p-3 gap-2">
 			<div className="flex items-center justify-between flex-wrap gap-2">
-				<span className="text-base font-bold flex items-center gap-2">
+				<span className="text-sm font-bold flex items-center gap-2">
 					배치 현황
 					<StatusBadge tone={allPlaced ? "success" : "neutral"} className="tabular-nums">
 						{totalPlaced}/{expectedTotal}
@@ -27,7 +27,7 @@ export function BiddingProgressFooter({
 				{canEdit && (
 					<button
 						type="button"
-						className="btn btn-success btn-lg"
+						className="btn btn-success btn-sm"
 						onClick={onStartBracket}
 						disabled={!allPlaced || submitting}
 					>

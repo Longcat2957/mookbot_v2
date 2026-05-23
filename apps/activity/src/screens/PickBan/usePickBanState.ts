@@ -18,6 +18,7 @@ import { usePickBanSeriesSubscription } from "./usePickBanSeriesSubscription.js"
 export interface UsePickBanStateResult {
 	// data
 	detail: SeriesDetail | null;
+	canControl: boolean;
 	draft: PickBanDraft | null;
 	champions: Champion[];
 	error: string | null;
@@ -53,11 +54,6 @@ export interface UsePickBanStateResult {
 export function usePickBanState({ seriesId }: { seriesId: number | null }): UsePickBanStateResult {
 	const [draft, setDraft] = useState<PickBanDraft | null>(null);
 	const perms = usePerms();
-	const { saveStatus, savedAt, retrySave, lastSavedDraft } = usePickBanDraftAutosave({
-		draft,
-		seriesId,
-		canEdit: perms.canEdit,
-	});
 
 	// SWR — series detail. dirty 보호 onApply 안 (hot_fix.md §3.4).
 	const detailFetcher = useCallback(() => api<SeriesDetail>(`/series/${seriesId}`), [seriesId]);
@@ -83,10 +79,16 @@ export function usePickBanState({ seriesId }: { seriesId: number | null }): UseP
 	});
 	const detail = detailSwr.data;
 	const error = detailSwr.error;
+	const canControl = perms.canEdit && detail?.series.canControl === true;
+	const { saveStatus, savedAt, retrySave, lastSavedDraft } = usePickBanDraftAutosave({
+		draft,
+		seriesId,
+		canEdit: canControl,
+	});
 
 	const champions = usePickBanCatalog();
 	usePickBanSeriesSubscription({ seriesId, refresh: detailSwr.refresh });
-	usePickBanGameShortcuts({ draft, detail, setDraft });
+	usePickBanGameShortcuts({ draft, detail, setDraft, canEdit: canControl });
 
 	const derived = usePickBanDerived({ detail, draft });
 	const actions = usePickBanActions({
@@ -94,10 +96,12 @@ export function usePickBanState({ seriesId }: { seriesId: number | null }): UseP
 		refresh: detailSwr.refresh,
 		isGameTabEnabled: derived.isGameTabEnabled,
 		setDraft,
+		canEdit: canControl,
 	});
 
 	return {
 		detail,
+		canControl,
 		draft,
 		champions,
 		error,

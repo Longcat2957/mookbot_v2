@@ -2,7 +2,7 @@ import { datadragon, db } from "@mookbot/core";
 import { rewriteDD } from "./_helpers.js";
 import { getBidIntents } from "./auction-bid-intents.js";
 
-export async function buildAuctionTournamentDetail(id: number) {
+export async function buildAuctionTournamentDetail(id: number, viewerId?: string) {
 	const t = await db.getAuctionTournament(id);
 	if (!t) return null;
 
@@ -64,6 +64,8 @@ export async function buildAuctionTournamentDetail(id: number) {
 			format: t.format,
 			status: t.status,
 			championTeamId: t.champion_team_id,
+			createdBy: t.created_by,
+			canControl: viewerId === t.created_by,
 			startedAt: t.started_at,
 			endedAt: t.ended_at,
 			currentBidTarget,

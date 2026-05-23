@@ -8,8 +8,11 @@
 
 import { cloudflare, datadragon, db } from "@mookbot/core";
 import type { FastifyInstance } from "fastify";
-import { notifyBotAuctionTournamentCompleted } from "../bot/notify.js";
-import { invalidate, requireEditor, requireSession } from "./_helpers.js";
+import {
+	notifyBotAuctionMatchCreated,
+	notifyBotAuctionTournamentCompleted,
+} from "../bot/notify.js";
+import { invalidate, requireEditor, requireOwner, requireSession } from "./_helpers.js";
 import { type Role, TEAMS, type Team, validateDraftGameInput } from "./auction-match-validation.js";
 
 type MatchRound = "SEMI" | "FINAL" | "SINGLE";
@@ -93,6 +96,7 @@ export async function registerAuctionMatchRoutes(app: FastifyInstance): Promise<
 		const tournamentId = Number(req.params.id);
 		const t = await db.getAuctionTournament(tournamentId);
 		if (!t) return reply.code(404).send({ error: "not found" });
+		if (!requireOwner(sid, t.created_by, reply)) return;
 		if (t.status !== "BRACKET_SETUP" && t.status !== "IN_GAME") {
 			return reply.code(409).send({ error: `status=${t.status} — 매치 생성 불가` });
 		}
@@ -138,7 +142,17 @@ export async function registerAuctionMatchRoutes(app: FastifyInstance): Promise<
 			action: "auction-match.created",
 			targetType: "auction-match",
 			targetId: String(match.id),
-			payload: { tournamentId, round, bracketIndex, team1Id, team2Id, format },
+			payload: {
+				tournamentId,
+				round,
+				bracketIndex,
+				team1Id,
+				team2Id,
+				format,
+			},
+		});
+		notifyBotAuctionMatchCreated(match.id).catch((err) => {
+			req.log.warn({ err, matchId: match.id }, "notifyBotAuctionMatchCreated failed");
 		});
 		invalidate(`auction-tournament:${tournamentId}`, sid);
 		return { matchId: match.id };
@@ -165,6 +179,9 @@ export async function registerAuctionMatchRoutes(app: FastifyInstance): Promise<
 		if (!Number.isFinite(matchId)) return reply.code(400).send({ error: "invalid id" });
 		const match = await db.getAuctionMatch(matchId);
 		if (!match) return reply.code(404).send({ error: "auction match not found" });
+		const tournament = await db.getAuctionTournament(match.tournament_id);
+		if (!tournament) return reply.code(404).send({ error: "tournament not found" });
+		if (!requireOwner(sid, tournament.created_by, reply)) return;
 		if (match.status !== "IN_PROGRESS") {
 			return reply.code(409).send({ error: `match status=${match.status}` });
 		}
@@ -304,6 +321,9 @@ export async function registerAuctionMatchRoutes(app: FastifyInstance): Promise<
 			if (!Number.isFinite(matchId)) return reply.code(400).send({ error: "invalid id" });
 			const match = await db.getAuctionMatch(matchId);
 			if (!match) return reply.code(404).send({ error: "auction match not found" });
+			const tournament = await db.getAuctionTournament(match.tournament_id);
+			if (!tournament) return reply.code(404).send({ error: "tournament not found" });
+			if (!requireOwner(sid, tournament.created_by, reply)) return;
 			if (match.status === "CANCELLED") {
 				return reply.code(409).send({ error: "취소된 매치는 되돌릴 수 없음" });
 			}
@@ -319,7 +339,6 @@ export async function registerAuctionMatchRoutes(app: FastifyInstance): Promise<
 				await db.restoreAuctionMatchInProgress(matchId);
 			}
 			// 토너먼트가 이 매치 결과로 COMPLETED 됐었으면 복원
-			const tournament = await db.getAuctionTournament(match.tournament_id);
 			if (tournament?.status === "COMPLETED") {
 				await cloudflare.execute(
 					`UPDATE auction_tournaments SET status = 'IN_GAME', champion_team_id = NULL, ended_at = NULL WHERE id = ?`,
@@ -350,6 +369,9 @@ export async function registerAuctionMatchRoutes(app: FastifyInstance): Promise<
 		const matchId = Number(req.params.matchId);
 		const match = await db.getAuctionMatch(matchId);
 		if (!match) return reply.code(404).send({ error: "not found" });
+		const tournament = await db.getAuctionTournament(match.tournament_id);
+		if (!tournament) return reply.code(404).send({ error: "tournament not found" });
+		if (!requireOwner(sid, tournament.created_by, reply)) return;
 		const games = await db.listGamesInAuctionMatch(matchId);
 		if (games.length > 0) {
 			return reply.code(409).send({ error: "이미 기록된 게임이 있어 변경 불가" });

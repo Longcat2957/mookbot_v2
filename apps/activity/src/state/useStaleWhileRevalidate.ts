@@ -26,7 +26,7 @@
 //   - onApply(next, prev) — 호출처가 새/이전 데이터를 비교해 dirty 보호 /
 //     변경 위치 highlight 등을 결정할 수 있음.
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 export interface SwrState<T> {
 	/** 첫 로드 전엔 null. 그 이후엔 절대 null 로 돌아가지 않음. */
@@ -170,5 +170,5 @@ export function useStaleWhileRevalidate<T>(
 		[],
 	);
 
-	return { data, error, refreshing, refresh };
+	return useMemo(() => ({ data, error, refreshing, refresh }), [data, error, refreshing, refresh]);
 }

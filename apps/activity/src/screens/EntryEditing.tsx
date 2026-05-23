@@ -6,7 +6,6 @@
 
 import { useEffect, useState } from "react";
 import { InlineNotice } from "../components/DesignPrimitives.js";
-import { usePerms } from "../state/perms.js";
 import { useCoarsePointer } from "../state/useCoarsePointer.js";
 import { CandidatePool } from "./EntryEditing/CandidatePool.js";
 import { CoinTossPanel } from "./EntryEditing/CoinTossPanel.js";
@@ -26,7 +25,6 @@ export function EntryEditing({
 	onSubmit: (seriesId: number) => void;
 	onReopened: () => void;
 }) {
-	const perms = usePerms();
 	const s = useEntryEditingState({ recruitmentId });
 	const coarse = useCoarsePointer();
 
@@ -68,12 +66,12 @@ export function EntryEditing({
 		<section className="space-y-3">
 			<EntryEditingHeader
 				state={s}
-				canEdit={perms.canEdit}
+				canEdit={s.canControl}
 				onSubmit={handleSubmit}
 				onReopened={onReopened}
 			/>
 
-			{!perms.canEdit && !readOnlyDismissed && (
+			{!s.canControl && !readOnlyDismissed && (
 				<EntryReadOnlyNotice
 					onDismiss={() => {
 						if (dismissKey) sessionStorage.setItem(dismissKey, "1");
@@ -84,10 +82,10 @@ export function EntryEditing({
 
 			{s.submitError && <InlineNotice tone="error">제출 실패: {s.submitError}</InlineNotice>}
 
-			{perms.canEdit && <CoinTossPanel state={s} />}
+			{s.canControl && <CoinTossPanel state={s} />}
 			<SelectedParticipantAlert state={s} />
 			<SlotBoard state={s} />
-			<CandidatePool state={s} canEdit={perms.canEdit} coarse={coarse} />
+			<CandidatePool state={s} canEdit={s.canControl} coarse={coarse} />
 		</section>
 	);
 }

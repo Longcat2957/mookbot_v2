@@ -29,6 +29,8 @@ export interface AuctionTournamentRow {
 	deleted_at: number | null;
 	/** v0.14: BIDDING 진행 중 "현재 매물" — /draw 가 set, finalize/manual-assign/cancel-draw 가 NULL. */
 	current_bid_target_user_id: string | null;
+	/** v0.19.3: BIDDING 후보 queue — /draw 는 앞에서 pop, 유찰은 뒤로 push. */
+	bid_candidate_queue_user_ids: string | null;
 }
 
 export async function createAuctionTournament(input: {
@@ -66,7 +68,8 @@ export async function createAuctionTournament(input: {
 			 SET season_id = ?, format = ?, status = 'CAPTAIN_PICK', champion_team_id = NULL,
 			     started_at = unixepoch(), ended_at = NULL, created_by = ?,
 			     end_card_channel_id = NULL, end_card_message_id = NULL,
-			     deleted_at = NULL, current_bid_target_user_id = NULL
+			     deleted_at = NULL, current_bid_target_user_id = NULL,
+			     bid_candidate_queue_user_ids = NULL
 			 WHERE id = ?`,
 			[input.seasonId, input.format, input.createdBy, input.id],
 		);
@@ -98,10 +101,10 @@ export async function setAuctionTournamentStatus(
 	id: number,
 	status: AuctionTournamentStatus,
 ): Promise<void> {
-	// status 전환 시 현재 매물 잔재가 남으면 안 됨 — BIDDING 이 아니면 의미 없음.
+	// status 전환 시 현재 매물/queue 잔재가 남으면 안 됨. BIDDING 재진입도 새 queue 로 시작.
 	await execute(
 		`UPDATE auction_tournaments
-		 SET status = ?, current_bid_target_user_id = NULL
+		 SET status = ?, current_bid_target_user_id = NULL, bid_candidate_queue_user_ids = NULL
 		 WHERE id = ? AND deleted_at IS NULL`,
 		[status, id],
 	);
@@ -117,6 +120,31 @@ export async function setAuctionCurrentBidTarget(id: number, userId: string | nu
 		 SET current_bid_target_user_id = ?
 		 WHERE id = ? AND deleted_at IS NULL`,
 		[userId, id],
+	);
+}
+
+export async function setAuctionBidCandidateQueue(
+	id: number,
+	userIds: string[] | null,
+): Promise<void> {
+	await execute(
+		`UPDATE auction_tournaments
+		 SET bid_candidate_queue_user_ids = ?
+		 WHERE id = ? AND deleted_at IS NULL`,
+		[userIds === null ? null : JSON.stringify(userIds), id],
+	);
+}
+
+export async function setAuctionCurrentBidTargetAndQueue(
+	id: number,
+	userId: string | null,
+	queueUserIds: string[] | null,
+): Promise<void> {
+	await execute(
+		`UPDATE auction_tournaments
+		 SET current_bid_target_user_id = ?, bid_candidate_queue_user_ids = ?
+		 WHERE id = ? AND deleted_at IS NULL`,
+		[userId, queueUserIds === null ? null : JSON.stringify(queueUserIds), id],
 	);
 }
 

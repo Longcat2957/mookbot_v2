@@ -18,7 +18,7 @@ export function EntryEditingHeader({
 
 	const { recruitment, participants } = state.detail;
 	const submitTip = !canEdit
-		? "쓰기 권한이 없습니다 (읽기 전용)"
+		? "이 Activity 방을 연 사람만 조작할 수 있습니다"
 		: !state.allFilled
 			? `모든 슬롯을 채워야 제출 가능합니다 (${state.assignment.size}/${recruitment.targetCount})`
 			: undefined;

@@ -86,6 +86,7 @@ export interface RecruitmentDetail {
 		targetCount: number;
 		status: string;
 		createdBy: string;
+		canControl: boolean;
 		createdAt: number;
 	};
 	participants: Participant[];

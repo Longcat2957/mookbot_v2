@@ -29,6 +29,7 @@ export function useBiddingPanelState({
 	const currentBidTarget = detail.tournament.currentBidTarget;
 	const candidateUserId = currentBidTarget?.userId ?? null;
 	const [bidPoints, setBidPoints] = useState<Record<number, string>>({});
+	const [optimisticIntents, setOptimisticIntents] = useState<Record<number, number | null>>({});
 	const [submitting, setSubmitting] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 
@@ -47,11 +48,13 @@ export function useBiddingPanelState({
 		}
 		if (!currentBidTarget) {
 			setBidPoints({});
+			setOptimisticIntents({});
 			return;
 		}
 		const initial: Record<number, string> = {};
 		for (const i of currentBidTarget.intents) initial[i.teamId] = String(i.points);
 		setBidPoints(initial);
+		setOptimisticIntents({});
 	}, [currentBidTarget]);
 
 	const intentTimerRef = useRef<number | null>(null);
@@ -84,6 +87,12 @@ export function useBiddingPanelState({
 
 	const handleBidInput = (teamId: number, value: string) => {
 		setBidPoints((prev) => ({ ...prev, [teamId]: value }));
+		const trimmed = value.trim();
+		const points = Number(trimmed);
+		setOptimisticIntents((prev) => ({
+			...prev,
+			[teamId]: trimmed === "" || !Number.isFinite(points) || points < 0 ? null : points,
+		}));
 		queueBidIntent(teamId, value);
 	};
 
@@ -157,6 +166,10 @@ export function useBiddingPanelState({
 
 	const intentByTeam = new Map<number, number>();
 	for (const i of currentBidTarget?.intents ?? []) intentByTeam.set(i.teamId, i.points);
+	for (const [teamId, points] of Object.entries(optimisticIntents)) {
+		if (points === null) intentByTeam.delete(Number(teamId));
+		else intentByTeam.set(Number(teamId), points);
+	}
 
 	return {
 		allPlaced,

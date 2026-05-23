@@ -28,6 +28,7 @@ export function AuctionBracket({
 
 	const matches = s.detail.matches;
 	const semis = matches.filter((m) => m.round === "SEMI");
+	const canControl = perms.canEdit && s.detail.tournament.canControl;
 	const isSetup =
 		s.detail.tournament.status === "BRACKET_SETUP" ||
 		(s.detail.tournament.status === "IN_GAME" &&
@@ -42,14 +43,21 @@ export function AuctionBracket({
 				status={s.detail.tournament.status}
 				onRefresh={s.refresh}
 			/>
-			{isSetup && perms.canEdit && <MatchSetup detail={s.detail} onCreate={s.createMatch} />}
+			{isSetup && canControl && (
+				<MatchSetup
+					detail={s.detail}
+					currentUserId={perms.discordId}
+					canEdit={canControl}
+					onCreate={s.createMatch}
+				/>
+			)}
 			<AuctionBracketGrid
 				detail={s.detail}
-				canEdit={perms.canEdit}
+				canEdit={canControl}
 				onCreateMatch={s.createMatch}
 				onTournamentRefresh={s.refresh}
 			/>
-			<SingleMatchList detail={s.detail} canEdit={perms.canEdit} onTournamentRefresh={s.refresh} />
+			<SingleMatchList detail={s.detail} canEdit={canControl} onTournamentRefresh={s.refresh} />
 		</section>
 	);
 }

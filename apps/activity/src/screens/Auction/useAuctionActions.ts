@@ -2,6 +2,8 @@ import { useCallback } from "react";
 import { api } from "../../api/rest.js";
 import type { MatchFormat, MatchRound } from "./types.js";
 
+type RefreshPolicy = "always" | "error";
+
 export function useAuctionActions({
 	tournamentId,
 	refresh,
@@ -10,16 +12,24 @@ export function useAuctionActions({
 	refresh: () => void;
 }) {
 	const request = useCallback(
-		async <T>(path: string, method: "POST" | "PUT", body?: unknown): Promise<T> => {
+		async <T>(
+			path: string,
+			method: "POST" | "PUT",
+			body?: unknown,
+			refreshPolicy: RefreshPolicy = "always",
+		): Promise<T> => {
 			try {
-				return await api<T>(`/auction-tournaments/${tournamentId}${path}`, {
+				const result = await api<T>(`/auction-tournaments/${tournamentId}${path}`, {
 					method,
 					...(body === undefined ? {} : { body: JSON.stringify(body) }),
 				});
-			} finally {
-				// 성공/실패 무관하게 서버 진실로 resync.
-				// 409 등에서 refresh 안 하면 WS originUser 억제로 영구 stale.
-				refresh();
+				if (refreshPolicy === "always") refresh();
+				return result;
+			} catch (err) {
+				// 실패한 mutating 요청은 서버 쪽 partial change / race 여부를 클라이언트가
+				// 판단할 수 없다. originUser 억제로 WS 를 못 받는 self-client 를 여기서 치유한다.
+				if (refreshPolicy === "always" || refreshPolicy === "error") refresh();
+				throw err;
 			}
 		},
 		[tournamentId, refresh],
@@ -44,8 +54,10 @@ export function useAuctionActions({
 			request<void>("/manual-assign", "POST", input),
 		revertBid: (targetUserId: string) => request<void>("/revert-bid", "POST", { targetUserId }),
 		cancelDraw: () => request<void>("/cancel-draw", "POST"),
+		// Bid intents are transient and high-frequency. The origin client already owns the
+		// typed value, so only failed requests force a full tournament resync.
 		setBidIntent: (input: { teamId: number; points: number | null }) =>
-			request<void>("/bid-intent", "POST", input),
+			request<void>("/bid-intent", "POST", input, "error"),
 		startBracket: () => request<void>("/start-bracket", "POST"),
 		revertStage: (target: "CAPTAIN_PICK" | "POINT_ALLOC" | "BIDDING") =>
 			request<void>("/revert-stage", "POST", { target }),

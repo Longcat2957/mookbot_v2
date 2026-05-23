@@ -8,17 +8,19 @@ export function useEntrySubmit({
 	assignment,
 	recruitmentId,
 	coinTossDecided,
+	canEdit,
 }: {
 	allFilled: boolean;
 	assignment: Assignment;
 	recruitmentId: number | null;
 	coinTossDecided: boolean;
+	canEdit: boolean;
 }) {
 	const [submitting, setSubmitting] = useState(false);
 	const [submitError, setSubmitError] = useState<string | null>(null);
 
 	const submit = useCallback(async (): Promise<{ seriesId: number } | null> => {
-		if (!allFilled || recruitmentId === null) return null;
+		if (!allFilled || recruitmentId === null || !canEdit) return null;
 		setSubmitting(true);
 		setSubmitError(null);
 		try {
@@ -37,7 +39,7 @@ export function useEntrySubmit({
 		} finally {
 			setSubmitting(false);
 		}
-	}, [allFilled, assignment, recruitmentId, coinTossDecided]);
+	}, [allFilled, assignment, recruitmentId, coinTossDecided, canEdit]);
 
 	return { submitting, submitError, submit };
 }

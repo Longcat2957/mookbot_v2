@@ -73,6 +73,8 @@ function makeDetail(overrides: Partial<SeriesDetail["series"]> = {}): SeriesDeta
 			status: "IN_PROGRESS",
 			startedAt: 0,
 			winningTeam: null,
+			createdBy: "op",
+			canControl: true,
 			...overrides,
 		},
 		participants: [

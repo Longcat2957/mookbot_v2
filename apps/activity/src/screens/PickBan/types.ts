@@ -42,6 +42,8 @@ export interface SeriesDetail {
 		status: string;
 		startedAt: number;
 		winningTeam: Team | null;
+		createdBy: string | null;
+		canControl: boolean;
 	};
 	participants: SeriesParticipant[];
 	games: {

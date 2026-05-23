@@ -5,7 +5,7 @@ import { datadragon, db } from "@mookbot/core";
 import type { FastifyInstance } from "fastify";
 import { notifyBotSeriesCompleted } from "../bot/notify.js";
 import { HttpError } from "./_errors.js";
-import { invalidate, requireEditor } from "./_helpers.js";
+import { invalidate, requireEditor, requireOwner } from "./_helpers.js";
 
 export async function registerGameRoutes(app: FastifyInstance): Promise<void> {
 	// 게임 결과 기록 — picks/bans/side/winner 모두 포함.
@@ -32,6 +32,7 @@ export async function registerGameRoutes(app: FastifyInstance): Promise<void> {
 		if (!Number.isFinite(id)) return reply.code(400).send({ error: "invalid id" });
 		const s = await db.getSeries(id);
 		if (!s) return reply.code(404).send({ error: "not found" });
+		if (!requireOwner(sid, s.created_by, reply)) return;
 		if (s.status !== "IN_PROGRESS") {
 			return reply.code(409).send({ error: `series status is ${s.status}` });
 		}
@@ -183,6 +184,7 @@ export async function registerGameRoutes(app: FastifyInstance): Promise<void> {
 		if (!Number.isFinite(id)) return reply.code(400).send({ error: "invalid id" });
 		const s = await db.getSeries(id);
 		if (!s) return reply.code(404).send({ error: "not found" });
+		if (!requireOwner(sid, s.created_by, reply)) return;
 		if (s.status === "CANCELLED") {
 			return reply.code(409).send({ error: "취소된 시리즈는 되돌릴 수 없습니다." });
 		}

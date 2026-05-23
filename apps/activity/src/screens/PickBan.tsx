@@ -7,7 +7,6 @@
 
 import { useEffect, useState } from "react";
 import { BalancePreview } from "../components/BalancePreview.js";
-import { usePerms } from "../state/perms.js";
 import { GameTabs } from "./PickBan/GameTabs.js";
 import { PickBanBoard } from "./PickBan/PickBanBoard.js";
 import { PickBanHeader } from "./PickBan/PickBanHeader.js";
@@ -29,7 +28,6 @@ export function PickBan({
 	onBack: () => void;
 	onSelectUser?: (userId: string) => void;
 }) {
-	const perms = usePerms();
 	const s = usePickBanState({ seriesId });
 
 	// 관전 모드 alert dismissible (세션 단위) — design_upgrade.md §6.7
@@ -46,7 +44,7 @@ export function PickBan({
 	// SoT: state/shortcuts.ts — HelpModal 이 표시하는 단축키 목록과 sync.
 	// early return 전에 위치해야 hooks 호출 순서 일관성 유지 (React #310 회피).
 	// team1Side 는 closure 안에서 s.draft 의 currentGame 으로 derive.
-	usePickBanShortcuts({ canEdit: perms.canEdit, state: s });
+	usePickBanShortcuts({ canEdit: s.canControl, state: s });
 
 	if (seriesId === null) {
 		return (
@@ -80,7 +78,7 @@ export function PickBan({
 
 	return (
 		<section className="space-y-3">
-			<PickBanHeader state={s} canEdit={perms.canEdit} onRevert={handleRevert} />
+			<PickBanHeader state={s} canEdit={s.canControl} onRevert={handleRevert} />
 
 			{s.actionError && (
 				<div className="alert alert-error">
@@ -88,7 +86,7 @@ export function PickBan({
 				</div>
 			)}
 
-			{!perms.canEdit && (
+			{!s.canControl && (
 				<ReadOnlyNotice
 					dismissed={readOnlyDismissed}
 					seriesCompleted={s.seriesCompleted}
@@ -111,7 +109,7 @@ export function PickBan({
 				currentGame={draft.currentGame}
 				team1Side={team1Side}
 				team2Side={s.team2Side}
-				canEdit={perms.canEdit}
+				canEdit={s.canControl}
 				isRecorded={s.isCurrentGameRecorded}
 				onSetSide={s.setSide}
 			/>
@@ -142,6 +140,7 @@ export function PickBan({
 					teamSize={s.teamSize}
 					participants={detail.participants}
 					champions={s.champions}
+					canEdit={s.canControl}
 					onRecorded={s.refresh}
 				/>
 			)}

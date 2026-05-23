@@ -5,6 +5,7 @@ import { createServer, type IncomingMessage, type Server, type ServerResponse } 
 import { db, log } from "@mookbot/core";
 import type { Client } from "discord.js";
 import { publishAuctionEndCard } from "./commands/auction/endCardBuilder.js";
+import { publishAuctionMatchupCard } from "./commands/auction/matchupCardBuilder.js";
 import { refreshRecruitMessageWithClient } from "./commands/recruit/messageBuilder.js";
 import { publishSeriesEndCard } from "./commands/series/endCardBuilder.js";
 
@@ -29,6 +30,10 @@ export function startHealthServer(client: Client): void {
 		}
 		if (req.url === "/internal/auction-tournament-completed" && req.method === "POST") {
 			void handleAuctionTournamentCompleted(client, req, res);
+			return;
+		}
+		if (req.url === "/internal/auction-match-created" && req.method === "POST") {
+			void handleAuctionMatchCreated(client, req, res);
 			return;
 		}
 		res.writeHead(404);
@@ -220,6 +225,60 @@ async function handleAuctionTournamentCompleted(
 		res.end(JSON.stringify({ ok: true }));
 	} catch (err) {
 		log.error({ err, tournamentId }, "auction-tournament-completed handler crashed");
+		res.writeHead(500, { "content-type": "application/json" });
+		res.end(JSON.stringify({ error: err instanceof Error ? err.message : String(err) }));
+	}
+}
+
+async function handleAuctionMatchCreated(
+	client: Client,
+	req: IncomingMessage,
+	res: ServerResponse,
+): Promise<void> {
+	const expected = process.env.INTERNAL_API_KEY;
+	if (!expected) {
+		res.writeHead(503, { "content-type": "application/json" });
+		res.end(JSON.stringify({ error: "INTERNAL_API_KEY not configured" }));
+		return;
+	}
+	const got = req.headers["x-internal-key"];
+	if (got !== expected) {
+		res.writeHead(401, { "content-type": "application/json" });
+		res.end(JSON.stringify({ error: "invalid internal key" }));
+		return;
+	}
+
+	let body = "";
+	req.setEncoding("utf8");
+	for await (const chunk of req) body += chunk;
+
+	let parsed: { matchId?: unknown };
+	try {
+		parsed = JSON.parse(body);
+	} catch {
+		res.writeHead(400, { "content-type": "application/json" });
+		res.end(JSON.stringify({ error: "invalid json" }));
+		return;
+	}
+	const matchId = Number(parsed.matchId);
+	if (!Number.isFinite(matchId) || matchId <= 0) {
+		res.writeHead(400, { "content-type": "application/json" });
+		res.end(JSON.stringify({ error: "matchId required" }));
+		return;
+	}
+
+	try {
+		const failure = await publishAuctionMatchupCard(client, matchId);
+		if (failure) {
+			log.info({ matchId, failure }, "auction-match-created: skipped or non-fatal");
+			res.writeHead(200, { "content-type": "application/json" });
+			res.end(JSON.stringify({ ok: true, skipped: failure }));
+			return;
+		}
+		res.writeHead(200, { "content-type": "application/json" });
+		res.end(JSON.stringify({ ok: true }));
+	} catch (err) {
+		log.error({ err, matchId }, "auction-match-created handler crashed");
 		res.writeHead(500, { "content-type": "application/json" });
 		res.end(JSON.stringify({ error: err instanceof Error ? err.message : String(err) }));
 	}

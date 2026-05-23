@@ -8,9 +8,13 @@ import { MatchupBuilder } from "./MatchupBuilder.js";
 // ============================================================
 export function MatchSetup({
 	detail,
+	currentUserId,
+	canEdit,
 	onCreate,
 }: {
 	detail: AuctionTournamentDetail;
+	currentUserId: string;
+	canEdit: boolean;
 	onCreate: (input: {
 		round: "SEMI" | "FINAL" | "SINGLE";
 		bracketIndex: number | null;
@@ -73,6 +77,9 @@ export function MatchSetup({
 			<div className="card surface-base shadow">
 				<div className="card-body p-5 gap-3">
 					<h3 className="text-lg font-bold">매치 생성</h3>
+					<p className="text-sm text-base-content/60">
+						팀장이 매치업을 보고하면 모집 채널에 공개 공지가 게시됩니다.
+					</p>
 					<FormatSelect value={format} onChange={setFormat} />
 					<div className="text-base">
 						<strong>{t1?.captainName}</strong> vs <strong>{t2?.captainName}</strong>
@@ -84,7 +91,7 @@ export function MatchSetup({
 						onClick={() => t1 && t2 && createSingle(t1.id, t2.id)}
 						disabled={submitting}
 					>
-						▶ 매치 시작
+						▶ 팀장 매치업 보고
 					</button>
 				</div>
 			</div>
@@ -98,10 +105,17 @@ export function MatchSetup({
 			<div className="card-body p-5 gap-3">
 				<h3 className="text-lg font-bold">4강 매치업 구성</h3>
 				<p className="text-base text-base-content/60">
-					팀 두 개를 선택하면 매치업이 생성됩니다. (남은 팀 {remaining.length}/4)
+					팀장이 본인 팀의 상대를 보고하면 매치업이 생성되고 모집 채널에 공개 공지가 게시됩니다. (남은 팀{" "}
+					{remaining.length}/4)
 				</p>
 				<FormatSelect value={format} onChange={setFormat} />
-				<MatchupBuilder teams={remaining} onPair={createSemi} submitting={submitting} />
+				<MatchupBuilder
+					teams={remaining}
+					currentUserId={currentUserId}
+					canEdit={canEdit}
+					onPair={createSemi}
+					submitting={submitting}
+				/>
 				{error && <div className="alert alert-error">{error}</div>}
 			</div>
 		</div>

@@ -5,7 +5,7 @@ import { cloudflare, datadragon, db } from "@mookbot/core";
 import type { FastifyInstance } from "fastify";
 import { notifyBotRecruitRefresh } from "../bot/notify.js";
 import { HttpError } from "./_errors.js";
-import { invalidate, requireEditor, requireSession, rewriteDD } from "./_helpers.js";
+import { invalidate, requireEditor, requireOwner, requireSession, rewriteDD } from "./_helpers.js";
 import { emptyHistory, fetchPlayHistoryFor } from "./_history.js";
 
 const { getRecruitment } = db;
@@ -35,6 +35,7 @@ export async function registerSeriesRoutes(app: FastifyInstance): Promise<void> 
 
 		const rec = await getRecruitment(recruitmentId);
 		if (!rec) return reply.code(404).send({ error: "recruitment not found" });
+		if (!requireOwner(sid, rec.created_by, reply)) return;
 		if (rec.status === "CONVERTED") {
 			return reply.code(409).send({ error: "이미 시리즈로 변환된 모집입니다." });
 		}
@@ -274,6 +275,8 @@ export async function registerSeriesRoutes(app: FastifyInstance): Promise<void> 
 				status: s.status,
 				startedAt: s.started_at,
 				winningTeam: s.winning_team,
+				createdBy: s.created_by,
+				canControl: s.created_by === sid,
 			},
 			participants: parts.map((p) => ({
 				userId: p.user_id,
@@ -324,6 +327,7 @@ export async function registerSeriesRoutes(app: FastifyInstance): Promise<void> 
 			if (!Number.isFinite(id)) return reply.code(400).send({ error: "invalid id" });
 			const s = await db.getSeries(id);
 			if (!s) return reply.code(404).send({ error: "not found" });
+			if (!requireOwner(sid, s.created_by, reply)) return;
 			if (s.status !== "IN_PROGRESS" && s.status !== "COMPLETED") {
 				return reply.code(409).send({ error: `series status is ${s.status}` });
 			}
@@ -347,6 +351,7 @@ export async function registerSeriesRoutes(app: FastifyInstance): Promise<void> 
 		if (!Number.isFinite(id)) return reply.code(400).send({ error: "invalid id" });
 		const s = await db.getSeries(id);
 		if (!s) return reply.code(404).send({ error: "not found" });
+		if (!requireOwner(sid, s.created_by, reply)) return;
 		if (s.status !== "IN_PROGRESS") {
 			return reply.code(409).send({ error: `series status is ${s.status}` });
 		}
@@ -406,6 +411,7 @@ export async function registerSeriesRoutes(app: FastifyInstance): Promise<void> 
 		if (!Number.isFinite(id)) return reply.code(400).send({ error: "invalid id" });
 		const rec = await getRecruitment(id);
 		if (!rec) return reply.code(404).send({ error: "not found" });
+		if (!requireOwner(sid, rec.created_by, reply)) return;
 		if (rec.status === "OPEN") return { ok: true, recruitmentId: id };
 		if (rec.status === "CANCELLED") {
 			return reply.code(409).send({ error: "취소된 모집은 다시 열 수 없습니다." });

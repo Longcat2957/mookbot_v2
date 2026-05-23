@@ -10,7 +10,7 @@ export function EntryReadOnlyNotice({ onDismiss }: { onDismiss: () => void }) {
 				</IconButton>
 			}
 		>
-			👁 관전 중 — 운영자 role 이 있어야 엔트리를 변경할 수 있습니다.
+			👁 관전 중 — 이 Activity 방을 연 사람만 엔트리를 변경할 수 있습니다.
 		</InlineNotice>
 	);
 }

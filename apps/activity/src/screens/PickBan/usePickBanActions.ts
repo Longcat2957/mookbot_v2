@@ -12,11 +12,13 @@ export function usePickBanActions({
 	refresh,
 	isGameTabEnabled,
 	setDraft,
+	canEdit,
 }: {
 	seriesId: number | null;
 	refresh: () => void;
 	isGameTabEnabled: (n: number) => boolean;
 	setDraft: Dispatch<SetStateAction<PickBanDraft | null>>;
+	canEdit: boolean;
 }) {
 	const [actionError, setActionError] = useState<string | null>(null);
 
@@ -30,19 +32,22 @@ export function usePickBanActions({
 
 	const setSide = useCallback(
 		(side: Side) => {
+			if (!canEdit) return;
 			setDraft((prev) => setDraftTeam1Side(prev, side));
 		},
-		[setDraft],
+		[canEdit, setDraft],
 	);
 
 	const setGameDraft = useCallback(
 		(g: GameDraft) => {
+			if (!canEdit) return;
 			setDraft((prev) => replaceCurrentGameDraft(prev, g));
 		},
-		[setDraft],
+		[canEdit, setDraft],
 	);
 
 	const revert = useCallback(async (): Promise<boolean> => {
+		if (!canEdit) return false;
 		setActionError(null);
 		try {
 			await api(`/series/${seriesId}/revert`, { method: "POST" });
@@ -51,9 +56,10 @@ export function usePickBanActions({
 			setActionError(`되돌리기 실패: ${err instanceof Error ? err.message : String(err)}`);
 			return false;
 		}
-	}, [seriesId]);
+	}, [seriesId, canEdit]);
 
 	const undoLast = useCallback(async () => {
+		if (!canEdit) return;
 		setActionError(null);
 		try {
 			await api(`/series/${seriesId}/games/last`, { method: "DELETE" });
@@ -61,7 +67,7 @@ export function usePickBanActions({
 		} catch (err) {
 			setActionError(`되돌리기 실패: ${err instanceof Error ? err.message : String(err)}`);
 		}
-	}, [seriesId, refresh]);
+	}, [seriesId, refresh, canEdit]);
 
 	const clearActionError = useCallback(() => setActionError(null), []);
 

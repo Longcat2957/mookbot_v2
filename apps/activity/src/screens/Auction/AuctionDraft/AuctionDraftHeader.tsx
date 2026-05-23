@@ -7,6 +7,7 @@ export function AuctionDraftHeader({
 	tournamentId,
 	format,
 	status,
+	compact = false,
 	canEdit,
 	onRefresh,
 	onRevertStage,
@@ -14,6 +15,7 @@ export function AuctionDraftHeader({
 	tournamentId: number;
 	format: 10 | 20;
 	status: TournamentStatus;
+	compact?: boolean;
 	canEdit: boolean;
 	onRefresh: () => void;
 	onRevertStage: (status: "CAPTAIN_PICK" | "POINT_ALLOC") => Promise<void>;
@@ -21,9 +23,10 @@ export function AuctionDraftHeader({
 	return (
 		<header>
 			<SectionHeader
-				title={<span className="text-2xl">🎟️ 경매내전 #{tournamentId}</span>}
+				className={compact ? "items-center gap-2" : undefined}
+				title={<span className={compact ? "text-lg" : "text-2xl"}>🎟️ 경매내전 #{tournamentId}</span>}
 				description={
-					<span>
+					<span className={compact ? "text-xs" : undefined}>
 						{format}인 · 현재 단계: <strong>{statusLabel(status)}</strong>
 					</span>
 				}
@@ -52,7 +55,7 @@ function StageRevertMenu({
 }) {
 	return (
 		<div className="dropdown dropdown-end">
-			<button type="button" tabIndex={0} className="btn btn-ghost btn-sm" aria-label="단계 되돌리기">
+			<button type="button" tabIndex={0} className="btn btn-ghost btn-xs" aria-label="단계 되돌리기">
 				↩ 단계
 			</button>
 			<div className="dropdown-content bg-base-100 rounded-box z-30 w-60 p-2 shadow-lg border border-base-300 space-y-1">

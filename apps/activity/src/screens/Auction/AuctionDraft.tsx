@@ -80,11 +80,12 @@ export function AuctionDraft({
 		if (!recruitDetail) {
 			return <InlineNotice tone="info">경매 모집 로딩 중…</InlineNotice>;
 		}
+		const canControlRecruitment = perms.canEdit && recruitDetail.recruitment.canControl;
 		return (
 			<RecruitmentStartPanel
 				recruitDetail={recruitDetail}
 				error={error}
-				canEdit={perms.canEdit}
+				canEdit={canControlRecruitment}
 				creating={creating}
 				onEnterTournament={enterTournament}
 			/>
@@ -108,32 +109,34 @@ export function AuctionDraft({
 	if (!s.detail) return <InlineNotice tone="info">로딩 중…</InlineNotice>;
 
 	const status = s.detail.tournament.status;
+	const canControl = perms.canEdit && s.detail.tournament.canControl;
 
 	return (
-		<section className="space-y-4">
+		<section className={status === "BIDDING" ? "space-y-2" : "space-y-4"}>
 			<AuctionDraftHeader
 				tournamentId={s.detail.tournament.id}
 				format={s.detail.tournament.format}
 				status={status}
-				canEdit={perms.canEdit}
+				compact={status === "BIDDING"}
+				canEdit={canControl}
 				onRefresh={s.refresh}
 				onRevertStage={s.revertStage}
 			/>
 
-			<AuctionSteps status={status} />
+			{status !== "BIDDING" && <AuctionSteps status={status} />}
 
 			{status === "CAPTAIN_PICK" && (
 				<CaptainPicker
 					tournamentId={s.detail.tournament.id}
 					format={s.detail.tournament.format}
-					canEdit={perms.canEdit}
+					canEdit={canControl}
 					onSet={s.setCaptains}
 				/>
 			)}
 			{status === "POINT_ALLOC" && (
 				<PointAllocator
 					teams={s.detail.teams}
-					canEdit={perms.canEdit}
+					canEdit={canControl}
 					onSet={s.setPoints}
 					onStartBidding={s.startBidding}
 				/>
@@ -141,7 +144,7 @@ export function AuctionDraft({
 			{status === "BIDDING" && (
 				<BiddingPanel
 					detail={s.detail}
-					canEdit={perms.canEdit}
+					canEdit={canControl}
 					onDraw={s.draw}
 					onCancelDraw={s.cancelDraw}
 					onSetBidIntent={s.setBidIntent}

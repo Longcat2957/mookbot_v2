@@ -83,6 +83,7 @@ function makeDetail(
 			targetCount,
 			status: "CLOSED",
 			createdBy: "op",
+			canControl: true,
 			createdAt: 0,
 		},
 		participants: participantIds.map((id) => makeParticipant(id)),

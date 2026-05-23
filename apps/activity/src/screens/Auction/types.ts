@@ -81,6 +81,8 @@ export interface AuctionTournamentDetail {
 		format: 10 | 20;
 		status: TournamentStatus;
 		championTeamId: number | null;
+		createdBy: string;
+		canControl: boolean;
 		startedAt: number;
 		endedAt: number | null;
 		/** v0.14: BIDDING 진행 중 현재 매물 — null 이면 매물 없음 (draw 대기). */
@@ -107,6 +109,7 @@ export interface AuctionRecruitmentDetail {
 		status: string;
 		convertedTournamentId: number | null;
 		createdBy: string;
+		canControl: boolean;
 		createdAt: number;
 	};
 	participants: Array<{

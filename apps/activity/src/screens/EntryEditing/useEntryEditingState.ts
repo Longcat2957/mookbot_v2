@@ -36,6 +36,7 @@ import { useRecentAssignmentChanges } from "./useRecentAssignmentChanges.js";
 export interface UseEntryEditingStateResult {
 	// data
 	detail: RecruitmentDetail | null;
+	canControl: boolean;
 	assignment: Assignment;
 	error: string | null;
 	// save status
@@ -120,9 +121,10 @@ export function useEntryEditingState({
 	});
 	const detail = swr.data;
 	const error = swr.error;
+	const canControl = perms.canEdit && detail?.recruitment.canControl === true;
 	const { saveStatus, savedAt, retrySave, lastSaved } = useEntryDraftAutosave({
 		recruitmentId,
-		canEdit: perms.canEdit,
+		canEdit: canControl,
 		detail,
 		assignment,
 	});
@@ -147,7 +149,7 @@ export function useEntryEditingState({
 		setAssignment((prev) => moveUserToSlot(prev, userId, slot));
 	}, []);
 	const selection = useEntrySelection({
-		canEdit: perms.canEdit,
+		canEdit: canControl,
 		moveTo,
 	});
 
@@ -165,6 +167,7 @@ export function useEntryEditingState({
 		assignment,
 		recruitmentId,
 		coinTossDecided,
+		canEdit: canControl,
 	});
 
 	const history = useEntryHistory({
@@ -188,18 +191,18 @@ export function useEntryEditingState({
 
 	// W5 — 자동 배치 (client-side, participant.roles[]/history.topRole 기반 + 셔플).
 	const autoAssign = useCallback(() => {
-		if (!detail || !perms.canEdit) return;
+		if (!detail || !canControl) return;
 		const lanes =
 			activeLanes.length > 0 ? activeLanes : (LANES as readonly Lane[]).slice(0, teamSize);
 		history.pushHistory(assignment);
 		setAssignment(autoAssignByPreference(detail.participants, lanes));
 		selection.clearSelected();
-	}, [detail, perms.canEdit, activeLanes, teamSize, assignment, history, selection.clearSelected]);
+	}, [detail, canControl, activeLanes, teamSize, assignment, history, selection.clearSelected]);
 
 	// 코인토스 — BLUE 사이드 결정. TEAM_2 선택 시 swap 수행 (결과적으로 1팀 = 원래 2팀 = BLUE).
 	const setCoinTossWinner = useCallback(
 		(winnerTeam: "TEAM_1" | "TEAM_2") => {
-			if (!perms.canEdit) return;
+			if (!canControl) return;
 			if (winnerTeam === "TEAM_2") {
 				history.pushHistory(assignment);
 				setAssignment((prev) => swapAssignmentTeams(prev));
@@ -207,12 +210,12 @@ export function useEntryEditingState({
 			setCoinTossDecided(true);
 			selection.clearSelected();
 		},
-		[perms.canEdit, assignment, history, selection.clearSelected],
+		[canControl, assignment, history, selection.clearSelected],
 	);
 	const clearCoinToss = useCallback(() => setCoinTossDecided(false), []);
 
 	const reopenRecruitment = useCallback(async (): Promise<boolean> => {
-		if (recruitmentId === null || !perms.canEdit) return false;
+		if (recruitmentId === null || !canControl) return false;
 		try {
 			await api(`/recruitments/${recruitmentId}/reopen`, { method: "POST" });
 			return true;
@@ -220,16 +223,17 @@ export function useEntryEditingState({
 			showToast(`모집 복귀 실패: ${err instanceof Error ? err.message : String(err)}`);
 			return false;
 		}
-	}, [recruitmentId, perms.canEdit]);
+	}, [recruitmentId, canControl]);
 
 	useEntryUndoShortcuts({
-		canEdit: perms.canEdit,
+		canEdit: canControl,
 		undo: history.undo,
 		redo: history.redo,
 	});
 
 	return {
 		detail,
+		canControl,
 		assignment,
 		error,
 		saveStatus,

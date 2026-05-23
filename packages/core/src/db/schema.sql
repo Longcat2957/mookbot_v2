@@ -358,6 +358,8 @@ CREATE TABLE IF NOT EXISTS auction_tournaments (
     -- v0.14: BIDDING 단계의 "현재 매물 후보" — 운영자가 /draw 로 뽑은 후 모든 화면이 sync.
     -- finalize-bid / manual-assign / cancel-draw / status 전환 시 NULL 로 리셋.
     current_bid_target_user_id  TEXT REFERENCES users(discord_id),
+    -- v0.19.3: BIDDING 후보 queue JSON. /draw 는 앞에서 pop, 유찰은 뒤로 push.
+    bid_candidate_queue_user_ids TEXT,
     CHECK (format IN (10, 20)),
     CHECK (status IN ('CAPTAIN_PICK','POINT_ALLOC','BIDDING','PLACEMENT','BRACKET_SETUP','IN_GAME','COMPLETED','CANCELLED'))
 );
@@ -469,6 +471,9 @@ ALTER TABLE riot_accounts ADD COLUMN main_position_updated_at INTEGER;
 
 -- v0.14: 경매 BIDDING 단계의 현재 매물 후보 — 모든 화면에 실시간 sync.
 ALTER TABLE auction_tournaments ADD COLUMN current_bid_target_user_id TEXT REFERENCES users(discord_id);
+
+-- v0.19.3: 경매 BIDDING 단계 후보 queue — random 재추첨 대신 stable pop/push 흐름.
+ALTER TABLE auction_tournaments ADD COLUMN bid_candidate_queue_user_ids TEXT;
 
 -- v0.18.10: users 소프트 삭제. /유저강제삭제 운영자 명령으로 deleted_at = unixepoch() UPDATE.
 -- 모든 user lookup 래퍼 (getUser/listUsers/searchUsers/getUserByPuuid) 가 IS NULL 필터.

@@ -42,15 +42,15 @@ export function BiddingPanel({
 		onManualAssign,
 	});
 	const teamGridClass = cx(
-		"grid grid-cols-1 gap-3 items-stretch",
+		"grid grid-cols-1 gap-2 items-stretch",
 		detail.teams.length === 2 || detail.teams.length === 4
-			? "md:grid-cols-2 auto-rows-fr"
+			? "lg:grid-cols-2 auto-rows-fr"
 			: "lg:grid-cols-2",
 	);
 
 	return (
-		<div className="grid grid-cols-1 xl:grid-cols-[minmax(28rem,38rem)_minmax(0,1fr)] gap-4 items-start">
-			<aside className="space-y-4 min-w-0 xl:sticky xl:top-3">
+		<div className="grid grid-cols-1 xl:grid-cols-[18rem_31rem_minmax(0,1fr)] gap-2 items-start xl:h-[calc(100dvh-8rem)] xl:overflow-hidden">
+			<aside className="space-y-2 min-w-0 xl:h-full">
 				<BiddingStats
 					recruitPoolSize={s.recruitPoolSize}
 					captainCount={s.captainCount}
@@ -59,17 +59,6 @@ export function BiddingPanel({
 					hasCurrentBidTarget={s.currentBidTarget !== null}
 				/>
 				{s.error && <InlineNotice tone="error">{s.error}</InlineNotice>}
-				<CurrentBidCard
-					currentBidTarget={s.currentBidTarget}
-					canEdit={canEdit}
-					allPlaced={s.allPlaced}
-					submitting={s.submitting}
-					candidateData={s.candidateData}
-					candidateError={s.candidateError}
-					candidateRiotIcon={s.candidateRiotIcon}
-					onDraw={s.draw}
-					onCancelDraw={s.cancelDraw}
-				/>
 				<UnsoldList unsold={detail.unsold} />
 				<BiddingProgressFooter
 					canEdit={canEdit}
@@ -81,8 +70,22 @@ export function BiddingPanel({
 				/>
 			</aside>
 
-			<div className="space-y-4 min-w-0">
-				<div className={teamGridClass}>
+			<aside className="min-w-0 xl:h-full">
+				<CurrentBidCard
+					currentBidTarget={s.currentBidTarget}
+					canEdit={canEdit}
+					allPlaced={s.allPlaced}
+					submitting={s.submitting}
+					candidateData={s.candidateData}
+					candidateError={s.candidateError}
+					candidateRiotIcon={s.candidateRiotIcon}
+					onDraw={s.draw}
+					onCancelDraw={s.cancelDraw}
+				/>
+			</aside>
+
+			<div className="space-y-2 min-w-0 xl:h-full">
+				<div className={`${teamGridClass} xl:h-full`}>
 					{detail.teams.map((team) => (
 						<BiddingTeamCard
 							key={team.id}

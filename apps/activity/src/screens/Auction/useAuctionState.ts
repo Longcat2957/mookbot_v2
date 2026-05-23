@@ -58,7 +58,7 @@ export function useAuctionState(tournamentId: number | null): UseAuctionStateRes
 			swr.refresh();
 			showToast("다른 운영자가 경매 상태를 변경했습니다");
 		});
-	}, [tournamentId, swr]);
+	}, [tournamentId, swr.refresh]);
 	const actions = useAuctionActions({ tournamentId, refresh: swr.refresh });
 
 	return {

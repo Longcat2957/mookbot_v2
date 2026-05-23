@@ -2,7 +2,7 @@
 
 import { datadragon, db } from "@mookbot/core";
 import type { FastifyInstance } from "fastify";
-import { invalidate, requireEditor, requireSession, rewriteDD } from "./_helpers.js";
+import { invalidate, requireEditor, requireOwner, requireSession, rewriteDD } from "./_helpers.js";
 
 export async function registerAuctionRecruitRoutes(app: FastifyInstance): Promise<void> {
 	// 활성 경매 모집 목록 (대시보드용)
@@ -52,6 +52,7 @@ export async function registerAuctionRecruitRoutes(app: FastifyInstance): Promis
 				status: rec.status,
 				convertedTournamentId: rec.converted_tournament_id,
 				createdBy: rec.created_by,
+				canControl: rec.created_by === sid,
 				createdAt: rec.created_at,
 			},
 			participants: participants.map((p) => ({
@@ -73,6 +74,7 @@ export async function registerAuctionRecruitRoutes(app: FastifyInstance): Promis
 			if (!Number.isFinite(id)) return reply.code(400).send({ error: "invalid id" });
 			const rec = await db.getAuctionRecruitment(id);
 			if (!rec) return reply.code(404).send({ error: "not found" });
+			if (!requireOwner(sid, rec.created_by, reply)) return;
 			if (rec.status !== "OPEN") {
 				return reply.code(409).send({ error: `status=${rec.status} — 추가 불가` });
 			}
@@ -107,6 +109,7 @@ export async function registerAuctionRecruitRoutes(app: FastifyInstance): Promis
 			if (!Number.isFinite(id)) return reply.code(400).send({ error: "invalid id" });
 			const rec = await db.getAuctionRecruitment(id);
 			if (!rec) return reply.code(404).send({ error: "not found" });
+			if (!requireOwner(sid, rec.created_by, reply)) return;
 			if (rec.status !== "OPEN") {
 				return reply.code(409).send({ error: `status=${rec.status} — 제거 불가` });
 			}
@@ -134,6 +137,7 @@ export async function registerAuctionRecruitRoutes(app: FastifyInstance): Promis
 			if (!Number.isFinite(id)) return reply.code(400).send({ error: "invalid id" });
 			const rec = await db.getAuctionRecruitment(id);
 			if (!rec) return reply.code(404).send({ error: "not found" });
+			if (!requireOwner(sid, rec.created_by, reply)) return;
 			if (rec.status === "CANCELLED" || rec.status === "CONVERTED") {
 				return reply.code(409).send({ error: `status=${rec.status}` });
 			}

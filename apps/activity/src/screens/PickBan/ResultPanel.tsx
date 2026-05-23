@@ -1,6 +1,5 @@
 import { InlineNotice, PanelCard, SectionHeader } from "../../components/DesignPrimitives.js";
 import type { LineupParticipant } from "../../components/LineupPreview.js";
-import { usePerms } from "../../state/perms.js";
 import { DurationInput } from "./ResultPanel/DurationInput.js";
 import { ResultProgressSteps } from "./ResultPanel/ResultProgressSteps.js";
 import { ResultWarnings } from "./ResultPanel/ResultWarnings.js";
@@ -15,6 +14,7 @@ export function ResultPanel({
 	teamSize,
 	participants,
 	champions,
+	canEdit,
 	onRecorded,
 }: {
 	seriesId: number;
@@ -22,16 +22,16 @@ export function ResultPanel({
 	teamSize: number;
 	participants: LineupParticipant[];
 	champions: Champion[];
+	canEdit: boolean;
 	onRecorded: () => void;
 }) {
-	const perms = usePerms();
 	const state = useResultPanelState({
 		seriesId,
 		gameDraft,
 		teamSize,
 		participants,
 		champions,
-		canEdit: perms.canEdit,
+		canEdit,
 		onRecorded,
 	});
 
@@ -57,7 +57,7 @@ export function ResultPanel({
 				picks={gameDraft.picks}
 				lanes={state.lanes}
 				champById={state.champById}
-				disabled={!perms.canEdit}
+				disabled={!canEdit}
 			/>
 
 			<DurationInput value={state.durationMin} onChange={state.setDurationMin} />
@@ -68,7 +68,7 @@ export function ResultPanel({
 				gameNumber={gameDraft.gameNumber}
 				ready={state.ready}
 				submitting={state.submitting}
-				canEdit={perms.canEdit}
+				canEdit={canEdit}
 				allBansFilled={state.allBansFilled}
 				allPicksFilled={state.allPicksFilled}
 				team1SideSelected={gameDraft.team1Side !== null}

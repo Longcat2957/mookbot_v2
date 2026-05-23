@@ -42,7 +42,7 @@ export function useResultPanelState({
 	const ready = allBansFilled && allPicksFilled && winner !== null && gameDraft.team1Side !== null;
 
 	const submit = useCallback(async () => {
-		if (!ready || gameDraft.team1Side === null || winner === null) return;
+		if (!ready || !canEdit || gameDraft.team1Side === null || winner === null) return;
 		setSubmitting(true);
 		setError(null);
 		try {
@@ -68,7 +68,7 @@ export function useResultPanelState({
 			setError(err instanceof Error ? err.message : String(err));
 			setSubmitting(false);
 		}
-	}, [ready, gameDraft, winner, durationMin, lanes, seriesId, onRecorded]);
+	}, [ready, canEdit, gameDraft, winner, durationMin, lanes, seriesId, onRecorded]);
 
 	useEffect(() => {
 		if (!canEdit) return;

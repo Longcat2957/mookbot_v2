@@ -12,31 +12,43 @@ export function BiddingStats({
 	hasCurrentBidTarget: boolean;
 }) {
 	return (
-		<div className="stats stats-horizontal shadow w-full bg-base-200">
-			<div className="stat py-3">
-				<div className="stat-title text-sm">매물 풀</div>
-				<div className="stat-value text-3xl tabular-nums">{recruitPoolSize - captainCount}</div>
-				<div className="stat-desc text-sm">팀장 제외</div>
+		<div className="grid grid-cols-2 gap-2">
+			<StatTile label="매물 풀" value={recruitPoolSize - captainCount} desc="팀장 제외" />
+			<StatTile
+				label="배치 완료"
+				value={totalPlaced - captainCount}
+				desc={`/ ${recruitPoolSize - captainCount}`}
+				valueClassName="text-success"
+			/>
+			<StatTile
+				label="잔여 인원"
+				value={recruitPoolSize - totalPlaced}
+				desc={hasCurrentBidTarget ? "1명 진행 중" : "대기"}
+				valueClassName="text-info"
+			/>
+			<StatTile label="유찰" value={unsoldCount} desc="재경매" valueClassName="text-warning" />
+		</div>
+	);
+}
+
+function StatTile({
+	label,
+	value,
+	desc,
+	valueClassName,
+}: {
+	label: string;
+	value: number;
+	desc: string;
+	valueClassName?: string;
+}) {
+	return (
+		<div className="surface-soft rounded-lg border border-base-300 px-3 py-2">
+			<div className="text-[11px] text-base-content/60">{label}</div>
+			<div className={`text-2xl font-bold tabular-nums leading-none ${valueClassName ?? ""}`}>
+				{value}
 			</div>
-			<div className="stat py-3">
-				<div className="stat-title text-sm">배치 완료</div>
-				<div className="stat-value text-3xl text-success tabular-nums">
-					{totalPlaced - captainCount}
-				</div>
-				<div className="stat-desc text-sm tabular-nums">/ {recruitPoolSize - captainCount}</div>
-			</div>
-			<div className="stat py-3">
-				<div className="stat-title text-sm">잔여 인원</div>
-				<div className="stat-value text-3xl text-info tabular-nums">
-					{recruitPoolSize - totalPlaced}
-				</div>
-				<div className="stat-desc text-sm">{hasCurrentBidTarget ? "1명 진행 중" : "—"}</div>
-			</div>
-			<div className="stat py-3">
-				<div className="stat-title text-sm">유찰</div>
-				<div className="stat-value text-3xl text-warning tabular-nums">{unsoldCount}</div>
-				<div className="stat-desc text-sm">재경매 대기</div>
-			</div>
+			<div className="text-[11px] text-base-content/50 tabular-nums">{desc}</div>
 		</div>
 	);
 }

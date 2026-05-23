@@ -83,6 +83,30 @@ describe("POST /api/series", () => {
 		expect(res.statusCode).toBe(404);
 	});
 
+	it("운영자 role 이 있어도 모집 생성자가 아니면 series 생성 차단", async () => {
+		const { app, db } = await buildTestApp({ canEdit: true });
+		const { recruitmentId } = seedRecruitment(db, "CLOSED");
+
+		const res = await app.inject({
+			method: "POST",
+			url: "/api/series",
+			cookies: { sid: signSid(app, "other-operator") },
+			payload: {
+				recruitmentId,
+				assignments: [
+					{ userId: "u1", team: "TEAM_1", role: "TOP" },
+					{ userId: "u2", team: "TEAM_2", role: "TOP" },
+				],
+			},
+		});
+
+		expect(res.statusCode).toBe(403);
+		expect(res.json()).toMatchObject({
+			error: "이 Activity 방을 연 사람만 화면을 조작할 수 있습니다.",
+		});
+		expect(db.prepare("SELECT COUNT(*) AS n FROM series").get()).toEqual({ n: 0 });
+	});
+
 	it("이미 CONVERTED 모집 → 409", async () => {
 		const { app, db } = await buildTestApp({ canEdit: true });
 		const { recruitmentId } = seedRecruitment(db, "CONVERTED");
@@ -99,6 +123,35 @@ describe("POST /api/series", () => {
 			},
 		});
 		expect(res.statusCode).toBe(409);
+	});
+});
+
+describe("POST /api/auction-tournaments", () => {
+	it("운영자 role 이 있어도 경매 모집 생성자가 아니면 토너먼트 생성 차단", async () => {
+		const { app, db } = await buildTestApp({ canEdit: true });
+		const seasonId = (
+			db
+				.prepare("INSERT INTO seasons (name, started_at) VALUES (?, unixepoch()) RETURNING id")
+				.get("Auction") as { id: number }
+		).id;
+		db.prepare("INSERT INTO users (discord_id, display_name) VALUES (?, ?)").run(OP, OP);
+		const recruitmentId = (
+			db
+				.prepare(
+					"INSERT INTO auction_recruitments (season_id, target_count, created_by, status) VALUES (?, 10, ?, 'CLOSED') RETURNING id",
+				)
+				.get(seasonId, OP) as { id: number }
+		).id;
+
+		const res = await app.inject({
+			method: "POST",
+			url: "/api/auction-tournaments",
+			cookies: { sid: signSid(app, "other-operator") },
+			payload: { recruitmentId },
+		});
+
+		expect(res.statusCode).toBe(403);
+		expect(db.prepare("SELECT COUNT(*) AS n FROM auction_tournaments").get()).toEqual({ n: 0 });
 	});
 });
 
