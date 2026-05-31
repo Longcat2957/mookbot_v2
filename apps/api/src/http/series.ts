@@ -35,7 +35,6 @@ export async function registerSeriesRoutes(app: FastifyInstance): Promise<void> 
 
 		const rec = await getRecruitment(recruitmentId);
 		if (!rec) return reply.code(404).send({ error: "recruitment not found" });
-		if (!requireOwner(sid, rec.created_by, reply)) return;
 		if (rec.status === "CONVERTED") {
 			return reply.code(409).send({ error: "이미 시리즈로 변환된 모집입니다." });
 		}
@@ -411,7 +410,6 @@ export async function registerSeriesRoutes(app: FastifyInstance): Promise<void> 
 		if (!Number.isFinite(id)) return reply.code(400).send({ error: "invalid id" });
 		const rec = await getRecruitment(id);
 		if (!rec) return reply.code(404).send({ error: "not found" });
-		if (!requireOwner(sid, rec.created_by, reply)) return;
 		if (rec.status === "OPEN") return { ok: true, recruitmentId: id };
 		if (rec.status === "CANCELLED") {
 			return reply.code(409).send({ error: "취소된 모집은 다시 열 수 없습니다." });

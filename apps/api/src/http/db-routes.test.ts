@@ -25,7 +25,7 @@ function seedRecruitment(db: TestDb, status: "OPEN" | "CLOSED" | "CONVERTED" = "
 			.prepare("INSERT INTO seasons (name, started_at) VALUES (?, unixepoch()) RETURNING id")
 			.get("Test") as { id: number }
 	).id;
-	for (const id of [OP, "u1", "u2"]) {
+	for (const id of [OP, "other-operator", "u1", "u2"]) {
 		db.prepare("INSERT INTO users (discord_id, display_name) VALUES (?, ?)").run(id, id);
 	}
 	const recId = (
@@ -83,7 +83,7 @@ describe("POST /api/series", () => {
 		expect(res.statusCode).toBe(404);
 	});
 
-	it("운영자 role 이 있어도 모집 생성자가 아니면 series 생성 차단", async () => {
+	it("운영자 role 이 있으면 모집 생성자가 아니어도 series 생성 허용", async () => {
 		const { app, db } = await buildTestApp({ canEdit: true });
 		const { recruitmentId } = seedRecruitment(db, "CLOSED");
 
@@ -100,11 +100,8 @@ describe("POST /api/series", () => {
 			},
 		});
 
-		expect(res.statusCode).toBe(403);
-		expect(res.json()).toMatchObject({
-			error: "이 Activity 방을 연 사람만 화면을 조작할 수 있습니다.",
-		});
-		expect(db.prepare("SELECT COUNT(*) AS n FROM series").get()).toEqual({ n: 0 });
+		expect(res.statusCode).toBe(200);
+		expect(db.prepare("SELECT COUNT(*) AS n FROM series").get()).toEqual({ n: 1 });
 	});
 
 	it("이미 CONVERTED 모집 → 409", async () => {
@@ -756,7 +753,7 @@ describe("GET /api/recruitments + /api/recruitments/:id", () => {
 		expect(recruitments[0]?.status).toBe("CLOSED");
 	});
 
-	it("detail — recruitment + participants + entryDraft", async () => {
+	it("detail — recruitment + participants + entryDraft + BalanceTeam control", async () => {
 		const { app, db } = await buildTestApp();
 		const { recruitmentId } = seedRecruitment(db);
 		db
@@ -770,14 +767,34 @@ describe("GET /api/recruitments + /api/recruitments/:id", () => {
 		});
 		expect(res.statusCode).toBe(200);
 		const body = res.json() as {
-			recruitment: { id: number };
+			recruitment: { id: number; canControl: boolean };
 			participants: { userId: string }[];
 			entryDraft: unknown;
 		};
 		expect(body.recruitment.id).toBe(recruitmentId);
+		expect(body.recruitment.canControl).toBe(true);
 		expect(body.participants).toHaveLength(1);
 		expect(body.participants[0]?.userId).toBe("u1");
 		expect(body.entryDraft).toBeNull();
+	});
+
+	it("entry-draft — 운영자 role 이 있으면 모집 생성자가 아니어도 저장 허용", async () => {
+		const { app, db } = await buildTestApp({ canEdit: true });
+		const { recruitmentId } = seedRecruitment(db);
+
+		const res = await app.inject({
+			method: "PUT",
+			url: `/api/recruitments/${recruitmentId}/entry-draft`,
+			cookies: { sid: signSid(app, "other-operator") },
+			payload: { assignments: { u1: "TEAM_1_TOP" } },
+		});
+
+		expect(res.statusCode).toBe(200);
+		const row = db.prepare("SELECT v, updated_by FROM guild_kv WHERE k = ?").get(
+			`entry:${recruitmentId}`,
+		) as { v: string; updated_by: string };
+		expect(JSON.parse(row.v)).toEqual({ assignments: { u1: "TEAM_1_TOP" } });
+		expect(row.updated_by).toBe("other-operator");
 	});
 });
 
@@ -803,6 +820,24 @@ describe("POST /api/recruitments/:id/reopen", () => {
 		expect(
 			db.prepare("SELECT v FROM guild_kv WHERE k = ?").get(`entry:${recruitmentId}`),
 		).toBeUndefined();
+	});
+
+	it("운영자 role 이 있으면 모집 생성자가 아니어도 OPEN 복귀 허용", async () => {
+		const { app, db } = await buildTestApp({ canEdit: true });
+		const { recruitmentId } = seedRecruitment(db, "CLOSED");
+
+		const res = await app.inject({
+			method: "POST",
+			url: `/api/recruitments/${recruitmentId}/reopen`,
+			cookies: { sid: signSid(app, "other-operator") },
+		});
+
+		expect(res.statusCode).toBe(200);
+		expect(
+			(db.prepare("SELECT status FROM recruitments WHERE id = ?").get(recruitmentId) as {
+				status: string;
+			}).status,
+		).toBe("OPEN");
 	});
 
 	it("zero-game CONVERTED 모집 → OPEN + 연결 시리즈 CANCELLED", async () => {

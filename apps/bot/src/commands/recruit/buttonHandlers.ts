@@ -1,11 +1,16 @@
 // 모집 메시지의 버튼 인터랙션 처리 — 참여/취소/엔트리 진입.
 
 import { db } from "@mookbot/core";
-import type { ButtonInteraction } from "discord.js";
+import {
+	ActionRowBuilder,
+	ButtonBuilder,
+	type ButtonInteraction,
+	ButtonStyle,
+} from "discord.js";
 import { resolveGuildDisplayName } from "../../utils/displayName.js";
 import { notify as wsNotify } from "../../utils/notify.js";
 import { v2EditReply } from "../../utils/v2.js";
-import { renderComponents } from "./messageBuilder.js";
+import { refreshRecruitMessage, renderComponents } from "./messageBuilder.js";
 
 const {
 	getRecruitment,
@@ -74,7 +79,17 @@ export async function handleButton(interaction: ButtonInteraction): Promise<void
 		case "leave":
 			return await handleLeave(interaction, id);
 		case "cancel":
-			return await handleCancel(interaction, id, rec.created_by);
+			return await handleCancelRequest(interaction, id, rec.created_by, rec.target_count);
+		case "cancel_confirm":
+			return await handleCancelConfirm(
+				interaction,
+				id,
+				rec.created_by,
+				rec.channel_id,
+				rec.message_id,
+			);
+		case "cancel_abort":
+			return await handleCancelAbort(interaction);
 		case "next":
 			if (!isOpen) {
 				await notify(interaction, "이미 엔트리 수정 단계로 진입한 모집입니다.");
@@ -127,11 +142,71 @@ async function handleLeave(interaction: ButtonInteraction, id: number): Promise<
 	void wsNotify("dashboard");
 }
 
-async function handleCancel(
+function cancelRequestUserId(interaction: ButtonInteraction): string | null {
+	const [, action, , requestUserId] = interaction.customId.split(":");
+	if ((action === "cancel_confirm" || action === "cancel_abort") && requestUserId) {
+		return requestUserId;
+	}
+	return null;
+}
+
+async function requireSameCancelRequester(interaction: ButtonInteraction): Promise<boolean> {
+	const requestUserId = cancelRequestUserId(interaction);
+	if (!requestUserId || requestUserId === interaction.user.id) return true;
+	await notify(interaction, "다른 운영자의 모집 취소 확인 버튼입니다.");
+	return false;
+}
+
+async function handleCancelRequest(
 	interaction: ButtonInteraction,
 	id: number,
 	createdBy: string,
+	targetCount: number,
 ): Promise<void> {
+	if (interaction.user.id !== createdBy) {
+		await notify(interaction, "모집을 취소할 수 있는 건 모집을 만든 운영자뿐입니다.");
+		return;
+	}
+	const participants = await listRecruitmentParticipants(id);
+	const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
+		new ButtonBuilder()
+			.setCustomId(`recruit:cancel_confirm:${id}:${interaction.user.id}`)
+			.setLabel("전체 취소 확정")
+			.setStyle(ButtonStyle.Danger),
+		new ButtonBuilder()
+			.setCustomId(`recruit:cancel_abort:${id}:${interaction.user.id}`)
+			.setLabel("취소하지 않음")
+			.setStyle(ButtonStyle.Secondary),
+	);
+	await interaction.followUp({
+		content: [
+			`### 모집 #${id} 전체 취소 확인`,
+			`현재 참가자: **${participants.length}/${targetCount}명**`,
+			"",
+			"이 동작은 참가자 일부 수정이 아니라 모집 전체를 `CANCELLED` 상태로 닫습니다.",
+			"참가자 한 명만 빼려면 이 버튼을 누르지 말고 `/내전인원삭제 모집:<id> 멤버:@user` 를 사용하세요.",
+		].join("\n"),
+		components: [row],
+		ephemeral: true,
+	});
+}
+
+async function handleCancelAbort(interaction: ButtonInteraction): Promise<void> {
+	if (!(await requireSameCancelRequester(interaction))) return;
+	await interaction.editReply({
+		content: "모집 전체 취소를 중단했습니다.",
+		components: [],
+	});
+}
+
+async function handleCancelConfirm(
+	interaction: ButtonInteraction,
+	id: number,
+	createdBy: string,
+	channelId: string | null,
+	messageId: string | null,
+): Promise<void> {
+	if (!(await requireSameCancelRequester(interaction))) return;
 	if (interaction.user.id !== createdBy) {
 		await notify(interaction, "모집을 취소할 수 있는 건 모집을 만든 운영자뿐입니다.");
 		return;
@@ -143,10 +218,12 @@ async function handleCancel(
 		targetType: "recruitment",
 		targetId: String(id),
 	});
-	const components = await renderComponents(id);
-	await interaction.editReply(v2EditReply(...components));
+	const refreshError = await refreshRecruitMessage(interaction, id, channelId, messageId);
 	void wsNotify(`recruitment:${id}`);
 	void wsNotify("dashboard");
+	const lines = [`모집 #${id} 전체 취소 완료.`];
+	if (refreshError) lines.push(`모집 메시지 갱신 실패: ${refreshError}`);
+	await interaction.editReply({ content: lines.join("\n"), components: [] });
 }
 
 async function handleNext(

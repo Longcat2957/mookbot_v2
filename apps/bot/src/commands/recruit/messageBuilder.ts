@@ -115,7 +115,7 @@ function buildOpenComponents(
 				.setStyle(ButtonStyle.Success),
 			new ButtonBuilder()
 				.setCustomId(`recruit:cancel:${id}`)
-				.setLabel("모집 취소")
+				.setLabel("모집 전체 취소")
 				.setStyle(ButtonStyle.Danger),
 		);
 		return [row];
@@ -136,7 +136,7 @@ function buildOpenComponents(
 	const operatorRow = new ActionRowBuilder<ButtonBuilder>().addComponents(
 		new ButtonBuilder()
 			.setCustomId(`recruit:cancel:${id}`)
-			.setLabel("모집 취소")
+			.setLabel("모집 전체 취소")
 			.setStyle(ButtonStyle.Danger),
 	);
 
@@ -163,7 +163,7 @@ function buildClosedComponents(id: number): ActionRowBuilder<ButtonBuilder>[] {
 	const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
 		new ButtonBuilder()
 			.setCustomId(`recruit:cancel:${id}`)
-			.setLabel("모집 취소")
+			.setLabel("모집 전체 취소")
 			.setStyle(ButtonStyle.Danger),
 	);
 	return [row];

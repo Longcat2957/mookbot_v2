@@ -2,7 +2,8 @@
 
 import { datadragon, db, riot } from "@mookbot/core";
 import type { FastifyInstance } from "fastify";
-import { invalidate, requireEditor, requireOwner, requireSession, rewriteDD } from "./_helpers.js";
+import { userCanEdit } from "../auth/perms.js";
+import { invalidate, requireEditor, requireSession, rewriteDD } from "./_helpers.js";
 import { emptyHistory, fetchPlayHistoryFor } from "./_history.js";
 
 const { listRecruitmentParticipants, getRecruitment } = db;
@@ -91,7 +92,6 @@ export async function registerRecruitRoutes(app: FastifyInstance): Promise<void>
 			if (!Number.isFinite(id)) return reply.code(400).send({ error: "invalid id" });
 			const rec = await getRecruitment(id);
 			if (!rec) return reply.code(404).send({ error: "not found" });
-			if (!requireOwner(sid, rec.created_by, reply)) return;
 			await db.setKv(`entry:${id}`, JSON.stringify(req.body), sid);
 			invalidate(`recruitment:${id}`, sid);
 			return { ok: true };
@@ -108,6 +108,7 @@ export async function registerRecruitRoutes(app: FastifyInstance): Promise<void>
 
 		const rec = await getRecruitment(id);
 		if (!rec) return reply.code(404).send({ error: "not found" });
+		const canControl = await userCanEdit(sid);
 
 		const participants = await listRecruitmentParticipants(id);
 		const userIds = participants.map((p) => p.user_id);
@@ -143,7 +144,7 @@ export async function registerRecruitRoutes(app: FastifyInstance): Promise<void>
 				targetCount: rec.target_count,
 				status: rec.status,
 				createdBy: rec.created_by,
-				canControl: rec.created_by === sid,
+				canControl,
 				createdAt: rec.created_at,
 			},
 			participants: participants.map((p) => ({
