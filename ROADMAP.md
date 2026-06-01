@@ -2,12 +2,28 @@
 
 > 현재 버전 기준 진척 상태.
 
-## 현재 (v0.18.10)
+## 현재 (v0.19.3)
 
 활성 도메인: `bot.mooklol.com` (Cloudflare proxied → 단일 VPS · Docker compose 5컨테이너 stack: bot · api · activity · nginx · valkey).
 실서비스 운영 중.
 
 ## 🔜 진행 중 (v0.20.0)
+
+### 일반 내전 모집 운영 권한 통합 (v0.19.4 hotfix)
+
+목표: `/내전모집` 과 `/경매모집` 으로 열린 모집의 상태 조작 권한을 "모집을 올린 사람" 에 묶지 않고, `BalanceTeam` 역할 기준으로 통일한다.
+
+- **권한 기준** — Discord 서버 관리자 권한이 아니라 기존 운영자 권한 체계인 `BalanceTeam` (`OPERATOR_ROLE_NAME`, `requireOperator`) 으로 통합한다.
+- **봇 모집 조작** — 모집 메시지의 `엔트리 수정 시작`, `모집 전체 취소`, `/내전인원추가`, `/내전인원삭제` 를 모집 생성자 제한에서 BalanceTeam 제한으로 변경한다.
+- **경매 모집 조작 일치** — 경매 모집 메시지의 `경매 시작`, `모집 전체 취소`, `/경매인원추가`, `/경매인원삭제` 도 BalanceTeam 제한으로 맞춘다.
+- **일반 참가자 액션 유지** — `참석`, `참석 취소`, 라인 선택은 기존처럼 본인 단위 액션으로 유지한다.
+- **취소 안전장치 유지** — 일반/경매 `모집 전체 취소` 는 2단계 확인을 유지하고, audit log 의 `operatorId` 는 실제 조작한 BalanceTeam 사용자로 기록한다.
+- **CANCELLED 모집 복구** — 실수로 전체 취소한 일반 모집은 `/내전모집복구` 또는 API reopen 으로 `OPEN` 복구 가능하게 한다. 단, 시리즈와 연결된 취소 모집은 복구하지 않는다.
+- **인원 삭제 안전성** — 정원 도달 직후 인원을 빼는 흐름에서 stale entry draft 가 시리즈 생성으로 넘어가지 않도록, recruitment detail 응답과 series 생성 API 양쪽에서 참가자 검증을 수행한다.
+- **모집 조작 audit 보강** — 일반/경매 인원 추가·삭제도 `recruitment.member-*`, `auction-recruitment.member-*` audit log 로 남긴다.
+- **검증 기준** — bot typecheck 통과 후, 배포 전 `pnpm test`, `pnpm typecheck`, `pnpm build` 를 다시 통과한다.
+
+### Screening report (v0.20.0)
 
 목표: 신규 참가자/기존 참가자의 Riot 공개 전적을 기반으로 **부계정·위장티어·패작 의심을 단정하지 않고**, 운영진이 검토할 수 있는 `risk score + 근거 + 신뢰도` 리포트를 제공한다. 이 기능은 제재/확정 판정 도구가 아니라 내전 모집 검토 보조 도구다.
 
@@ -27,6 +43,11 @@
 ## ✅ 완료 (Shipped)
 
 > Phase 0~15 (v0.1.0~v0.4.4) 는 오래된 → 최신 순, Phase 16~ (v0.4.5~) 는 최신 → 오래된 순으로 정렬. 새 릴리스는 Phase 16 블록 맨 위에 추가.
+
+### Phase 54 — 일반 내전 엔트리 공동 운영 + 취소 fail-safe (v0.19.3)
+- **Activity 엔트리 공동 운영** — 일반 내전 엔트리 draft 저장, 엔트리 제출, `모집 상태로` 복귀를 모집 생성자 제한에서 `BalanceTeam` 권한 기준으로 확대. 여러 운영자가 같은 모집 엔트리를 조정 가능.
+- **모집 취소 fail-safe** — `/내전모집` 메시지의 `모집 취소` 를 `모집 전체 취소` 로 명확히 변경하고, 즉시 취소 대신 2단계 확인창을 거치도록 수정. 참가자 일부 수정은 `/내전인원삭제` 안내로 분리.
+- **회귀 테스트** — 다른 BalanceTeam 운영자의 entry-draft 저장, series 생성, reopen 허용 테스트 추가. 배포 전 `pnpm test`, `pnpm typecheck`, `pnpm build` 통과.
 
 ### Phase 53 — Profile/Footer UI 정비 (v0.19.3)
 - **Footer 노출 범위 확대** — `MY_RIOT_ACCOUNTS`, `COMPLETED`, `AUCTION_RESULT` 까지 footer 노출 확대. `ENTRY_EDITING / IN_GAME / AUCTION_DRAFT / AUCTION_BRACKET` 은 집중 흐름 보호를 위해 제외.

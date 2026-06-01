@@ -112,6 +112,7 @@ export async function registerRecruitRoutes(app: FastifyInstance): Promise<void>
 
 		const participants = await listRecruitmentParticipants(id);
 		const userIds = participants.map((p) => p.user_id);
+		const participantIdSet = new Set(userIds);
 		const [users, mains, headToHead] = await Promise.all([
 			db.listUsers(userIds),
 			db.listMainRiotAccounts(userIds),
@@ -132,7 +133,15 @@ export async function registerRecruitRoutes(app: FastifyInstance): Promise<void>
 		let entryDraft: unknown = null;
 		if (entryDraftRaw) {
 			try {
-				entryDraft = JSON.parse(entryDraftRaw);
+				const parsed = JSON.parse(entryDraftRaw) as { assignments?: unknown };
+				if (parsed.assignments && typeof parsed.assignments === "object") {
+					const assignments = Object.fromEntries(
+						Object.entries(parsed.assignments).filter(([userId]) => participantIdSet.has(userId)),
+					);
+					entryDraft = { ...parsed, assignments };
+				} else {
+					entryDraft = parsed;
+				}
 			} catch {
 				entryDraft = null;
 			}

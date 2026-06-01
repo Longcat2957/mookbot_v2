@@ -9,6 +9,7 @@ import {
 } from "discord.js";
 import { resolveGuildDisplayName } from "../utils/displayName.js";
 import { notify } from "../utils/notify.js";
+import { requireOperator } from "../utils/operator.js";
 import { refreshAuctionRecruitMessage } from "./auctionRecruit/messageBuilder.js";
 
 const {
@@ -17,11 +18,12 @@ const {
 	listAuctionRecruitmentParticipants,
 	isAuctionRecruitmentParticipant,
 	upsertUser,
+	recordAudit,
 } = db;
 
 export const data = new SlashCommandBuilder()
 	.setName("경매인원추가")
-	.setDescription("경매 모집에 멤버를 한 명 추가합니다 (모집 운영자 전용).")
+	.setDescription("경매 모집에 멤버를 한 명 추가합니다 (BalanceTeam 전용).")
 	.setIntegrationTypes(ApplicationIntegrationType.GuildInstall)
 	.setContexts(InteractionContextType.Guild)
 	.addIntegerOption((o) =>
@@ -34,19 +36,13 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
 		await interaction.reply({ content: "서버에서만 사용 가능", ephemeral: true });
 		return;
 	}
+	if (!(await requireOperator(interaction))) return;
 	const id = interaction.options.getInteger("모집", true);
 	const targetUser = interaction.options.getUser("멤버", true);
 
 	const rec = await getAuctionRecruitment(id);
 	if (!rec) {
 		await interaction.reply({ content: `경매 모집 #${id} 없음`, ephemeral: true });
-		return;
-	}
-	if (rec.created_by !== interaction.user.id) {
-		await interaction.reply({
-			content: "모집을 만든 운영자만 가능합니다.",
-			ephemeral: true,
-		});
 		return;
 	}
 	if (rec.status !== "OPEN" && rec.status !== "CLOSED") {
@@ -81,6 +77,13 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
 	const displayName = await resolveGuildDisplayName(interaction.guild, targetUser);
 	await upsertUser(targetUser.id, displayName);
 	await addAuctionRecruitmentParticipant({ recruitmentId: id, userId: targetUser.id });
+	await recordAudit({
+		operatorId: interaction.user.id,
+		action: "auction-recruitment.member-added",
+		targetType: "auction-recruitment",
+		targetId: String(id),
+		payload: { userId: targetUser.id, displayName, source: "bot-command" },
+	});
 
 	const refreshError = await refreshAuctionRecruitMessage(
 		interaction,

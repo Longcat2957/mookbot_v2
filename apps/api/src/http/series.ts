@@ -41,6 +41,29 @@ export async function registerSeriesRoutes(app: FastifyInstance): Promise<void> 
 		if (rec.status === "CANCELLED") {
 			return reply.code(409).send({ error: "취소된 모집입니다." });
 		}
+		const recruitParticipants = await db.listRecruitmentParticipants(recruitmentId);
+		if (recruitParticipants.length < rec.target_count) {
+			return reply
+				.code(409)
+				.send({ error: `정원 미달 (${recruitParticipants.length}/${rec.target_count})` });
+		}
+		const participantIds = new Set(recruitParticipants.map((p) => p.user_id));
+		const assignmentUserIds = assignments.map((a) => a.userId);
+		if (new Set(assignmentUserIds).size !== assignmentUserIds.length) {
+			return reply.code(400).send({ error: "중복 참가자가 포함된 엔트리입니다." });
+		}
+		if (assignments.length !== rec.target_count) {
+			return reply
+				.code(400)
+				.send({ error: `엔트리 인원 불일치 (${assignments.length}/${rec.target_count})` });
+		}
+		const invalidUserIds = assignmentUserIds.filter((userId) => !participantIds.has(userId));
+		if (invalidUserIds.length > 0) {
+			return reply.code(400).send({
+				error: "모집 참가자가 아닌 유저가 엔트리에 포함되어 있습니다.",
+				invalidUserIds,
+			});
+		}
 
 		let series: Awaited<ReturnType<typeof db.createSeries>>;
 		try {
@@ -411,8 +434,10 @@ export async function registerSeriesRoutes(app: FastifyInstance): Promise<void> 
 		const rec = await getRecruitment(id);
 		if (!rec) return reply.code(404).send({ error: "not found" });
 		if (rec.status === "OPEN") return { ok: true, recruitmentId: id };
-		if (rec.status === "CANCELLED") {
-			return reply.code(409).send({ error: "취소된 모집은 다시 열 수 없습니다." });
+		if (rec.status === "CANCELLED" && rec.converted_series_id !== null) {
+			return reply.code(409).send({
+				error: "시리즈와 연결된 취소 모집은 다시 열 수 없습니다.",
+			});
 		}
 
 		if (rec.converted_series_id !== null) {

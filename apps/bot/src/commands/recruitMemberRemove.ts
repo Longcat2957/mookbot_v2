@@ -8,13 +8,14 @@ import {
 	SlashCommandBuilder,
 } from "discord.js";
 import { notify } from "../utils/notify.js";
+import { requireOperator } from "../utils/operator.js";
 import { refreshRecruitMessage } from "./recruit/messageBuilder.js";
 
-const { getRecruitment, isRecruitmentParticipant, removeRecruitmentParticipant } = db;
+const { getRecruitment, isRecruitmentParticipant, removeRecruitmentParticipant, recordAudit } = db;
 
 export const data = new SlashCommandBuilder()
 	.setName("내전인원삭제")
-	.setDescription("모집 풀에서 멤버를 한 명 제거합니다 (모집 운영자 전용).")
+	.setDescription("모집 풀에서 멤버를 한 명 제거합니다 (BalanceTeam 전용).")
 	.setIntegrationTypes(ApplicationIntegrationType.GuildInstall)
 	.setContexts(InteractionContextType.Guild)
 	.addIntegerOption((o) =>
@@ -27,19 +28,13 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
 		await interaction.reply({ content: "서버에서만 사용 가능", ephemeral: true });
 		return;
 	}
+	if (!(await requireOperator(interaction))) return;
 	const id = interaction.options.getInteger("모집", true);
 	const targetUser = interaction.options.getUser("멤버", true);
 
 	const rec = await getRecruitment(id);
 	if (!rec) {
 		await interaction.reply({ content: `모집 #${id} 없음`, ephemeral: true });
-		return;
-	}
-	if (rec.created_by !== interaction.user.id) {
-		await interaction.reply({
-			content: "모집을 만든 운영자만 가능합니다.",
-			ephemeral: true,
-		});
 		return;
 	}
 	if (rec.status !== "OPEN" && rec.status !== "CLOSED") {
@@ -60,6 +55,13 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
 	}
 
 	await removeRecruitmentParticipant(id, targetUser.id);
+	await recordAudit({
+		operatorId: interaction.user.id,
+		action: "recruitment.member-removed",
+		targetType: "recruitment",
+		targetId: String(id),
+		payload: { userId: targetUser.id, source: "bot-command" },
+	});
 
 	const refreshError = await refreshRecruitMessage(interaction, id, rec.channel_id, rec.message_id);
 	void notify(`recruitment:${id}`);

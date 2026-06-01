@@ -9,6 +9,7 @@ import {
 } from "discord.js";
 import { resolveGuildDisplayName } from "../../utils/displayName.js";
 import { notify as wsNotify } from "../../utils/notify.js";
+import { requireOperator } from "../../utils/operator.js";
 import { v2EditReply } from "../../utils/v2.js";
 import { refreshRecruitMessage, renderComponents } from "./messageBuilder.js";
 
@@ -79,12 +80,11 @@ export async function handleButton(interaction: ButtonInteraction): Promise<void
 		case "leave":
 			return await handleLeave(interaction, id);
 		case "cancel":
-			return await handleCancelRequest(interaction, id, rec.created_by, rec.target_count);
+			return await handleCancelRequest(interaction, id, rec.target_count);
 		case "cancel_confirm":
 			return await handleCancelConfirm(
 				interaction,
 				id,
-				rec.created_by,
 				rec.channel_id,
 				rec.message_id,
 			);
@@ -95,7 +95,7 @@ export async function handleButton(interaction: ButtonInteraction): Promise<void
 				await notify(interaction, "이미 엔트리 수정 단계로 진입한 모집입니다.");
 				return;
 			}
-			return await handleNext(interaction, id, rec.created_by);
+			return await handleNext(interaction, id);
 		default:
 			await notify(interaction, `알 수 없는 액션: ${action}`);
 	}
@@ -160,13 +160,9 @@ async function requireSameCancelRequester(interaction: ButtonInteraction): Promi
 async function handleCancelRequest(
 	interaction: ButtonInteraction,
 	id: number,
-	createdBy: string,
 	targetCount: number,
 ): Promise<void> {
-	if (interaction.user.id !== createdBy) {
-		await notify(interaction, "모집을 취소할 수 있는 건 모집을 만든 운영자뿐입니다.");
-		return;
-	}
+	if (!(await requireOperator(interaction))) return;
 	const participants = await listRecruitmentParticipants(id);
 	const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
 		new ButtonBuilder()
@@ -202,15 +198,11 @@ async function handleCancelAbort(interaction: ButtonInteraction): Promise<void> 
 async function handleCancelConfirm(
 	interaction: ButtonInteraction,
 	id: number,
-	createdBy: string,
 	channelId: string | null,
 	messageId: string | null,
 ): Promise<void> {
 	if (!(await requireSameCancelRequester(interaction))) return;
-	if (interaction.user.id !== createdBy) {
-		await notify(interaction, "모집을 취소할 수 있는 건 모집을 만든 운영자뿐입니다.");
-		return;
-	}
+	if (!(await requireOperator(interaction))) return;
 	await setRecruitmentStatus(id, "CANCELLED");
 	await recordAudit({
 		operatorId: interaction.user.id,
@@ -229,12 +221,8 @@ async function handleCancelConfirm(
 async function handleNext(
 	interaction: ButtonInteraction,
 	id: number,
-	createdBy: string,
 ): Promise<void> {
-	if (interaction.user.id !== createdBy) {
-		await notify(interaction, "엔트리 수정 시작은 모집을 만든 운영자만 가능합니다.");
-		return;
-	}
+	if (!(await requireOperator(interaction))) return;
 	const participants = await listRecruitmentParticipants(id);
 	const rec = await getRecruitment(id);
 	if (!rec) return;

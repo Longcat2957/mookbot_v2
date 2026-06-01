@@ -19,7 +19,10 @@ interface Fixture {
 	recruitmentId: number;
 }
 
-function seedRecruitment(db: TestDb, status: "OPEN" | "CLOSED" | "CONVERTED" = "CLOSED"): Fixture {
+function seedRecruitment(
+	db: TestDb,
+	status: "OPEN" | "CLOSED" | "CONVERTED" | "CANCELLED" = "CLOSED",
+): Fixture {
 	const seasonId = (
 		db
 			.prepare("INSERT INTO seasons (name, started_at) VALUES (?, unixepoch()) RETURNING id")
@@ -38,10 +41,22 @@ function seedRecruitment(db: TestDb, status: "OPEN" | "CLOSED" | "CONVERTED" = "
 	return { seasonId, recruitmentId: recId };
 }
 
+function seedRecruitmentParticipants(
+	db: TestDb,
+	recruitmentId: number,
+	userIds: string[] = ["u1", "u2"],
+): void {
+	const stmt = db.prepare(
+		"INSERT OR IGNORE INTO recruitment_participants (recruitment_id, user_id) VALUES (?, ?)",
+	);
+	for (const userId of userIds) stmt.run(recruitmentId, userId);
+}
+
 describe("POST /api/series", () => {
 	it("CLOSED 모집 → series 생성 + 모집 status CONVERTED", async () => {
 		const { app, db } = await buildTestApp({ canEdit: true });
 		const { recruitmentId } = seedRecruitment(db, "CLOSED");
+		seedRecruitmentParticipants(db, recruitmentId);
 
 		const res = await app.inject({
 			method: "POST",
@@ -86,6 +101,7 @@ describe("POST /api/series", () => {
 	it("운영자 role 이 있으면 모집 생성자가 아니어도 series 생성 허용", async () => {
 		const { app, db } = await buildTestApp({ canEdit: true });
 		const { recruitmentId } = seedRecruitment(db, "CLOSED");
+		seedRecruitmentParticipants(db, recruitmentId);
 
 		const res = await app.inject({
 			method: "POST",
@@ -120,6 +136,32 @@ describe("POST /api/series", () => {
 			},
 		});
 		expect(res.statusCode).toBe(409);
+	});
+
+	it("모집 참가자가 아닌 stale assignment 포함 시 series 생성 차단", async () => {
+		const { app, db } = await buildTestApp({ canEdit: true });
+		const { recruitmentId } = seedRecruitment(db, "CLOSED");
+		seedRecruitmentParticipants(db, recruitmentId);
+
+		const res = await app.inject({
+			method: "POST",
+			url: "/api/series",
+			cookies: { sid: signSid(app, OP) },
+			payload: {
+				recruitmentId,
+				assignments: [
+					{ userId: "u1", team: "TEAM_1", role: "TOP" },
+					{ userId: "removed-user", team: "TEAM_2", role: "TOP" },
+				],
+			},
+		});
+
+		expect(res.statusCode).toBe(400);
+		expect(res.json()).toMatchObject({
+			error: "모집 참가자가 아닌 유저가 엔트리에 포함되어 있습니다.",
+			invalidUserIds: ["removed-user"],
+		});
+		expect(db.prepare("SELECT COUNT(*) AS n FROM series").get()).toEqual({ n: 0 });
 	});
 });
 
@@ -679,6 +721,7 @@ describe("POST /api/series/:id/revert", () => {
 	it("revert 된 시리즈가 같은 모집 재확정 시 같은 id 로 revive (CANCELLED → IN_PROGRESS)", async () => {
 		const { app, db } = await buildTestApp({ canEdit: true });
 		const { recruitmentId } = seedRecruitment(db, "CLOSED");
+		seedRecruitmentParticipants(db, recruitmentId);
 
 		// 1) 엔트리 확정 → 시리즈 생성
 		const create1 = await app.inject({
@@ -796,6 +839,31 @@ describe("GET /api/recruitments + /api/recruitments/:id", () => {
 		expect(JSON.parse(row.v)).toEqual({ assignments: { u1: "TEAM_1_TOP" } });
 		expect(row.updated_by).toBe("other-operator");
 	});
+
+	it("detail — 제거된 참가자의 stale entryDraft assignment 는 응답에서 제외", async () => {
+		const { app, db } = await buildTestApp();
+		const { recruitmentId } = seedRecruitment(db);
+		db
+			.prepare("INSERT INTO recruitment_participants (recruitment_id, user_id) VALUES (?, ?)")
+			.run(recruitmentId, "u1");
+		db
+			.prepare("INSERT INTO guild_kv (k, v, updated_by) VALUES (?, ?, ?)")
+			.run(
+				`entry:${recruitmentId}`,
+				JSON.stringify({ assignments: { u1: "TEAM_1_TOP", u2: "TEAM_2_TOP" } }),
+				OP,
+			);
+
+		const res = await app.inject({
+			method: "GET",
+			url: `/api/recruitments/${recruitmentId}`,
+			cookies: { sid: signSid(app, OP) },
+		});
+
+		expect(res.statusCode).toBe(200);
+		const body = res.json() as { entryDraft: { assignments: Record<string, string> } };
+		expect(body.entryDraft.assignments).toEqual({ u1: "TEAM_1_TOP" });
+	});
 });
 
 describe("POST /api/recruitments/:id/reopen", () => {
@@ -825,6 +893,24 @@ describe("POST /api/recruitments/:id/reopen", () => {
 	it("운영자 role 이 있으면 모집 생성자가 아니어도 OPEN 복귀 허용", async () => {
 		const { app, db } = await buildTestApp({ canEdit: true });
 		const { recruitmentId } = seedRecruitment(db, "CLOSED");
+
+		const res = await app.inject({
+			method: "POST",
+			url: `/api/recruitments/${recruitmentId}/reopen`,
+			cookies: { sid: signSid(app, "other-operator") },
+		});
+
+		expect(res.statusCode).toBe(200);
+		expect(
+			(db.prepare("SELECT status FROM recruitments WHERE id = ?").get(recruitmentId) as {
+				status: string;
+			}).status,
+		).toBe("OPEN");
+	});
+
+	it("CANCELLED 모집 → OPEN 복구 허용", async () => {
+		const { app, db } = await buildTestApp({ canEdit: true });
+		const { recruitmentId } = seedRecruitment(db, "CANCELLED");
 
 		const res = await app.inject({
 			method: "POST",

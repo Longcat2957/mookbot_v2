@@ -47,6 +47,7 @@ const RANKED_ADMIN_COMMANDS: CommandEntry[] = [
 		desc: "[운영자] 테스트용 — 랜덤 등록 사용자 N명 추가",
 	},
 	{ name: "/내전모집삭제 모집:<id>", desc: "[운영자] 모집 (OPEN/CLOSED/CANCELLED) 물리 삭제" },
+	{ name: "/내전모집복구 모집:<id>", desc: "[운영자] 취소된 모집을 다시 OPEN 으로 복구" },
 	{ name: "/내전목록 [상태] [시즌] [limit]", desc: "[운영자] 최근 시리즈 목록" },
 	{
 		name: "/내전강제삭제 series_id:<id> [rollback_mmr]",
