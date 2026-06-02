@@ -1,6 +1,6 @@
 /* MiniGame — 3D-ish CSS for Coin / Ladder / Roulette.
- * 외부 라이브러리 의존성 0. 모든 애니메이션은 브라우저 네이티브 (CSS transitions / motion-path / conic-gradient).
- * Discord Activity (Chromium) 환경 가정 — color-mix(oklch), offset-path, conic-gradient 모두 지원.
+ * 외부 라이브러리 의존성 0. 모든 애니메이션은 브라우저 네이티브 (CSS transitions / SVG animateMotion / conic-gradient).
+ * Discord Activity (Chromium) 환경 가정 — color-mix(oklch), SVG animateMotion, conic-gradient 모두 지원.
  */
 
 /* ============================================================
@@ -419,6 +419,8 @@
 	width: 100%;
 	height: 100%;
 	transform-style: preserve-3d;
+	will-change: transform;
+	transform: translateZ(0);
 }
 
 .mg-coin-bob-active {
@@ -474,6 +476,7 @@
 	transform-style: preserve-3d;
 	transition: transform 900ms cubic-bezier(0.18, 0.82, 0.28, 1) !important;
 	will-change: transform;
+	backface-visibility: hidden;
 }
 
 .mg-coin-flipping {
@@ -487,11 +490,11 @@
 @keyframes mg-coin-aura {
 	from {
 		transform: scale(0.86);
-		filter: blur(20px);
+		opacity: 0.64;
 	}
 	to {
 		transform: scale(1.08);
-		filter: blur(28px);
+		opacity: 1;
 	}
 }
 
@@ -698,12 +701,14 @@
 	position: absolute;
 	bottom: -0.5rem;
 	left: 50%;
-	transform: translateX(-50%);
+	transform: translateX(-50%) scaleX(1);
+	transform-origin: center;
 	width: 65%;
 	height: 18px;
 	background: radial-gradient(ellipse at center, rgba(0, 0, 0, 0.45), transparent 70%);
 	filter: blur(6px);
 	pointer-events: none;
+	will-change: transform, opacity;
 }
 
 .mg-coin-shadow-flipping {
@@ -712,11 +717,11 @@
 
 @keyframes mg-coin-shadow-pulse {
 	0% {
-		width: 70%;
+		transform: translateX(-50%) scaleX(1.08);
 		opacity: 0.85;
 	}
 	100% {
-		width: 50%;
+		transform: translateX(-50%) scaleX(0.77);
 		opacity: 0.4;
 	}
 }
@@ -740,7 +745,7 @@
 
 /* ============================================================
  * Ladder
- * 핵심: dot 위치는 CSS offset-path 로 — JS rAF 없이 GPU 보간.
+ * 핵심: dot 위치는 SVG animateMotion 으로 — JS rAF 없이 브라우저 네이티브 보간.
  * ============================================================ */
 
 .mg-ladder-stage {
@@ -866,7 +871,6 @@
 
 .mg-ladder-rung.revealed {
 	opacity: 1;
-	filter: drop-shadow(0 0 7px color-mix(in oklch, var(--color-primary), transparent 56%));
 	animation: mg-ladder-rung-flash 520ms ease-out !important;
 }
 
@@ -880,64 +884,35 @@
 	stroke-dashoffset: 100;
 	visibility: hidden;
 	transition: stroke-dashoffset 1800ms cubic-bezier(0.45, 0, 0.55, 1) !important;
-	filter: drop-shadow(0 0 8px currentColor);
 }
 
 .mg-ladder-trace.active {
 	visibility: visible;
 	stroke-dashoffset: 0;
-	animation: mg-ladder-trace-glow 1.8s ease-in-out !important;
 }
 
-/* 이동 dot — CSS offset-path 로 path 위 위치 보간.
- * cx=0 cy=0 + offsetPath inline → offset-distance 0% 시 path 시작점에 위치.
+/* 이동 dot — SVG animateMotion 으로 path 위 위치 보간.
+ * CSS offset-path 는 일부 모바일 WebView 에서 프레임이 불규칙해 native SVG motion 으로 전환.
  */
 .mg-ladder-dot {
-	offset-distance: 0%;
 	visibility: hidden;
-	transition: offset-distance 1800ms cubic-bezier(0.45, 0, 0.55, 1) !important;
 	stroke: white;
 	stroke-width: 2;
-	filter: drop-shadow(0 0 10px currentColor);
+	will-change: transform;
 }
 
 .mg-ladder-dot.active {
 	visibility: visible;
-	offset-distance: 100%;
-	animation: mg-ladder-dot-pulse 620ms ease-in-out infinite alternate !important;
 }
 
 @keyframes mg-ladder-rung-flash {
 	0% {
 		stroke-width: 7;
-		filter: drop-shadow(0 0 15px color-mix(in oklch, var(--color-warning), transparent 35%));
+		opacity: 0.72;
 	}
 	100% {
 		stroke-width: 4;
-		filter: drop-shadow(0 0 7px color-mix(in oklch, var(--color-primary), transparent 56%));
-	}
-}
-
-@keyframes mg-ladder-trace-glow {
-	0% {
-		filter: drop-shadow(0 0 5px currentColor);
-	}
-	45% {
-		filter: drop-shadow(0 0 16px currentColor);
-	}
-	100% {
-		filter: drop-shadow(0 0 8px currentColor);
-	}
-}
-
-@keyframes mg-ladder-dot-pulse {
-	from {
-		r: 9;
-		filter: drop-shadow(0 0 8px currentColor);
-	}
-	to {
-		r: 12;
-		filter: drop-shadow(0 0 16px currentColor);
+		opacity: 1;
 	}
 }
 
@@ -1029,6 +1004,8 @@
 	border-radius: 50%;
 	transition: transform 4000ms cubic-bezier(0.15, 0.85, 0.3, 1) !important;
 	will-change: transform;
+	backface-visibility: hidden;
+	transform: translateZ(0);
 	box-shadow:
 		inset 0 0 0 3px rgba(255, 255, 255, 0.28),
 		inset 0 0 0 13px rgba(0, 0, 0, 0.24),
@@ -1040,11 +1017,23 @@
 }
 
 .mg-roulette-spinning {
-	filter: saturate(1.16) drop-shadow(0 0 18px color-mix(in oklch, var(--color-primary), transparent 58%));
+	box-shadow:
+		inset 0 0 0 3px rgba(255, 255, 255, 0.28),
+		inset 0 0 0 13px rgba(0, 0, 0, 0.24),
+		inset 0 0 0 19px rgba(255, 255, 255, 0.08),
+		inset 0 0 36px rgba(0, 0, 0, 0.3),
+		0 18px 42px rgba(0, 0, 0, 0.42),
+		0 0 46px color-mix(in oklch, var(--color-primary), transparent 70%);
 }
 
 .mg-roulette-settled {
-	animation: mg-roulette-settle 520ms cubic-bezier(0.18, 0.9, 0.25, 1) !important;
+	box-shadow:
+		inset 0 0 0 3px rgba(255, 255, 255, 0.28),
+		inset 0 0 0 13px rgba(0, 0, 0, 0.24),
+		inset 0 0 0 19px rgba(255, 255, 255, 0.08),
+		inset 0 0 36px rgba(0, 0, 0, 0.3),
+		0 18px 42px rgba(0, 0, 0, 0.42),
+		0 0 42px color-mix(in oklch, var(--color-warning), transparent 72%);
 }
 
 .mg-roulette::after {
@@ -1111,6 +1100,7 @@
 		color-mix(in oklch, var(--color-base-content), black 18%)
 	);
 	transform: translate(-50%, -50%);
+	will-change: transform, opacity;
 	box-shadow:
 		0 3px 10px rgba(0, 0, 0, 0.5),
 		0 0 18px rgba(255, 255, 255, 0.18),
@@ -1136,7 +1126,7 @@
 }
 
 .mg-roulette-spinning .mg-roulette-hub {
-	animation: mg-roulette-hub-pulse 520ms ease-in-out infinite alternate !important;
+	animation: mg-roulette-hub-pulse 780ms ease-in-out infinite alternate !important;
 }
 
 @keyframes mg-roulette-orbit-drift {
@@ -1160,27 +1150,12 @@
 
 @keyframes mg-roulette-hub-pulse {
 	from {
-		box-shadow:
-			0 3px 10px rgba(0, 0, 0, 0.5),
-			0 0 18px rgba(255, 255, 255, 0.18),
-			inset 0 -4px 8px rgba(0, 0, 0, 0.35),
-			inset 0 4px 8px rgba(255, 255, 255, 0.42);
+		transform: translate(-50%, -50%) scale(1);
+		opacity: 0.92;
 	}
 	to {
-		box-shadow:
-			0 3px 10px rgba(0, 0, 0, 0.5),
-			0 0 30px color-mix(in oklch, var(--color-warning), transparent 42%),
-			inset 0 -4px 8px rgba(0, 0, 0, 0.35),
-			inset 0 4px 8px rgba(255, 255, 255, 0.52);
-	}
-}
-
-@keyframes mg-roulette-settle {
-	0% {
-		filter: saturate(1.2) brightness(1.06);
-	}
-	100% {
-		filter: saturate(1) brightness(1);
+		transform: translate(-50%, -50%) scale(1.045);
+		opacity: 1;
 	}
 }
 

@@ -1,5 +1,5 @@
 import type { CSSProperties, KeyboardEvent } from "react";
-import { TRACE_COLORS } from "./constants.js";
+import { ANIM_DURATION_MS, TRACE_COLORS } from "./constants.js";
 import type { Geom, InputState, Rung } from "./ladderLogic.js";
 
 export function LadderStage({
@@ -166,8 +166,20 @@ export function LadderStage({
 							r={10}
 							fill={color}
 							className={`mg-ladder-dot ${active ? "active" : ""}`}
-							style={{ offsetPath: `path("${pathD}")`, color } as CSSProperties}
-						/>
+							style={{ color } as CSSProperties}
+						>
+							{active && (
+								<animateMotion
+									key={`dot-motion-${rungsKey}-${i}-${state}`}
+									path={pathD}
+									dur={`${ANIM_DURATION_MS}ms`}
+									fill="freeze"
+									calcMode="spline"
+									keyTimes="0;1"
+									keySplines="0.45 0 0.55 1"
+								/>
+							)}
+						</circle>
 					);
 				})}
 			</svg>
