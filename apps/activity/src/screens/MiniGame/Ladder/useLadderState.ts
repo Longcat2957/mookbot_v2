@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ANIM_DURATION_MS, ROW_TIME_MS, STAGGER_MS } from "./constants.js";
+import { RESULT_REVEAL_DELAY_MS, ROW_TIME_MS, STAGGER_MS } from "./constants.js";
 import {
 	buildLadderGeom,
 	buildPath,
@@ -88,7 +88,7 @@ export function useLadderState() {
 		});
 		const id = window.setTimeout(() => {
 			setInputStates((prev) => ({ ...prev, [i]: "done" }));
-		}, ANIM_DURATION_MS);
+		}, RESULT_REVEAL_DELAY_MS);
 		timersRef.current.push(id);
 	}
 

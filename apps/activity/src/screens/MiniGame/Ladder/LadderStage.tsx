@@ -170,7 +170,7 @@ export function LadderStage({
 						>
 							{active && (
 								<animateMotion
-									key={`dot-motion-${rungsKey}-${i}-${state}`}
+									key={`dot-motion-${rungsKey}-${i}`}
 									path={pathD}
 									dur={`${ANIM_DURATION_MS}ms`}
 									fill="freeze"

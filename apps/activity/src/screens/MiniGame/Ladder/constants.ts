@@ -3,6 +3,7 @@ export const MAX_COUNT = 10;
 export const ROWS = 10;
 export const RUNG_PROB = 0.55;
 export const ANIM_DURATION_MS = 1800;
+export const RESULT_REVEAL_DELAY_MS = ANIM_DURATION_MS + 120;
 export const STAGGER_MS = 150;
 export const ROW_TIME_MS = ANIM_DURATION_MS / (ROWS + 1);
 
