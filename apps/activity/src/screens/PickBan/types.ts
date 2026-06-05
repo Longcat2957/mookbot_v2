@@ -44,6 +44,12 @@ export interface SeriesDetail {
 		winningTeam: Team | null;
 		createdBy: string | null;
 		canControl: boolean;
+		permissions?: {
+			canEditPickBan: boolean;
+			canRecordResult: boolean;
+			canUndoLastGame: boolean;
+			canRevertToEntry: boolean;
+		};
 	};
 	participants: SeriesParticipant[];
 	games: {

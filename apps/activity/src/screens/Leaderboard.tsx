@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { InlineNotice } from "../components/DesignPrimitives.js";
 import { EmptyState } from "../components/EmptyState.js";
-import { usePerms } from "../state/perms.js";
+import { useCurrentUser } from "../state/perms.js";
 import { LeaderboardHeader } from "./Leaderboard/LeaderboardHeader.js";
 import { LeaderboardTable } from "./Leaderboard/LeaderboardTable.js";
 import { LeaderboardTabs } from "./Leaderboard/LeaderboardTabs.js";
@@ -17,7 +17,7 @@ export function Leaderboard({
 	onSelectUser: (userId: string) => void;
 }) {
 	const [tab, setTab] = useState<LeaderboardTab>("TOP");
-	const perms = usePerms();
+	const currentUser = useCurrentUser();
 	const { data, error } = useLeaderboardData(tab);
 
 	return (
@@ -36,7 +36,11 @@ export function Leaderboard({
 					tone="info"
 				/>
 			) : (
-				<LeaderboardTable rows={data.rows} myUserId={perms.discordId} onSelectUser={onSelectUser} />
+				<LeaderboardTable
+					rows={data.rows}
+					myUserId={currentUser.discordId}
+					onSelectUser={onSelectUser}
+				/>
 			)}
 		</section>
 	);

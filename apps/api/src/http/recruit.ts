@@ -109,6 +109,11 @@ export async function registerRecruitRoutes(app: FastifyInstance): Promise<void>
 		const rec = await getRecruitment(id);
 		if (!rec) return reply.code(404).send({ error: "not found" });
 		const canControl = await userCanEdit(sid);
+		const permissions = {
+			canEditEntryDraft: canControl,
+			canSubmitEntry: canControl,
+			canReopenRecruitment: canControl,
+		};
 
 		const participants = await listRecruitmentParticipants(id);
 		const userIds = participants.map((p) => p.user_id);
@@ -154,6 +159,7 @@ export async function registerRecruitRoutes(app: FastifyInstance): Promise<void>
 				status: rec.status,
 				createdBy: rec.created_by,
 				canControl,
+				permissions,
 				createdAt: rec.created_at,
 			},
 			participants: participants.map((p) => ({

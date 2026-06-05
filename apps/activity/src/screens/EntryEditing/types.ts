@@ -87,6 +87,11 @@ export interface RecruitmentDetail {
 		status: string;
 		createdBy: string;
 		canControl: boolean;
+		permissions?: {
+			canEditEntryDraft: boolean;
+			canSubmitEntry: boolean;
+			canReopenRecruitment: boolean;
+		};
 		createdAt: number;
 	};
 	participants: Participant[];

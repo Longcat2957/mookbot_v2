@@ -31,6 +31,9 @@ export async function registerAuctionRecruitRoutes(app: FastifyInstance): Promis
 		const rec = await db.getAuctionRecruitment(id);
 		if (!rec) return reply.code(404).send({ error: "not found" });
 		const canControl = await userCanEdit(sid);
+		const permissions = {
+			canStartTournament: canControl,
+		};
 
 		const participants = await db.listAuctionRecruitmentParticipants(id);
 		const userIds = participants.map((p) => p.user_id);
@@ -55,6 +58,7 @@ export async function registerAuctionRecruitRoutes(app: FastifyInstance): Promis
 				convertedTournamentId: rec.converted_tournament_id,
 				createdBy: rec.created_by,
 				canControl,
+				permissions,
 				createdAt: rec.created_at,
 			},
 			participants: participants.map((p) => ({

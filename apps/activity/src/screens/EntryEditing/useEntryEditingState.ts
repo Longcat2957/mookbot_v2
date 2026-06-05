@@ -6,7 +6,6 @@ import { api } from "../../api/rest.js";
 import { wsClient } from "../../api/ws.js";
 import type { SaveStatus } from "../../components/SaveStatus.js";
 import { showToast } from "../../components/Toaster.js";
-import { usePerms } from "../../state/perms.js";
 import { useStaleWhileRevalidate } from "../../state/useStaleWhileRevalidate.js";
 import {
 	activeLanesForTeamSize,
@@ -85,7 +84,6 @@ export function useEntryEditingState({
 }): UseEntryEditingStateResult {
 	const [assignment, setAssignment] = useState<Assignment>(new Map());
 	const { recentlyChanged, markRecentlyChanged } = useRecentAssignmentChanges();
-	const perms = usePerms();
 
 	// SWR — fetch 중 화면을 비우지 않고, 본인 dirty 변경은 incoming 에 덮이지
 	// 않게 보호 (hot_fix.md §3.3).
@@ -121,7 +119,11 @@ export function useEntryEditingState({
 	});
 	const detail = swr.data;
 	const error = swr.error;
-	const canControl = perms.canEdit && detail?.recruitment.canControl === true;
+	const recruitmentPermissions = detail?.recruitment.permissions;
+	const canControl =
+		recruitmentPermissions?.canEditEntryDraft ?? detail?.recruitment.canControl === true;
+	const canSubmitEntry = recruitmentPermissions?.canSubmitEntry ?? canControl;
+	const canReopenRecruitment = recruitmentPermissions?.canReopenRecruitment ?? canControl;
 	const { saveStatus, savedAt, retrySave, lastSaved } = useEntryDraftAutosave({
 		recruitmentId,
 		canEdit: canControl,
@@ -167,7 +169,7 @@ export function useEntryEditingState({
 		assignment,
 		recruitmentId,
 		coinTossDecided,
-		canEdit: canControl,
+		canEdit: canSubmitEntry,
 	});
 
 	const history = useEntryHistory({
@@ -215,7 +217,7 @@ export function useEntryEditingState({
 	const clearCoinToss = useCallback(() => setCoinTossDecided(false), []);
 
 	const reopenRecruitment = useCallback(async (): Promise<boolean> => {
-		if (recruitmentId === null || !canControl) return false;
+		if (recruitmentId === null || !canReopenRecruitment) return false;
 		try {
 			await api(`/recruitments/${recruitmentId}/reopen`, { method: "POST" });
 			return true;
@@ -223,7 +225,7 @@ export function useEntryEditingState({
 			showToast(`모집 복귀 실패: ${err instanceof Error ? err.message : String(err)}`);
 			return false;
 		}
-	}, [recruitmentId, canControl]);
+	}, [recruitmentId, canReopenRecruitment]);
 
 	useEntryUndoShortcuts({
 		canEdit: canControl,

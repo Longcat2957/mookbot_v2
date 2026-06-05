@@ -12,7 +12,7 @@ import {
 	notifyBotAuctionMatchCreated,
 	notifyBotAuctionTournamentCompleted,
 } from "../bot/notify.js";
-import { invalidate, requireEditor, requireOwner, requireSession } from "./_helpers.js";
+import { invalidate, requireOwnerOrEditor, requireSession } from "./_helpers.js";
 import { type Role, TEAMS, type Team, validateDraftGameInput } from "./auction-match-validation.js";
 
 type MatchRound = "SEMI" | "FINAL" | "SINGLE";
@@ -91,12 +91,11 @@ export async function registerAuctionMatchRoutes(app: FastifyInstance): Promise<
 			format: MatchFormat;
 		};
 	}>("/api/auction-tournaments/:id/matches", async (req, reply) => {
-		const sid = await requireEditor(req, reply);
-		if (!sid) return;
 		const tournamentId = Number(req.params.id);
 		const t = await db.getAuctionTournament(tournamentId);
 		if (!t) return reply.code(404).send({ error: "not found" });
-		if (!requireOwner(sid, t.created_by, reply)) return;
+		const sid = await requireOwnerOrEditor(req, reply, t.created_by);
+		if (!sid) return;
 		if (t.status !== "BRACKET_SETUP" && t.status !== "IN_GAME") {
 			return reply.code(409).send({ error: `status=${t.status} — 매치 생성 불가` });
 		}
@@ -173,15 +172,14 @@ export async function registerAuctionMatchRoutes(app: FastifyInstance): Promise<
 			bans: { TEAM_1: number[]; TEAM_2: number[] };
 		};
 	}>("/api/auction-matches/:matchId/games", async (req, reply) => {
-		const sid = await requireEditor(req, reply);
-		if (!sid) return;
 		const matchId = Number(req.params.matchId);
 		if (!Number.isFinite(matchId)) return reply.code(400).send({ error: "invalid id" });
 		const match = await db.getAuctionMatch(matchId);
 		if (!match) return reply.code(404).send({ error: "auction match not found" });
 		const tournament = await db.getAuctionTournament(match.tournament_id);
 		if (!tournament) return reply.code(404).send({ error: "tournament not found" });
-		if (!requireOwner(sid, tournament.created_by, reply)) return;
+		const sid = await requireOwnerOrEditor(req, reply, tournament.created_by);
+		if (!sid) return;
 		if (match.status !== "IN_PROGRESS") {
 			return reply.code(409).send({ error: `match status=${match.status}` });
 		}
@@ -315,15 +313,14 @@ export async function registerAuctionMatchRoutes(app: FastifyInstance): Promise<
 	app.delete<{ Params: { matchId: string } }>(
 		"/api/auction-matches/:matchId/games/last",
 		async (req, reply) => {
-			const sid = await requireEditor(req, reply);
-			if (!sid) return;
 			const matchId = Number(req.params.matchId);
 			if (!Number.isFinite(matchId)) return reply.code(400).send({ error: "invalid id" });
 			const match = await db.getAuctionMatch(matchId);
 			if (!match) return reply.code(404).send({ error: "auction match not found" });
 			const tournament = await db.getAuctionTournament(match.tournament_id);
 			if (!tournament) return reply.code(404).send({ error: "tournament not found" });
-			if (!requireOwner(sid, tournament.created_by, reply)) return;
+			const sid = await requireOwnerOrEditor(req, reply, tournament.created_by);
+			if (!sid) return;
 			if (match.status === "CANCELLED") {
 				return reply.code(409).send({ error: "취소된 매치는 되돌릴 수 없음" });
 			}
@@ -364,14 +361,13 @@ export async function registerAuctionMatchRoutes(app: FastifyInstance): Promise<
 		Params: { matchId: string };
 		Body: { format: MatchFormat };
 	}>("/api/auction-matches/:matchId/format", async (req, reply) => {
-		const sid = await requireEditor(req, reply);
-		if (!sid) return;
 		const matchId = Number(req.params.matchId);
 		const match = await db.getAuctionMatch(matchId);
 		if (!match) return reply.code(404).send({ error: "not found" });
 		const tournament = await db.getAuctionTournament(match.tournament_id);
 		if (!tournament) return reply.code(404).send({ error: "tournament not found" });
-		if (!requireOwner(sid, tournament.created_by, reply)) return;
+		const sid = await requireOwnerOrEditor(req, reply, tournament.created_by);
+		if (!sid) return;
 		const games = await db.listGamesInAuctionMatch(matchId);
 		if (games.length > 0) {
 			return reply.code(409).send({ error: "이미 기록된 게임이 있어 변경 불가" });

@@ -1,4 +1,5 @@
 import { datadragon, db } from "@mookbot/core";
+import { userCanEdit } from "../auth/perms.js";
 import { rewriteDD } from "./_helpers.js";
 import { getBidIntents } from "./auction-bid-intents.js";
 
@@ -57,6 +58,14 @@ export async function buildAuctionTournamentDetail(id: number, viewerId?: string
 				intents: await getBidIntents(id),
 			}
 		: null;
+	const canControl = viewerId ? t.created_by === viewerId || (await userCanEdit(viewerId)) : false;
+	const permissions = {
+		canManageDraft: canControl,
+		canManageBidding: canControl,
+		canManageBracket: canControl,
+		canRecordMatchResult: canControl,
+		canCancelTournament: canControl,
+	};
 
 	return {
 		tournament: {
@@ -65,7 +74,8 @@ export async function buildAuctionTournamentDetail(id: number, viewerId?: string
 			status: t.status,
 			championTeamId: t.champion_team_id,
 			createdBy: t.created_by,
-			canControl: viewerId === t.created_by,
+			canControl,
+			permissions,
 			startedAt: t.started_at,
 			endedAt: t.ended_at,
 			currentBidTarget,

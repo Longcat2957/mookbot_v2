@@ -1,7 +1,7 @@
 import { SearchBar } from "../components/SearchBar.js";
 import { SystemDot } from "../components/SystemDot.js";
 import type { AuthedUser } from "../sdk/client.js";
-import { usePerms } from "../state/perms.js";
+import { useCurrentUser } from "../state/perms.js";
 import { ContextChip } from "./ContextChip.js";
 import { loadLeaderboard, loadMiniGame, loadProfile } from "./screenLoaders.js";
 import type { AppNavigation } from "./useAppNavigation.js";
@@ -23,7 +23,7 @@ export function AppHeader({
 	onOpenHelp: () => void;
 	onOpenPerms: () => void;
 }) {
-	const perms = usePerms();
+	const currentUser = useCurrentUser();
 
 	return (
 		<>
@@ -64,14 +64,14 @@ export function AppHeader({
 							aria-label="메뉴 열기"
 						>
 							<span
-								className={`badge badge-xs ${perms.canEdit ? "badge-success" : "badge-ghost"}`}
+								className={`badge badge-xs ${currentUser.canEdit ? "badge-success" : "badge-ghost"}`}
 								title={
-									perms.canEdit
+									currentUser.canEdit
 										? "운영자 권한 — 엔트리/픽밴/결과 입력 가능"
 										: "읽기 전용 — BalanceTeam 역할이 필요합니다"
 								}
 							>
-								{perms.canEdit ? "✏️" : "👁"}
+								{currentUser.canEdit ? "✏️" : "👁"}
 							</span>
 							<span className="font-medium truncate max-w-32">{user.username}</span>
 							<span className="text-xs opacity-60">▾</span>
@@ -125,7 +125,7 @@ export function AppHeader({
 							</li>
 							<li>
 								<button type="button" onClick={onOpenPerms}>
-									<span className="text-base">{perms.canEdit ? "✏️" : "👁"}</span>
+									<span className="text-base">{currentUser.canEdit ? "✏️" : "👁"}</span>
 									<span>내 권한 확인</span>
 								</button>
 							</li>

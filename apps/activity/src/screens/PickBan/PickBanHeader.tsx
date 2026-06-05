@@ -41,7 +41,7 @@ export function PickBanHeader({
 						<IconButton label="새로고침" tooltip="새로고침" onClick={state.refresh}>
 							↻
 						</IconButton>
-						{canEdit && (
+						{canEdit && (!state.noGamesPlayed || state.canRevertToEntry) && (
 							<details className="dropdown dropdown-end">
 								<summary className="btn btn-sm btn-ghost list-none after:content-none" aria-label="더 보기">
 									⋯
@@ -50,7 +50,7 @@ export function PickBanHeader({
 									<div className="text-xs uppercase tracking-wide text-base-content/60 px-2 pt-1 pb-0.5">
 										위험한 액션
 									</div>
-									{!state.noGamesPlayed && (
+									{!state.noGamesPlayed && state.canUndoLastGame && (
 										<ConfirmButton
 											label="↺ 직전 게임 되돌리기"
 											onConfirm={state.undoLast}
@@ -58,7 +58,7 @@ export function PickBanHeader({
 											className="w-full justify-start"
 										/>
 									)}
-									{state.noGamesPlayed && (
+									{state.noGamesPlayed && state.canRevertToEntry && (
 										<ConfirmButton
 											label="↩ 엔트리 수정 대기로"
 											onConfirm={onRevert}

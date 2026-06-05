@@ -13,19 +13,19 @@ import { createContext, type ReactNode, useCallback, useContext, useEffect, useS
 import { api } from "../api/rest.js";
 import { wsClient } from "../api/ws.js";
 
-interface MeInfo {
+interface CurrentUserInfo {
 	discordId: string;
 	canEdit: boolean;
 }
 
-const PermsContext = createContext<MeInfo | null>(null);
+const PermsContext = createContext<CurrentUserInfo | null>(null);
 const PermsRefreshContext = createContext<() => void>(() => {});
 
 export function PermsProvider({ children }: { children: ReactNode }) {
-	const [me, setMe] = useState<MeInfo | null>(null);
+	const [me, setMe] = useState<CurrentUserInfo | null>(null);
 
 	const fetchMe = useCallback(() => {
-		api<MeInfo>("/me")
+		api<CurrentUserInfo>("/me")
 			.then((info) => {
 				setMe(info);
 				if (info.discordId) wsClient.setMyUserId(info.discordId);
@@ -60,9 +60,13 @@ export function PermsProvider({ children }: { children: ReactNode }) {
 	);
 }
 
-export function usePerms(): MeInfo {
+export function useCurrentUser(): CurrentUserInfo {
 	const v = useContext(PermsContext);
 	return v ?? { discordId: "", canEdit: false };
+}
+
+export function usePerms(): CurrentUserInfo {
+	return useCurrentUser();
 }
 
 export function usePermsRefresh(): () => void {

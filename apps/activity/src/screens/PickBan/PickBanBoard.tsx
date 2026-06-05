@@ -14,6 +14,7 @@ export function PickBanBoard({
 	champions,
 	fearlessUsedIds,
 	previousPicks,
+	canEdit,
 	onChange,
 }: {
 	teamSize: number;
@@ -23,6 +24,7 @@ export function PickBanBoard({
 	champions: Champion[];
 	fearlessUsedIds: Set<number>;
 	previousPicks?: Map<number, PickUsage[]>;
+	canEdit: boolean;
 	onChange: (g: GameDraft) => void;
 }) {
 	markRender("PickBanBoard");
@@ -33,6 +35,7 @@ export function PickBanBoard({
 		participants,
 		champions,
 		fearlessUsedIds,
+		canEdit,
 		onChange,
 	});
 
@@ -48,7 +51,7 @@ export function PickBanBoard({
 				onCancel={board.clearActiveSlot}
 			/>
 
-			{board.perms.canEdit && (
+			{canEdit && (
 				<BulkInput champions={champions} teamSize={teamSize} onApply={board.handleApplyBulk} />
 			)}
 

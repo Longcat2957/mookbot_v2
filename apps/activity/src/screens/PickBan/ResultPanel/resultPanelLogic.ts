@@ -28,7 +28,7 @@ export function resultSubmitTip({
 	team1SideSelected: boolean;
 	winner: Team | null;
 }): string | undefined {
-	if (!canEdit) return "이 Activity 방을 연 사람만 조작할 수 있습니다.";
+	if (!canEdit) return "개설자 또는 BalanceTeam 권한 보유자만 조작할 수 있습니다.";
 	if (!allBansFilled) return "밴 슬롯을 모두 채워야 합니다.";
 	if (!allPicksFilled) return "픽 슬롯을 모두 채워야 합니다.";
 	if (!team1SideSelected) return "사이드(BLUE/RED)를 먼저 선택하세요.";

@@ -166,7 +166,7 @@ describe("POST /api/series", () => {
 });
 
 describe("POST /api/auction-tournaments", () => {
-	it("운영자 role 이 있어도 경매 모집 생성자가 아니면 토너먼트 생성 차단", async () => {
+	it("운영자 role 이 있으면 경매 모집 생성자가 아니어도 토너먼트 생성 허용", async () => {
 		const { app, db } = await buildTestApp({ canEdit: true });
 		const seasonId = (
 			db
@@ -174,6 +174,12 @@ describe("POST /api/auction-tournaments", () => {
 				.get("Auction") as { id: number }
 		).id;
 		db.prepare("INSERT INTO users (discord_id, display_name) VALUES (?, ?)").run(OP, OP);
+		db
+			.prepare("INSERT INTO users (discord_id, display_name) VALUES (?, ?)")
+			.run("other-operator", "other-operator");
+		for (let i = 0; i < 10; i++) {
+			db.prepare("INSERT INTO users (discord_id, display_name) VALUES (?, ?)").run(`p${i}`, `p${i}`);
+		}
 		const recruitmentId = (
 			db
 				.prepare(
@@ -181,6 +187,11 @@ describe("POST /api/auction-tournaments", () => {
 				)
 				.get(seasonId, OP) as { id: number }
 		).id;
+		for (let i = 0; i < 10; i++) {
+			db
+				.prepare("INSERT INTO auction_recruitment_participants (recruitment_id, user_id) VALUES (?, ?)")
+				.run(recruitmentId, `p${i}`);
+		}
 
 		const res = await app.inject({
 			method: "POST",
@@ -189,8 +200,10 @@ describe("POST /api/auction-tournaments", () => {
 			payload: { recruitmentId },
 		});
 
-		expect(res.statusCode).toBe(403);
-		expect(db.prepare("SELECT COUNT(*) AS n FROM auction_tournaments").get()).toEqual({ n: 0 });
+		expect(res.statusCode).toBe(200);
+		expect(
+			db.prepare("SELECT created_by FROM auction_tournaments WHERE id = ?").get(recruitmentId),
+		).toEqual({ created_by: "other-operator" });
 	});
 });
 
@@ -364,6 +377,76 @@ describe("PUT /api/series/:id/pickban (draft)", () => {
 		};
 		expect(JSON.parse(raw.v)).toEqual(draft);
 	});
+
+	it("운영자 role 이 있으면 시리즈 생성자가 아니어도 draft 저장 + 조작 가능", async () => {
+		const { app, db } = await buildTestApp({ canEdit: true });
+		const { seasonId } = seedRecruitment(db);
+		const sid = (
+			db
+				.prepare("INSERT INTO series (season_id, created_by) VALUES (?, ?) RETURNING id")
+				.get(seasonId, OP) as { id: number }
+		).id;
+		db
+			.prepare(
+				"INSERT INTO series_participants (series_id, user_id, team, role) VALUES (?, ?, 'TEAM_1', 'TOP')",
+			)
+			.run(sid, "u1");
+		db
+			.prepare(
+				"INSERT INTO series_participants (series_id, user_id, team, role) VALUES (?, ?, 'TEAM_2', 'TOP')",
+			)
+			.run(sid, "u2");
+
+		const draft = { games: [{ gameNumber: 1, team1Side: "BLUE" }], currentGame: 1 };
+		const put = await app.inject({
+			method: "PUT",
+			url: `/api/series/${sid}/pickban`,
+			cookies: { sid: signSid(app, "other-operator") },
+			payload: draft,
+		});
+		expect(put.statusCode).toBe(200);
+
+		const row = db
+			.prepare("SELECT v, updated_by FROM guild_kv WHERE k = ?")
+			.get(`pickban:${sid}`) as { v: string; updated_by: string };
+		expect(JSON.parse(row.v)).toEqual(draft);
+		expect(row.updated_by).toBe("other-operator");
+
+		const get = await app.inject({
+			method: "GET",
+			url: `/api/series/${sid}`,
+			cookies: { sid: signSid(app, "other-operator") },
+		});
+		const body = get.json() as { series: { canControl: boolean } };
+		expect(body.series.canControl).toBe(true);
+	});
+
+	it("시리즈 생성자는 운영자 role 이 없어도 draft 저장 가능, 비생성자는 거부", async () => {
+		const { app, db } = await buildTestApp({ canEdit: false });
+		const { seasonId } = seedRecruitment(db);
+		const sid = (
+			db
+				.prepare("INSERT INTO series (season_id, created_by) VALUES (?, ?) RETURNING id")
+				.get(seasonId, OP) as { id: number }
+		).id;
+
+		const draft = { games: [{ gameNumber: 1, team1Side: "BLUE" }], currentGame: 1 };
+		const ownerPut = await app.inject({
+			method: "PUT",
+			url: `/api/series/${sid}/pickban`,
+			cookies: { sid: signSid(app, OP) },
+			payload: draft,
+		});
+		expect(ownerPut.statusCode).toBe(200);
+
+		const otherPut = await app.inject({
+			method: "PUT",
+			url: `/api/series/${sid}/pickban`,
+			cookies: { sid: signSid(app, "other-operator") },
+			payload: draft,
+		});
+		expect(otherPut.statusCode).toBe(403);
+	});
 });
 
 describe("POST /api/series/:id/games (record + Bo3)", () => {
@@ -418,6 +501,50 @@ describe("POST /api/series/:id/games (record + Bo3)", () => {
 			status: string;
 		};
 		expect(series.status).toBe("IN_PROGRESS");
+	});
+
+	it("운영자 role 이 있으면 시리즈 생성자가 아니어도 game 결과 기록 허용", async () => {
+		const { app, db, seriesId } = await setupSeries();
+		const res = await app.inject({
+			method: "POST",
+			url: `/api/series/${seriesId}/games`,
+			cookies: { sid: signSid(app, "other-operator") },
+			payload: gamePayload(1, "TEAM_1"),
+		});
+		expect(res.statusCode).toBe(200);
+
+		const audit = db
+			.prepare("SELECT operator_id, action FROM admin_audit_log WHERE action = 'game.recorded'")
+			.get() as { operator_id: string; action: string };
+		expect(audit).toEqual({ operator_id: "other-operator", action: "game.recorded" });
+	});
+
+	it("시리즈 생성자는 운영자 role 이 없어도 game 결과 기록 가능", async () => {
+		const { app, db } = await buildTestApp({ canEdit: false });
+		const { seasonId } = seedRecruitment(db);
+		const sid = (
+			db
+				.prepare("INSERT INTO series (season_id, created_by) VALUES (?, ?) RETURNING id")
+				.get(seasonId, OP) as { id: number }
+		).id;
+		db
+			.prepare(
+				"INSERT INTO series_participants (series_id, user_id, team, role) VALUES (?, ?, 'TEAM_1', 'TOP')",
+			)
+			.run(sid, "u1");
+		db
+			.prepare(
+				"INSERT INTO series_participants (series_id, user_id, team, role) VALUES (?, ?, 'TEAM_2', 'TOP')",
+			)
+			.run(sid, "u2");
+
+		const res = await app.inject({
+			method: "POST",
+			url: `/api/series/${sid}/games`,
+			cookies: { sid: signSid(app, OP) },
+			payload: gamePayload(1, "TEAM_1"),
+		});
+		expect(res.statusCode).toBe(200);
 	});
 
 	it("game 2 = TEAM_1 두 번째 승 → Bo3 자동 COMPLETED (2-0)", async () => {
@@ -833,9 +960,9 @@ describe("GET /api/recruitments + /api/recruitments/:id", () => {
 		});
 
 		expect(res.statusCode).toBe(200);
-		const row = db.prepare("SELECT v, updated_by FROM guild_kv WHERE k = ?").get(
-			`entry:${recruitmentId}`,
-		) as { v: string; updated_by: string };
+		const row = db
+			.prepare("SELECT v, updated_by FROM guild_kv WHERE k = ?")
+			.get(`entry:${recruitmentId}`) as { v: string; updated_by: string };
 		expect(JSON.parse(row.v)).toEqual({ assignments: { u1: "TEAM_1_TOP" } });
 		expect(row.updated_by).toBe("other-operator");
 	});
@@ -902,9 +1029,11 @@ describe("POST /api/recruitments/:id/reopen", () => {
 
 		expect(res.statusCode).toBe(200);
 		expect(
-			(db.prepare("SELECT status FROM recruitments WHERE id = ?").get(recruitmentId) as {
-				status: string;
-			}).status,
+			(
+				db.prepare("SELECT status FROM recruitments WHERE id = ?").get(recruitmentId) as {
+					status: string;
+				}
+			).status,
 		).toBe("OPEN");
 	});
 
@@ -920,9 +1049,11 @@ describe("POST /api/recruitments/:id/reopen", () => {
 
 		expect(res.statusCode).toBe(200);
 		expect(
-			(db.prepare("SELECT status FROM recruitments WHERE id = ?").get(recruitmentId) as {
-				status: string;
-			}).status,
+			(
+				db.prepare("SELECT status FROM recruitments WHERE id = ?").get(recruitmentId) as {
+					status: string;
+				}
+			).status,
 		).toBe("OPEN");
 	});
 

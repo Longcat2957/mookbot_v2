@@ -6,7 +6,7 @@
 
 import { db } from "@mookbot/core";
 import type { FastifyInstance } from "fastify";
-import { invalidate, requireEditor, requireOwner, requireSession } from "./_helpers.js";
+import { invalidate, requireOwnerOrEditor, requireSession } from "./_helpers.js";
 import { clearBidIntents, setBidIntent } from "./auction-bid-intents.js";
 import { buildAuctionTournamentDetail } from "./auction-tournament-detail.js";
 
@@ -37,15 +37,14 @@ function shuffled(userIds: string[]): string[] {
 export async function registerAuctionTournamentRoutes(app: FastifyInstance): Promise<void> {
 	// recruitment → tournament 전이 (운영자 [경매 시작])
 	app.post<{ Body: { recruitmentId: number } }>("/api/auction-tournaments", async (req, reply) => {
-		const sid = await requireEditor(req, reply);
-		if (!sid) return;
 		const recruitmentId = Number(req.body?.recruitmentId);
 		if (!Number.isFinite(recruitmentId)) {
 			return reply.code(400).send({ error: "recruitmentId required" });
 		}
 		const rec = await db.getAuctionRecruitment(recruitmentId);
 		if (!rec) return reply.code(404).send({ error: "recruitment not found" });
-		if (!requireOwner(sid, rec.created_by, reply)) return;
+		const sid = await requireOwnerOrEditor(req, reply, rec.created_by);
+		if (!sid) return;
 		// OPEN (정원 도달 직후 직접 변환) 또는 CLOSED (봇 [▶ 경매 시작] 으로 마감된 상태) 둘 다 허용.
 		// CONVERTED 면 이미 토너먼트 있음 — 별도 endpoint 로 진입.
 		if (rec.status !== "OPEN" && rec.status !== "CLOSED") {
@@ -101,13 +100,12 @@ export async function registerAuctionTournamentRoutes(app: FastifyInstance): Pro
 	app.put<{ Params: { id: string }; Body: { captainUserIds: string[] } }>(
 		"/api/auction-tournaments/:id/captains",
 		async (req, reply) => {
-			const sid = await requireEditor(req, reply);
-			if (!sid) return;
 			const id = Number(req.params.id);
 			if (!Number.isFinite(id)) return reply.code(400).send({ error: "invalid id" });
 			const t = await db.getAuctionTournament(id);
 			if (!t) return reply.code(404).send({ error: "not found" });
-			if (!requireOwner(sid, t.created_by, reply)) return;
+			const sid = await requireOwnerOrEditor(req, reply, t.created_by);
+			if (!sid) return;
 			if (t.status !== "CAPTAIN_PICK") {
 				return reply.code(409).send({ error: `status=${t.status} — 팀장 set 불가` });
 			}
@@ -161,13 +159,12 @@ export async function registerAuctionTournamentRoutes(app: FastifyInstance): Pro
 		Params: { id: string };
 		Body: { points: Array<{ teamId: number; initialPoints: number }> };
 	}>("/api/auction-tournaments/:id/points", async (req, reply) => {
-		const sid = await requireEditor(req, reply);
-		if (!sid) return;
 		const id = Number(req.params.id);
 		if (!Number.isFinite(id)) return reply.code(400).send({ error: "invalid id" });
 		const t = await db.getAuctionTournament(id);
 		if (!t) return reply.code(404).send({ error: "not found" });
-		if (!requireOwner(sid, t.created_by, reply)) return;
+		const sid = await requireOwnerOrEditor(req, reply, t.created_by);
+		if (!sid) return;
 		if (t.status !== "POINT_ALLOC" && t.status !== "BIDDING") {
 			return reply.code(409).send({ error: `status=${t.status} — 포인트 조정 불가` });
 		}
@@ -192,12 +189,11 @@ export async function registerAuctionTournamentRoutes(app: FastifyInstance): Pro
 	app.post<{ Params: { id: string } }>(
 		"/api/auction-tournaments/:id/start-bidding",
 		async (req, reply) => {
-			const sid = await requireEditor(req, reply);
-			if (!sid) return;
 			const id = Number(req.params.id);
 			const t = await db.getAuctionTournament(id);
 			if (!t) return reply.code(404).send({ error: "not found" });
-			if (!requireOwner(sid, t.created_by, reply)) return;
+			const sid = await requireOwnerOrEditor(req, reply, t.created_by);
+			if (!sid) return;
 			if (t.status !== "POINT_ALLOC") {
 				return reply.code(409).send({ error: `status=${t.status}` });
 			}
@@ -210,12 +206,11 @@ export async function registerAuctionTournamentRoutes(app: FastifyInstance): Pro
 
 	// 🎲 다음 인원 추출 — BIDDING 진입 후 만들어진 stable queue 에서 1명씩 pop.
 	app.post<{ Params: { id: string } }>("/api/auction-tournaments/:id/draw", async (req, reply) => {
-		const sid = await requireEditor(req, reply);
-		if (!sid) return;
 		const id = Number(req.params.id);
 		const t = await db.getAuctionTournament(id);
 		if (!t) return reply.code(404).send({ error: "not found" });
-		if (!requireOwner(sid, t.created_by, reply)) return;
+		const sid = await requireOwnerOrEditor(req, reply, t.created_by);
+		if (!sid) return;
 		if (t.status !== "BIDDING") {
 			return reply.code(409).send({ error: `status=${t.status}` });
 		}
@@ -272,12 +267,11 @@ export async function registerAuctionTournamentRoutes(app: FastifyInstance): Pro
 		Params: { id: string };
 		Body: { targetUserId: string; teamId: number; points: number };
 	}>("/api/auction-tournaments/:id/finalize-bid", async (req, reply) => {
-		const sid = await requireEditor(req, reply);
-		if (!sid) return;
 		const id = Number(req.params.id);
 		const t = await db.getAuctionTournament(id);
 		if (!t) return reply.code(404).send({ error: "not found" });
-		if (!requireOwner(sid, t.created_by, reply)) return;
+		const sid = await requireOwnerOrEditor(req, reply, t.created_by);
+		if (!sid) return;
 		if (t.status !== "BIDDING") return reply.code(409).send({ error: `status=${t.status}` });
 
 		const { targetUserId, teamId, points } = req.body ?? {};
@@ -338,12 +332,11 @@ export async function registerAuctionTournamentRoutes(app: FastifyInstance): Pro
 		Params: { id: string };
 		Body: { targetUserId: string; teamId: number };
 	}>("/api/auction-tournaments/:id/manual-assign", async (req, reply) => {
-		const sid = await requireEditor(req, reply);
-		if (!sid) return;
 		const id = Number(req.params.id);
 		const t = await db.getAuctionTournament(id);
 		if (!t) return reply.code(404).send({ error: "not found" });
-		if (!requireOwner(sid, t.created_by, reply)) return;
+		const sid = await requireOwnerOrEditor(req, reply, t.created_by);
+		if (!sid) return;
 		if (t.status !== "BIDDING") return reply.code(409).send({ error: `status=${t.status}` });
 
 		const { targetUserId, teamId } = req.body ?? {};
@@ -384,12 +377,11 @@ export async function registerAuctionTournamentRoutes(app: FastifyInstance): Pro
 	app.post<{ Params: { id: string } }>(
 		"/api/auction-tournaments/:id/cancel-draw",
 		async (req, reply) => {
-			const sid = await requireEditor(req, reply);
-			if (!sid) return;
 			const id = Number(req.params.id);
 			const t = await db.getAuctionTournament(id);
 			if (!t) return reply.code(404).send({ error: "not found" });
-			if (!requireOwner(sid, t.created_by, reply)) return;
+			const sid = await requireOwnerOrEditor(req, reply, t.created_by);
+			if (!sid) return;
 			if (t.status !== "BIDDING") return reply.code(409).send({ error: `status=${t.status}` });
 			if (!t.current_bid_target_user_id) return { ok: true }; // 이미 비어 있음 (멱등)
 			const recruitParts = await db.listAuctionRecruitmentParticipants(id);
@@ -423,12 +415,11 @@ export async function registerAuctionTournamentRoutes(app: FastifyInstance): Pro
 		Params: { id: string };
 		Body: { teamId: number; points: number | null };
 	}>("/api/auction-tournaments/:id/bid-intent", async (req, reply) => {
-		const sid = await requireEditor(req, reply);
-		if (!sid) return;
 		const id = Number(req.params.id);
 		const t = await db.getAuctionTournament(id);
 		if (!t) return reply.code(404).send({ error: "not found" });
-		if (!requireOwner(sid, t.created_by, reply)) return;
+		const sid = await requireOwnerOrEditor(req, reply, t.created_by);
+		if (!sid) return;
 		if (t.status !== "BIDDING") return reply.code(409).send({ error: `status=${t.status}` });
 		if (!t.current_bid_target_user_id) {
 			return reply.code(409).send({ error: "현재 매물 없음 — 먼저 /draw" });
@@ -454,12 +445,11 @@ export async function registerAuctionTournamentRoutes(app: FastifyInstance): Pro
 	app.post<{ Params: { id: string }; Body: { targetUserId: string } }>(
 		"/api/auction-tournaments/:id/revert-bid",
 		async (req, reply) => {
-			const sid = await requireEditor(req, reply);
-			if (!sid) return;
 			const id = Number(req.params.id);
 			const t = await db.getAuctionTournament(id);
 			if (!t) return reply.code(404).send({ error: "not found" });
-			if (!requireOwner(sid, t.created_by, reply)) return;
+			const sid = await requireOwnerOrEditor(req, reply, t.created_by);
+			if (!sid) return;
 			if (t.status !== "BIDDING") return reply.code(409).send({ error: `status=${t.status}` });
 
 			const targetUserId = req.body?.targetUserId;
@@ -508,12 +498,11 @@ export async function registerAuctionTournamentRoutes(app: FastifyInstance): Pro
 		Params: { id: string };
 		Body: { target: "CAPTAIN_PICK" | "POINT_ALLOC" | "BIDDING" };
 	}>("/api/auction-tournaments/:id/revert-stage", async (req, reply) => {
-		const sid = await requireEditor(req, reply);
-		if (!sid) return;
 		const id = Number(req.params.id);
 		const t = await db.getAuctionTournament(id);
 		if (!t) return reply.code(404).send({ error: "not found" });
-		if (!requireOwner(sid, t.created_by, reply)) return;
+		const sid = await requireOwnerOrEditor(req, reply, t.created_by);
+		if (!sid) return;
 		// COMPLETED / CANCELLED / IN_GAME 이상은 매치 결과 영향 — 강제 취소 사용 권장.
 		if (t.status === "COMPLETED" || t.status === "CANCELLED") {
 			return reply.code(409).send({ error: `status=${t.status} — 단계 되돌리기 불가` });
@@ -575,12 +564,11 @@ export async function registerAuctionTournamentRoutes(app: FastifyInstance): Pro
 	app.post<{ Params: { id: string } }>(
 		"/api/auction-tournaments/:id/start-bracket",
 		async (req, reply) => {
-			const sid = await requireEditor(req, reply);
-			if (!sid) return;
 			const id = Number(req.params.id);
 			const t = await db.getAuctionTournament(id);
 			if (!t) return reply.code(404).send({ error: "not found" });
-			if (!requireOwner(sid, t.created_by, reply)) return;
+			const sid = await requireOwnerOrEditor(req, reply, t.created_by);
+			if (!sid) return;
 			if (t.status !== "BIDDING") return reply.code(409).send({ error: `status=${t.status}` });
 
 			const recruitParts = await db.listAuctionRecruitmentParticipants(id);
@@ -599,12 +587,11 @@ export async function registerAuctionTournamentRoutes(app: FastifyInstance): Pro
 
 	// 토너먼트 강제 취소
 	app.post<{ Params: { id: string } }>("/api/auction-tournaments/:id/cancel", async (req, reply) => {
-		const sid = await requireEditor(req, reply);
-		if (!sid) return;
 		const id = Number(req.params.id);
 		const t = await db.getAuctionTournament(id);
 		if (!t) return reply.code(404).send({ error: "not found" });
-		if (!requireOwner(sid, t.created_by, reply)) return;
+		const sid = await requireOwnerOrEditor(req, reply, t.created_by);
+		if (!sid) return;
 		if (t.status === "COMPLETED" || t.status === "CANCELLED") {
 			return reply.code(409).send({ error: `status=${t.status}` });
 		}

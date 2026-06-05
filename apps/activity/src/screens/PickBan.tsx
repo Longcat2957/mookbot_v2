@@ -128,6 +128,7 @@ export function PickBan({
 					champions={s.champions}
 					fearlessUsedIds={s.fearlessUsedIds}
 					previousPicks={previousPicks}
+					canEdit={s.canControl}
 					onChange={s.setGameDraft}
 				/>
 			)}
@@ -140,7 +141,7 @@ export function PickBan({
 					teamSize={s.teamSize}
 					participants={detail.participants}
 					champions={s.champions}
-					canEdit={s.canControl}
+					canEdit={s.canRecordResult}
 					onRecorded={s.refresh}
 				/>
 			)}

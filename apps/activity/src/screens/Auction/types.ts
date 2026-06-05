@@ -83,6 +83,13 @@ export interface AuctionTournamentDetail {
 		championTeamId: number | null;
 		createdBy: string;
 		canControl: boolean;
+		permissions?: {
+			canManageDraft: boolean;
+			canManageBidding: boolean;
+			canManageBracket: boolean;
+			canRecordMatchResult: boolean;
+			canCancelTournament: boolean;
+		};
 		startedAt: number;
 		endedAt: number | null;
 		/** v0.14: BIDDING 진행 중 현재 매물 — null 이면 매물 없음 (draw 대기). */
@@ -110,6 +117,9 @@ export interface AuctionRecruitmentDetail {
 		convertedTournamentId: number | null;
 		createdBy: string;
 		canControl: boolean;
+		permissions?: {
+			canStartTournament: boolean;
+		};
 		createdAt: number;
 	};
 	participants: Array<{

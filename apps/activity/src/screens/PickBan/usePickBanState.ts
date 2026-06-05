@@ -4,7 +4,6 @@
 import { useCallback, useState } from "react";
 import { api } from "../../api/rest.js";
 import type { SaveStatus } from "../../components/SaveStatus.js";
-import { usePerms } from "../../state/perms.js";
 import { useStaleWhileRevalidate } from "../../state/useStaleWhileRevalidate.js";
 import { initialPickBanDraft } from "./pickBanStateLogic.js";
 import type { Champion, GameDraft, PickBanDraft, SeriesDetail, Side } from "./types.js";
@@ -19,6 +18,9 @@ export interface UsePickBanStateResult {
 	// data
 	detail: SeriesDetail | null;
 	canControl: boolean;
+	canRecordResult: boolean;
+	canUndoLastGame: boolean;
+	canRevertToEntry: boolean;
 	draft: PickBanDraft | null;
 	champions: Champion[];
 	error: string | null;
@@ -53,7 +55,6 @@ export interface UsePickBanStateResult {
 
 export function usePickBanState({ seriesId }: { seriesId: number | null }): UsePickBanStateResult {
 	const [draft, setDraft] = useState<PickBanDraft | null>(null);
-	const perms = usePerms();
 
 	// SWR — series detail. dirty 보호 onApply 안 (hot_fix.md §3.4).
 	const detailFetcher = useCallback(() => api<SeriesDetail>(`/series/${seriesId}`), [seriesId]);
@@ -79,7 +80,11 @@ export function usePickBanState({ seriesId }: { seriesId: number | null }): UseP
 	});
 	const detail = detailSwr.data;
 	const error = detailSwr.error;
-	const canControl = perms.canEdit && detail?.series.canControl === true;
+	const seriesPermissions = detail?.series.permissions;
+	const canControl = seriesPermissions?.canEditPickBan ?? detail?.series.canControl === true;
+	const canRecordResult = seriesPermissions?.canRecordResult ?? canControl;
+	const canUndoLastGame = seriesPermissions?.canUndoLastGame ?? canControl;
+	const canRevertToEntry = seriesPermissions?.canRevertToEntry ?? canControl;
 	const { saveStatus, savedAt, retrySave, lastSavedDraft } = usePickBanDraftAutosave({
 		draft,
 		seriesId,
@@ -102,6 +107,9 @@ export function usePickBanState({ seriesId }: { seriesId: number | null }): UseP
 	return {
 		detail,
 		canControl,
+		canRecordResult,
+		canUndoLastGame,
+		canRevertToEntry,
 		draft,
 		champions,
 		error,

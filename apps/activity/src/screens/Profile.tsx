@@ -1,6 +1,6 @@
 import { lazy, Suspense, useState } from "react";
 import { InlineNotice, SectionHeader, StatusBadge } from "../components/DesignPrimitives.js";
-import { usePerms } from "../state/perms.js";
+import { useCurrentUser } from "../state/perms.js";
 import { LaneMmrCard } from "./Profile/LaneMmrCard.js";
 import { ProfileHeader } from "./Profile/ProfileHeader.js";
 import { ProfileSkeleton } from "./Profile/ProfileSkeleton.js";
@@ -27,8 +27,8 @@ export function Profile({
 	onSelectSeries: (seriesId: number) => void;
 	onManageRiotAccounts?: () => void;
 }) {
-	const perms = usePerms();
-	const isMe = perms.discordId === userId;
+	const currentUser = useCurrentUser();
+	const isMe = currentUser.discordId === userId;
 	const { data, error } = useProfileData(userId);
 	const [shouldLoadPreferences, setShouldLoadPreferences] = useState(false);
 	const [shouldLoadMmrChart, setShouldLoadMmrChart] = useState(false);

@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 import { InlineNotice } from "../../components/DesignPrimitives.js";
-import { usePerms } from "../../state/perms.js";
+import { useCurrentUser } from "../../state/perms.js";
 import { AuctionBracketGrid, SingleMatchList } from "./AuctionBracket/AuctionBracketGrid.js";
 import { AuctionBracketHeader } from "./AuctionBracket/AuctionBracketHeader.js";
 import { MatchSetup } from "./AuctionBracket/MatchSetup.js";
@@ -15,7 +15,7 @@ export function AuctionBracket({
 	tournamentId: number | null;
 	onCompleted: () => void;
 }) {
-	const perms = usePerms();
+	const currentUser = useCurrentUser();
 	const s = useAuctionState(tournamentId);
 
 	useEffect(() => {
@@ -28,7 +28,10 @@ export function AuctionBracket({
 
 	const matches = s.detail.matches;
 	const semis = matches.filter((m) => m.round === "SEMI");
-	const canControl = perms.canEdit && s.detail.tournament.canControl;
+	const canManageBracket =
+		s.detail.tournament.permissions?.canManageBracket ?? s.detail.tournament.canControl;
+	const canRecordMatchResult =
+		s.detail.tournament.permissions?.canRecordMatchResult ?? s.detail.tournament.canControl;
 	const isSetup =
 		s.detail.tournament.status === "BRACKET_SETUP" ||
 		(s.detail.tournament.status === "IN_GAME" &&
@@ -43,21 +46,25 @@ export function AuctionBracket({
 				status={s.detail.tournament.status}
 				onRefresh={s.refresh}
 			/>
-			{isSetup && canControl && (
+			{isSetup && canManageBracket && (
 				<MatchSetup
 					detail={s.detail}
-					currentUserId={perms.discordId}
-					canEdit={canControl}
+					currentUserId={currentUser.discordId}
+					canEdit={canManageBracket}
 					onCreate={s.createMatch}
 				/>
 			)}
 			<AuctionBracketGrid
 				detail={s.detail}
-				canEdit={canControl}
+				canEdit={canManageBracket || canRecordMatchResult}
 				onCreateMatch={s.createMatch}
 				onTournamentRefresh={s.refresh}
 			/>
-			<SingleMatchList detail={s.detail} canEdit={canControl} onTournamentRefresh={s.refresh} />
+			<SingleMatchList
+				detail={s.detail}
+				canEdit={canManageBracket || canRecordMatchResult}
+				onTournamentRefresh={s.refresh}
+			/>
 		</section>
 	);
 }

@@ -3,9 +3,17 @@
 
 import { cloudflare, datadragon, db } from "@mookbot/core";
 import type { FastifyInstance } from "fastify";
+import { userCanEdit } from "../auth/perms.js";
 import { notifyBotRecruitRefresh } from "../bot/notify.js";
 import { HttpError } from "./_errors.js";
-import { invalidate, requireEditor, requireOwner, requireSession, rewriteDD } from "./_helpers.js";
+import {
+	invalidate,
+	requireEditor,
+	requireOwner,
+	requireOwnerOrEditor,
+	requireSession,
+	rewriteDD,
+} from "./_helpers.js";
 import { emptyHistory, fetchPlayHistoryFor } from "./_history.js";
 
 const { getRecruitment } = db;
@@ -244,6 +252,13 @@ export async function registerSeriesRoutes(app: FastifyInstance): Promise<void> 
 
 		const s = await db.getSeries(id);
 		if (!s) return reply.code(404).send({ error: "not found" });
+		const canControl = s.created_by === sid || (await userCanEdit(sid));
+		const permissions = {
+			canEditPickBan: canControl,
+			canRecordResult: canControl,
+			canUndoLastGame: canControl,
+			canRevertToEntry: s.created_by === sid,
+		};
 
 		const parts = await db.getSeriesParticipants(id);
 		const partUserIds = parts.map((p) => p.user_id);
@@ -298,7 +313,8 @@ export async function registerSeriesRoutes(app: FastifyInstance): Promise<void> 
 				startedAt: s.started_at,
 				winningTeam: s.winning_team,
 				createdBy: s.created_by,
-				canControl: s.created_by === sid,
+				canControl,
+				permissions,
 			},
 			participants: parts.map((p) => ({
 				userId: p.user_id,
@@ -342,14 +358,12 @@ export async function registerSeriesRoutes(app: FastifyInstance): Promise<void> 
 	app.put<{ Params: { id: string }; Body: unknown }>(
 		"/api/series/:id/pickban",
 		async (req, reply) => {
-			const sid = await requireEditor(req, reply);
-			if (!sid) return;
-
 			const id = Number(req.params.id);
 			if (!Number.isFinite(id)) return reply.code(400).send({ error: "invalid id" });
 			const s = await db.getSeries(id);
 			if (!s) return reply.code(404).send({ error: "not found" });
-			if (!requireOwner(sid, s.created_by, reply)) return;
+			const sid = await requireOwnerOrEditor(req, reply, s.created_by);
+			if (!sid) return;
 			if (s.status !== "IN_PROGRESS" && s.status !== "COMPLETED") {
 				return reply.code(409).send({ error: `series status is ${s.status}` });
 			}
@@ -366,7 +380,7 @@ export async function registerSeriesRoutes(app: FastifyInstance): Promise<void> 
 	// 같은 모집을 다시 엔트리 확정하면 createSeries 가 zero-game CANCELLED 행을 revive.
 	// audit log 남김 — 추적성 (force-delete 와 동등 수준).
 	app.post<{ Params: { id: string } }>("/api/series/:id/revert", async (req, reply) => {
-		const sid = await requireEditor(req, reply);
+		const sid = requireSession(req, reply);
 		if (!sid) return;
 
 		const id = Number(req.params.id);

@@ -52,6 +52,22 @@ export function requireOwner(
 	return false;
 }
 
+export async function requireOwnerOrEditor(
+	req: FastifyRequest,
+	reply: FastifyReply,
+	ownerId: string | null | undefined,
+): Promise<string | null> {
+	const sid = requireSession(req, reply);
+	if (!sid) return null;
+	if (ownerId && ownerId === sid) return sid;
+	const ok = await userCanEdit(sid);
+	if (ok) return sid;
+	reply.code(403).send({
+		error: "이 Activity 방을 연 사람 또는 운영자(Operator) role 보유자만 조작할 수 있습니다.",
+	});
+	return null;
+}
+
 export function requireInternalKey(req: FastifyRequest, reply: FastifyReply): boolean {
 	const expected = process.env.INTERNAL_API_KEY;
 	if (!expected) {

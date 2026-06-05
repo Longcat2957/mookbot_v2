@@ -4,7 +4,6 @@
 import { useEffect, useState } from "react";
 import { api } from "../../api/rest.js";
 import { InlineNotice } from "../../components/DesignPrimitives.js";
-import { usePerms } from "../../state/perms.js";
 import { AuctionDraftHeader } from "./AuctionDraft/AuctionDraftHeader.js";
 import { BiddingPanel } from "./AuctionDraft/BiddingPanel.js";
 import { CaptainPicker } from "./AuctionDraft/CaptainPicker.js";
@@ -25,7 +24,6 @@ export function AuctionDraft({
 	onEnterTournament: (id: number) => void;
 	onEnterBracket: (id: number) => void;
 }) {
-	const perms = usePerms();
 	const s = useAuctionState(tournamentId);
 	const [creating, setCreating] = useState(false);
 	const [error, setError] = useState<string | null>(null);
@@ -80,7 +78,9 @@ export function AuctionDraft({
 		if (!recruitDetail) {
 			return <InlineNotice tone="info">경매 모집 로딩 중…</InlineNotice>;
 		}
-		const canControlRecruitment = perms.canEdit && recruitDetail.recruitment.canControl;
+		const canControlRecruitment =
+			recruitDetail.recruitment.permissions?.canStartTournament ??
+			recruitDetail.recruitment.canControl;
 		return (
 			<RecruitmentStartPanel
 				recruitDetail={recruitDetail}
@@ -109,7 +109,10 @@ export function AuctionDraft({
 	if (!s.detail) return <InlineNotice tone="info">로딩 중…</InlineNotice>;
 
 	const status = s.detail.tournament.status;
-	const canControl = perms.canEdit && s.detail.tournament.canControl;
+	const canControl =
+		s.detail.tournament.permissions?.canManageDraft ?? s.detail.tournament.canControl;
+	const canManageBidding =
+		s.detail.tournament.permissions?.canManageBidding ?? s.detail.tournament.canControl;
 
 	return (
 		<section className={status === "BIDDING" ? "space-y-2" : "space-y-4"}>
@@ -144,7 +147,7 @@ export function AuctionDraft({
 			{status === "BIDDING" && (
 				<BiddingPanel
 					detail={s.detail}
-					canEdit={canControl}
+					canEdit={canManageBidding}
 					onDraw={s.draw}
 					onCancelDraw={s.cancelDraw}
 					onSetBidIntent={s.setBidIntent}

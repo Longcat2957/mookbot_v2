@@ -1,5 +1,4 @@
 import { useCallback, useMemo, useRef, useState } from "react";
-import { usePerms } from "../../state/perms.js";
 import {
 	applyBulkChanges,
 	buildLineup,
@@ -22,6 +21,7 @@ export function usePickBanBoardState({
 	participants,
 	champions,
 	fearlessUsedIds,
+	canEdit,
 	onChange,
 }: {
 	teamSize: number;
@@ -30,9 +30,9 @@ export function usePickBanBoardState({
 	participants: SeriesParticipant[];
 	champions: Champion[];
 	fearlessUsedIds: Set<number>;
+	canEdit: boolean;
 	onChange: (g: GameDraft) => void;
 }) {
-	const perms = usePerms();
 	const [search, setSearch] = useState("");
 	const [activeSlot, setActiveSlotRaw] = useState<ActiveSlot | null>(null);
 	const searchRef = useRef<HTMLInputElement | null>(null);
@@ -82,7 +82,7 @@ export function usePickBanBoardState({
 	);
 
 	usePickBanBoardKeyboard({
-		canEdit: perms.canEdit,
+		canEdit,
 		activeSlot,
 		search,
 		searchRef,
@@ -100,7 +100,7 @@ export function usePickBanBoardState({
 
 	const handleSlotClick = useCallback(
 		(team: Team, kind: "ban" | "pick", idx: number) => {
-			if (!perms.canEdit) return;
+			if (!canEdit) return;
 			const arr = kind === "ban" ? gameDraft.bans[team] : gameDraft.picks[team];
 			const filled = arr[idx] !== null;
 			const same = activeSlot?.kind === kind && activeSlot?.team === team && activeSlot?.idx === idx;
@@ -114,7 +114,7 @@ export function usePickBanBoardState({
 			}
 			setActiveSlot({ kind, team, idx });
 		},
-		[activeSlot, gameDraft, perms.canEdit, setActiveSlot, setSlot],
+		[activeSlot, canEdit, gameDraft, setActiveSlot, setSlot],
 	);
 
 	const activeSlotInfo = useMemo(() => {
@@ -133,7 +133,6 @@ export function usePickBanBoardState({
 	const clearSearch = useCallback(() => setSearch(""), []);
 
 	return {
-		perms,
 		search,
 		setSearch,
 		searchRef,
