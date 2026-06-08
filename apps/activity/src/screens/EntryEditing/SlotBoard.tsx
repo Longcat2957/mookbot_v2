@@ -1,7 +1,6 @@
 import { cx, PanelCard, StatusBadge } from "../../components/DesignPrimitives.js";
 import { SlotRow } from "./SlotRow.js";
 import {
-	LANE_LABEL,
 	type Lane,
 	type Slot,
 	type SynergyKind,
@@ -154,7 +153,7 @@ function TeamSynergyPanel({
 			<h3 className={`card-title text-sm ${status === "info" ? "text-info" : "text-error"}`}>
 				{TEAM_LABEL[team]} 시너지
 			</h3>
-			<div className="grid min-h-[24.875rem] grid-rows-5 gap-1.5">
+			<div className="grid min-h-[24.875rem] grid-rows-[repeat(5,minmax(0,1fr))] gap-1.5 overflow-hidden">
 				{SYNERGY_ROWS.map((row) => {
 					const userAId = findAssignedUserId(state, `${team}_${row.roleA}`);
 					const userBId = findAssignedUserId(state, `${team}_${row.roleB}`);
@@ -171,7 +170,6 @@ function TeamSynergyPanel({
 							key={row.kind}
 							className={row.className}
 							label={row.label}
-							roleLabel={`${LANE_LABEL[row.roleA]} / ${LANE_LABEL[row.roleB]}`}
 							userNames={userA && userB ? `${userA.displayName} / ${userB.displayName}` : "배정 대기"}
 							record={record}
 						/>
@@ -184,13 +182,11 @@ function TeamSynergyPanel({
 
 function SynergyCard({
 	label,
-	roleLabel,
 	userNames,
 	record,
 	className,
 }: {
 	label: string;
-	roleLabel: string;
 	userNames: string;
 	record: SynergyRecord | undefined;
 	className?: string;
@@ -201,7 +197,7 @@ function SynergyCard({
 	return (
 		<div
 			className={cx(
-				"min-h-[4.75rem] rounded-md border bg-base-300/75 px-2 py-1.5 text-xs",
+				"flex h-full min-h-0 min-w-0 flex-col justify-center overflow-hidden rounded-md border bg-base-300/75 px-2 py-1.5 text-xs leading-tight",
 				tone === "success"
 					? "border-success/35"
 					: tone === "error"
@@ -213,25 +209,29 @@ function SynergyCard({
 				record ? `${label}: ${record.wins}-${record.losses} (${record.plays}G)` : `${label}: 기록 없음`
 			}
 		>
-			<div className="flex items-center justify-between gap-1">
-				<span className="font-bold text-base-content">{label}</span>
-				<StatusBadge tone={tone} size="xs" variant={tone === "neutral" ? "ghost" : "soft"}>
+			<div className="flex min-w-0 items-center justify-between gap-1">
+				<span className="min-w-0 truncate font-bold text-base-content">{label}</span>
+				<StatusBadge
+					tone={tone}
+					size="xs"
+					variant={tone === "neutral" ? "ghost" : "soft"}
+					className="shrink-0"
+				>
 					{record && record.plays > 0 ? `${record.plays}G` : "없음"}
 				</StatusBadge>
 			</div>
-			<div className="mt-0.5 text-[0.6875rem] text-base-content/45">{roleLabel}</div>
-			<div className="mt-1 truncate font-semibold text-base-content/80">{userNames}</div>
+			<div className="mt-1 min-w-0 truncate font-semibold text-base-content/80">{userNames}</div>
 			{record && winrate !== null ? (
-				<div className="mt-0.5 flex items-center gap-1.5 tabular-nums">
-					<span className="font-bold text-base-content">
+				<div className="mt-0.5 flex min-w-0 items-center gap-1.5 overflow-hidden tabular-nums">
+					<span className="shrink-0 font-bold text-base-content">
 						{record.wins}-{record.losses}
 					</span>
-					<span className={cx("font-bold", tone === "success" ? "text-success" : "text-error")}>
+					<span className={cx("shrink-0 font-bold", tone === "success" ? "text-success" : "text-error")}>
 						{winrate}%
 					</span>
 				</div>
 			) : (
-				<div className="mt-0.5 text-base-content/45">기록 없음</div>
+				<div className="mt-0.5 truncate text-base-content/45">기록 없음</div>
 			)}
 		</div>
 	);
