@@ -118,10 +118,11 @@ export async function registerRecruitRoutes(app: FastifyInstance): Promise<void>
 		const participants = await listRecruitmentParticipants(id);
 		const userIds = participants.map((p) => p.user_id);
 		const participantIdSet = new Set(userIds);
-		const [users, mains, headToHead] = await Promise.all([
+		const [users, mains, headToHead, bottomDuos] = await Promise.all([
 			db.listUsers(userIds),
 			db.listMainRiotAccounts(userIds),
 			db.listHeadToHeadRecords({ userIds, seasonId: rec.season_id }),
+			db.listBottomDuoRecords({ userIds, seasonId: rec.season_id }),
 		]);
 		const nameById = new Map(users.map((u) => [u.discord_id, u.display_name]));
 		const iconById = new Map(
@@ -179,6 +180,13 @@ export async function registerRecruitRoutes(app: FastifyInstance): Promise<void>
 				plays: h.plays,
 				wins: h.wins,
 				losses: h.plays - h.wins,
+			})),
+			bottomDuos: bottomDuos.map((duo) => ({
+				bottomUserId: duo.bottom_user_id,
+				supportUserId: duo.support_user_id,
+				plays: duo.plays,
+				wins: duo.wins,
+				losses: duo.plays - duo.wins,
 			})),
 			entryDraft,
 		};

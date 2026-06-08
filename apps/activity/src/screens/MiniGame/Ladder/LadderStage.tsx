@@ -1,6 +1,13 @@
-import type { CSSProperties, KeyboardEvent } from "react";
+import { type CSSProperties, type KeyboardEvent, useEffect, useMemo, useRef } from "react";
 import { ANIM_DURATION_MS, TRACE_COLORS } from "./constants.js";
-import type { Geom, InputState, Rung } from "./ladderLogic.js";
+import {
+	buildPathPoints,
+	type Geom,
+	type InputState,
+	type Point,
+	pointAtProgress,
+	type Rung,
+} from "./ladderLogic.js";
 
 export function LadderStage({
 	geom,
@@ -27,6 +34,87 @@ export function LadderStage({
 	rungsKey: number;
 	onStartInput: (index: number) => void;
 }) {
+	const dotRefs = useRef(new Map<number, SVGCircleElement>());
+	const activeAnimations = useRef(new Map<number, { startedAt: number; points: Point[] }>());
+	const frameRef = useRef<number | null>(null);
+
+	const pathPointsByInput = useMemo(() => {
+		const map = new Map<number, Point[]>();
+		for (const i of inputs) map.set(i, buildPathPoints(i, rungs, geom));
+		return map;
+	}, [geom, inputs, rungs]);
+
+	useEffect(() => {
+		activeAnimations.current.clear();
+		if (frameRef.current !== null) window.cancelAnimationFrame(frameRef.current);
+		frameRef.current = null;
+		for (const [i, element] of dotRefs.current) {
+			const point = pathPointsByInput.get(i)?.[0] ?? { x: 0, y: 0 };
+			element.setAttribute("transform", `translate(${point.x} ${point.y})`);
+		}
+	}, [pathPointsByInput]);
+
+	useEffect(() => {
+		const ease = (t: number) => (t < 0.5 ? 2 * t * t : 1 - (-2 * t + 2) ** 2 / 2);
+		const now = performance.now();
+
+		for (const i of inputs) {
+			const state = inputStates[i] ?? "idle";
+			const points = pathPointsByInput.get(i) ?? [{ x: 0, y: 0 }];
+			const element = dotRefs.current.get(i);
+			if (!element) continue;
+
+			if (state === "idle") {
+				activeAnimations.current.delete(i);
+				const start = points[0] ?? { x: 0, y: 0 };
+				element.setAttribute("transform", `translate(${start.x} ${start.y})`);
+				continue;
+			}
+
+			if (state === "done") {
+				activeAnimations.current.delete(i);
+				const end = points.at(-1) ?? points[0] ?? { x: 0, y: 0 };
+				element.setAttribute("transform", `translate(${end.x} ${end.y})`);
+				continue;
+			}
+
+			if (!activeAnimations.current.has(i)) {
+				activeAnimations.current.set(i, { startedAt: now, points });
+			}
+		}
+
+		if (frameRef.current !== null) return;
+
+		const tick = (time: number) => {
+			for (const [i, animation] of activeAnimations.current) {
+				const element = dotRefs.current.get(i);
+				if (!element) {
+					activeAnimations.current.delete(i);
+					continue;
+				}
+				const progress = Math.min(1, (time - animation.startedAt) / ANIM_DURATION_MS);
+				const point = pointAtProgress(animation.points, ease(progress));
+				element.setAttribute("transform", `translate(${point.x} ${point.y})`);
+				if (progress >= 1) activeAnimations.current.delete(i);
+			}
+
+			if (activeAnimations.current.size > 0) {
+				frameRef.current = window.requestAnimationFrame(tick);
+			} else {
+				frameRef.current = null;
+			}
+		};
+
+		frameRef.current = window.requestAnimationFrame(tick);
+
+		return () => {
+			if (frameRef.current !== null) {
+				window.cancelAnimationFrame(frameRef.current);
+				frameRef.current = null;
+			}
+		};
+	}, [inputStates, inputs, pathPointsByInput]);
+
 	function onKeyDown(e: KeyboardEvent<SVGGElement>, i: number, disabled: boolean) {
 		if (disabled) return;
 		if (e.key === "Enter" || e.key === " ") {
@@ -156,30 +244,21 @@ export function LadderStage({
 				{inputs.map((i) => {
 					const state = inputStates[i] ?? "idle";
 					const active = state === "running" || state === "done";
-					const pathD = pathsByInput.get(i) ?? "";
 					const color = TRACE_COLORS[i % TRACE_COLORS.length];
 					return (
 						<circle
 							key={`dot-${rungsKey}-${i}`}
+							ref={(element) => {
+								if (element) dotRefs.current.set(i, element);
+								else dotRefs.current.delete(i);
+							}}
 							cx={0}
 							cy={0}
 							r={10}
 							fill={color}
 							className={`mg-ladder-dot ${active ? "active" : ""}`}
 							style={{ color } as CSSProperties}
-						>
-							{active && (
-								<animateMotion
-									key={`dot-motion-${rungsKey}-${i}`}
-									path={pathD}
-									dur={`${ANIM_DURATION_MS}ms`}
-									fill="freeze"
-									calcMode="spline"
-									keyTimes="0;1"
-									keySplines="0.45 0 0.55 1"
-								/>
-							)}
-						</circle>
+						/>
 					);
 				})}
 			</svg>

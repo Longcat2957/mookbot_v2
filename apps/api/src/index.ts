@@ -29,11 +29,14 @@ await registerRoutes(app);
 await registerWs(app);
 await initWsPubSub();
 
-// Data Dragon 챔피언/스펠/아이템 룩업 초기화 — fail-soft (네트워크 일시 장애시 graceful)
-datadragon
-	.initDataDragon()
-	.then(() => log.info({ ddVersion: datadragon.getVersion() }, "datadragon ready"))
-	.catch((err: unknown) => log.warn({ err }, "datadragon init failed"));
+// Data Dragon 챔피언/스펠/아이템 룩업 초기화.
+// 이미지 URL을 포함한 첫 응답부터 빈 URL이 섞이지 않도록 listen 전에 완료한다.
+try {
+	await datadragon.initDataDragon();
+	log.info({ ddVersion: datadragon.getVersion() }, "datadragon ready");
+} catch (err: unknown) {
+	log.warn({ err }, "datadragon init failed");
+}
 
 const port = Number(process.env.API_PORT ?? 3000);
 const host = process.env.API_HOST ?? "0.0.0.0";

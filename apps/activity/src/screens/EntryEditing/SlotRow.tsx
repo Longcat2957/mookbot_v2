@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { type ReactNode, useState } from "react";
 import { cx, IconButton, StatusBadge } from "../../components/DesignPrimitives.js";
 import { UserAvatar } from "../../components/UserAvatar.js";
 import { useCoarsePointer } from "../../state/useCoarsePointer.js";
@@ -25,6 +25,7 @@ export function SlotRow({
 	lane,
 	participant,
 	headToHead,
+	bottomDuo,
 	onDrop,
 	onClear,
 	onTap,
@@ -35,6 +36,7 @@ export function SlotRow({
 	lane: Lane;
 	participant: Participant | null;
 	headToHead?: { opponentName: string; plays: number; wins: number; losses: number };
+	bottomDuo?: { partnerName: string; plays: number; wins: number; losses: number };
 	onDrop: (userId: string) => void;
 	onClear: () => void;
 	onTap?: () => void;
@@ -127,7 +129,7 @@ export function SlotRow({
 							</StatusBadge>
 						)}
 					</div>
-					<SlotMetaLine participant={participant} headToHead={headToHead} />
+					<SlotMetaLine participant={participant} headToHead={headToHead} bottomDuo={bottomDuo} />
 				</div>
 			) : (
 				<div className="flex-1 min-h-[4.75rem] text-base-content/40 text-sm italic px-2 py-1.5 border border-dashed border-base-content/20 rounded-md text-center flex items-center justify-center">
@@ -150,30 +152,41 @@ export function SlotRow({
 function SlotMetaLine({
 	participant,
 	headToHead,
+	bottomDuo,
 }: {
 	participant: Participant;
 	headToHead?: { opponentName: string; plays: number; wins: number; losses: number } | undefined;
+	bottomDuo?: { partnerName: string; plays: number; wins: number; losses: number } | undefined;
 }) {
-	if (headToHead && headToHead.plays > 0) {
-		return (
-			<div
-				className={cx(
-					"mt-1 flex min-h-7 flex-wrap items-center gap-x-1.5 gap-y-0.5 rounded border px-2 py-1 text-[0.8125rem] leading-tight",
-					headToHead.wins >= headToHead.losses
-						? "border-success/30 bg-success/10 text-success-content"
-						: "border-error/30 bg-error/10 text-error-content",
-				)}
-				title={`상대전적 vs ${headToHead.opponentName}: ${headToHead.wins}-${headToHead.losses} (${headToHead.plays}G)`}
-			>
-				<span className="font-semibold text-base-content/70">상대전적</span>
-				<span className="font-bold tabular-nums text-base-content">
-					{headToHead.wins}-{headToHead.losses}
-				</span>
-				<span className="min-w-0 max-w-full truncate text-base-content/60">
-					vs {headToHead.opponentName}
-				</span>
-			</div>
+	const rows: ReactNode[] = [];
+	if (bottomDuo && bottomDuo.plays > 0) {
+		rows.push(
+			<MetaRecordLine
+				key="bottom-duo"
+				label="바텀듀오"
+				name={`with ${bottomDuo.partnerName}`}
+				plays={bottomDuo.plays}
+				wins={bottomDuo.wins}
+				losses={bottomDuo.losses}
+				title={`바텀듀오 with ${bottomDuo.partnerName}: ${bottomDuo.wins}-${bottomDuo.losses} (${bottomDuo.plays}G)`}
+			/>,
 		);
+	}
+	if (headToHead && headToHead.plays > 0) {
+		rows.push(
+			<MetaRecordLine
+				key="head-to-head"
+				label="상대전적"
+				name={`vs ${headToHead.opponentName}`}
+				plays={headToHead.plays}
+				wins={headToHead.wins}
+				losses={headToHead.losses}
+				title={`상대전적 vs ${headToHead.opponentName}: ${headToHead.wins}-${headToHead.losses} (${headToHead.plays}G)`}
+			/>,
+		);
+	}
+	if (rows.length > 0) {
+		return <div className="mt-1 space-y-1">{rows}</div>;
 	}
 
 	if (participant.soloRanked) {
@@ -199,6 +212,42 @@ function SlotMetaLine({
 	return (
 		<div className="mt-1 flex min-h-7 items-center rounded border border-base-content/10 bg-base-100/40 px-2 py-1 text-[0.8125rem] leading-tight text-base-content/35">
 			기록 없음
+		</div>
+	);
+}
+
+function MetaRecordLine({
+	label,
+	name,
+	plays,
+	wins,
+	losses,
+	title,
+}: {
+	label: string;
+	name: string;
+	plays: number;
+	wins: number;
+	losses: number;
+	title: string;
+}) {
+	const winrate = plays > 0 ? Math.round((wins / plays) * 100) : 0;
+	return (
+		<div
+			className={cx(
+				"flex min-h-7 flex-wrap items-center gap-x-1.5 gap-y-0.5 rounded border px-2 py-1 text-[0.8125rem] leading-tight",
+				wins >= losses
+					? "border-success/30 bg-success/10 text-success-content"
+					: "border-error/30 bg-error/10 text-error-content",
+			)}
+			title={title}
+		>
+			<span className="font-semibold text-base-content/70">{label}</span>
+			<span className="font-bold tabular-nums text-base-content">
+				{wins}-{losses}
+			</span>
+			<span className="text-base-content/60 tabular-nums">{winrate}%</span>
+			<span className="min-w-0 max-w-full truncate text-base-content/60">{name}</span>
 		</div>
 	);
 }

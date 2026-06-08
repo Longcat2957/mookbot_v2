@@ -1,12 +1,7 @@
 // 모집 메시지의 버튼 인터랙션 처리 — 참여/취소/엔트리 진입.
 
 import { db } from "@mookbot/core";
-import {
-	ActionRowBuilder,
-	ButtonBuilder,
-	type ButtonInteraction,
-	ButtonStyle,
-} from "discord.js";
+import { ActionRowBuilder, ButtonBuilder, type ButtonInteraction, ButtonStyle } from "discord.js";
 import { resolveGuildDisplayName } from "../../utils/displayName.js";
 import { notify as wsNotify } from "../../utils/notify.js";
 import { requireOperator } from "../../utils/operator.js";
@@ -82,12 +77,7 @@ export async function handleButton(interaction: ButtonInteraction): Promise<void
 		case "cancel":
 			return await handleCancelRequest(interaction, id, rec.target_count);
 		case "cancel_confirm":
-			return await handleCancelConfirm(
-				interaction,
-				id,
-				rec.channel_id,
-				rec.message_id,
-			);
+			return await handleCancelConfirm(interaction, id, rec.channel_id, rec.message_id);
 		case "cancel_abort":
 			return await handleCancelAbort(interaction);
 		case "next":
@@ -218,10 +208,7 @@ async function handleCancelConfirm(
 	await interaction.editReply({ content: lines.join("\n"), components: [] });
 }
 
-async function handleNext(
-	interaction: ButtonInteraction,
-	id: number,
-): Promise<void> {
+async function handleNext(interaction: ButtonInteraction, id: number): Promise<void> {
 	if (!(await requireOperator(interaction))) return;
 	const participants = await listRecruitmentParticipants(id);
 	const rec = await getRecruitment(id);

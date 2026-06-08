@@ -13,62 +13,99 @@ function findAssignedUserId(state: UseEntryEditingStateResult, slot: Slot): stri
 
 export function SlotBoard({ state }: { state: UseEntryEditingStateResult }) {
 	if (!state.detail) return null;
-	const { headToHead = [], participants } = state.detail;
+	const { bottomDuos = [], headToHead = [], participants } = state.detail;
 
 	return (
 		<div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-			{(["TEAM_1", "TEAM_2"] as const).map((team) => (
-				<PanelCard key={team} status={team === "TEAM_1" ? "info" : "error"} bodyClassName="p-3 gap-2">
-					<h3 className={`card-title text-base ${team === "TEAM_1" ? "text-info" : "text-error"}`}>
-						{TEAM_LABEL[team]}
-					</h3>
-					<div className="space-y-1.5">
-						{state.activeLanes.map((lane) => {
-							const slot: Slot = `${team}_${lane}`;
-							const assignedUserId = findAssignedUserId(state, slot);
-							const assignedP = assignedUserId
-								? participants.find((p) => p.userId === assignedUserId)
-								: null;
-							const opponentSlot: Slot = `${oppositeTeam(team)}_${lane as Lane}`;
-							const opponentUserId = findAssignedUserId(state, opponentSlot);
-							const opponent = opponentUserId
-								? participants.find((p) => p.userId === opponentUserId)
-								: null;
-							const h2h =
-								assignedUserId && opponentUserId
-									? headToHead.find(
-											(h) => h.userId === assignedUserId && h.opponentId === opponentUserId && h.role === lane,
-										)
-									: undefined;
-							const h2hProp =
-								h2h && opponent
-									? {
-											headToHead: {
-												opponentName: opponent.displayName,
-												plays: h2h.plays,
-												wins: h2h.wins,
-												losses: h2h.losses,
-											},
-										}
-									: {};
-							return (
-								<SlotRow
-									key={slot}
-									lane={lane}
-									participant={assignedP ?? null}
-									{...h2hProp}
-									onDrop={(uid) => state.moveTo(uid, slot)}
-									onClear={() => assignedP && state.moveTo(assignedP.userId, null)}
-									onTap={() => state.handleSlotTap(slot, assignedUserId ?? null)}
-									selected={state.selectedUid !== null && assignedUserId === state.selectedUid}
-									targetHint={state.selectedUid !== null && assignedUserId !== state.selectedUid}
-									recentlyChanged={assignedUserId !== null && state.recentlyChanged.has(assignedUserId)}
-								/>
-							);
-						})}
-					</div>
-				</PanelCard>
-			))}
+			{(["TEAM_1", "TEAM_2"] as const).map((team) => {
+				const bottomUserId = findAssignedUserId(state, `${team}_BOTTOM`);
+				const supportUserId = findAssignedUserId(state, `${team}_SUPPORT`);
+				const bottomDuo =
+					bottomUserId && supportUserId
+						? bottomDuos.find(
+								(duo) => duo.bottomUserId === bottomUserId && duo.supportUserId === supportUserId,
+							)
+						: undefined;
+				const bottomDuoParticipantByLane = new Map<
+					Lane,
+					{ partnerName: string; plays: number; wins: number; losses: number }
+				>();
+				if (bottomDuo && bottomDuo.plays > 0) {
+					const bottom = participants.find((p) => p.userId === bottomUserId);
+					const support = participants.find((p) => p.userId === supportUserId);
+					if (bottom && support) {
+						bottomDuoParticipantByLane.set("BOTTOM", {
+							partnerName: support.displayName,
+							plays: bottomDuo.plays,
+							wins: bottomDuo.wins,
+							losses: bottomDuo.losses,
+						});
+						bottomDuoParticipantByLane.set("SUPPORT", {
+							partnerName: bottom.displayName,
+							plays: bottomDuo.plays,
+							wins: bottomDuo.wins,
+							losses: bottomDuo.losses,
+						});
+					}
+				}
+
+				return (
+					<PanelCard key={team} status={team === "TEAM_1" ? "info" : "error"} bodyClassName="p-3 gap-2">
+						<h3 className={`card-title text-base ${team === "TEAM_1" ? "text-info" : "text-error"}`}>
+							{TEAM_LABEL[team]}
+						</h3>
+						<div className="space-y-1.5">
+							{state.activeLanes.map((lane) => {
+								const slot: Slot = `${team}_${lane}`;
+								const assignedUserId = findAssignedUserId(state, slot);
+								const assignedP = assignedUserId
+									? participants.find((p) => p.userId === assignedUserId)
+									: null;
+								const opponentSlot: Slot = `${oppositeTeam(team)}_${lane as Lane}`;
+								const opponentUserId = findAssignedUserId(state, opponentSlot);
+								const opponent = opponentUserId
+									? participants.find((p) => p.userId === opponentUserId)
+									: null;
+								const h2h =
+									assignedUserId && opponentUserId
+										? headToHead.find(
+												(h) =>
+													h.userId === assignedUserId && h.opponentId === opponentUserId && h.role === lane,
+											)
+										: undefined;
+								const h2hProp =
+									h2h && opponent
+										? {
+												headToHead: {
+													opponentName: opponent.displayName,
+													plays: h2h.plays,
+													wins: h2h.wins,
+													losses: h2h.losses,
+												},
+											}
+										: {};
+								const bottomDuoForLane = bottomDuoParticipantByLane.get(lane);
+								const bottomDuoProp = bottomDuoForLane !== undefined ? { bottomDuo: bottomDuoForLane } : {};
+								return (
+									<SlotRow
+										key={slot}
+										lane={lane}
+										participant={assignedP ?? null}
+										{...h2hProp}
+										{...bottomDuoProp}
+										onDrop={(uid) => state.moveTo(uid, slot)}
+										onClear={() => assignedP && state.moveTo(assignedP.userId, null)}
+										onTap={() => state.handleSlotTap(slot, assignedUserId ?? null)}
+										selected={state.selectedUid !== null && assignedUserId === state.selectedUid}
+										targetHint={state.selectedUid !== null && assignedUserId !== state.selectedUid}
+										recentlyChanged={assignedUserId !== null && state.recentlyChanged.has(assignedUserId)}
+									/>
+								);
+							})}
+						</div>
+					</PanelCard>
+				);
+			})}
 		</div>
 	);
 }

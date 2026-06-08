@@ -6,6 +6,7 @@ import {
 	getGameStats,
 	getRankedSideRecordsForUser,
 	getRecentGamesForUser,
+	listBottomDuoRecords,
 	listGamesInSeries,
 	listHeadToHeadRecords,
 } from "./games.js";
@@ -228,6 +229,63 @@ describe("listHeadToHeadRecords", () => {
 	it("빈/단일 user 입력은 []", async () => {
 		expect(await listHeadToHeadRecords({ userIds: [] })).toEqual([]);
 		expect(await listHeadToHeadRecords({ userIds: ["u1"] })).toEqual([]);
+	});
+});
+
+describe("listBottomDuoRecords", () => {
+	it("참가자 풀의 같은 팀 원딜+서폿 전적을 역할 방향 고정으로 집계", async () => {
+		await upsertUser("u3", "u3");
+		await upsertUser("u4", "u4");
+		const g1 = insertGame(1, "TEAM_1");
+		const g2 = insertGame(2, "TEAM_2");
+		for (const [gameId, duoWon] of [
+			[g1, 1],
+			[g2, 0],
+		] as const) {
+			db
+				.prepare(
+					"INSERT INTO game_stats (game_id, user_id, team, role, won) VALUES (?, 'u1', 'TEAM_1', 'BOTTOM', ?)",
+				)
+				.run(gameId, duoWon);
+			db
+				.prepare(
+					"INSERT INTO game_stats (game_id, user_id, team, role, won) VALUES (?, 'u2', 'TEAM_1', 'SUPPORT', ?)",
+				)
+				.run(gameId, duoWon);
+			db
+				.prepare(
+					"INSERT INTO game_stats (game_id, user_id, team, role, won) VALUES (?, 'u3', 'TEAM_2', 'BOTTOM', ?)",
+				)
+				.run(gameId, duoWon ? 0 : 1);
+			db
+				.prepare(
+					"INSERT INTO game_stats (game_id, user_id, team, role, won) VALUES (?, 'u4', 'TEAM_2', 'SUPPORT', ?)",
+				)
+				.run(gameId, duoWon ? 0 : 1);
+		}
+
+		const seasonRow = db.prepare("SELECT season_id FROM series WHERE id = ?").get(seriesId) as {
+			season_id: number;
+		};
+		const rows = await listBottomDuoRecords({
+			userIds: ["u1", "u2", "u3", "u4"],
+			seasonId: seasonRow.season_id,
+		});
+
+		expect(rows.find((r) => r.bottom_user_id === "u1" && r.support_user_id === "u2")).toMatchObject({
+			plays: 2,
+			wins: 1,
+		});
+		expect(rows.find((r) => r.bottom_user_id === "u3" && r.support_user_id === "u4")).toMatchObject({
+			plays: 2,
+			wins: 1,
+		});
+		expect(rows.find((r) => r.bottom_user_id === "u2" && r.support_user_id === "u1")).toBeUndefined();
+	});
+
+	it("빈/단일 user 입력은 []", async () => {
+		expect(await listBottomDuoRecords({ userIds: [] })).toEqual([]);
+		expect(await listBottomDuoRecords({ userIds: ["u1"] })).toEqual([]);
 	});
 });
 

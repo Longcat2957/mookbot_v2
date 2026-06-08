@@ -8,11 +8,14 @@ export function invalidate(topic: string, originUser?: string): void {
 	broadcast(topic, { t: "invalidate", topic, originUser });
 }
 
-// Data Dragon 절대 URL 을 nginx 프록시 경로로 변환 (Activity iframe same-origin)
+// Data Dragon 절대 URL. 기본은 원본 CDN을 그대로 내려 프록시 설정/캐시 문제를 피한다.
+// 필요한 환경에서만 DD_PROXY_PREFIX=/dd 처럼 지정해 same-origin 프록시를 사용한다.
 const DD_ORIGIN = "https://ddragon.leagueoflegends.com";
+const DD_PROXY_PREFIX = process.env.DD_PROXY_PREFIX?.replace(/\/+$/, "") ?? "";
 
 export function rewriteDD(url: string): string {
-	return url.startsWith(DD_ORIGIN) ? url.replace(DD_ORIGIN, "/dd") : url;
+	if (!url.startsWith(DD_ORIGIN) || !DD_PROXY_PREFIX) return url;
+	return `${DD_PROXY_PREFIX}${new URL(url).pathname}`;
 }
 
 export function requireSession(req: FastifyRequest, reply: FastifyReply): string | null {

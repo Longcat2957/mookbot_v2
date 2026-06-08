@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { cancelAnimation, prefersReducedMotion, startElementAnimation } from "./motion.js";
 import { defaultLabel, type Phase, SPIN_DURATION_MS } from "./Roulette/constants.js";
 import { RouletteControls } from "./Roulette/RouletteControls.js";
 import { RouletteResult } from "./Roulette/RouletteResult.js";
@@ -14,6 +15,8 @@ export function Roulette() {
 	const [phase, setPhase] = useState<Phase>("idle");
 	const [rotation, setRotation] = useState(0);
 	const [resultIdx, setResultIdx] = useState<number | null>(null);
+	const wheelRef = useRef<HTMLDivElement | null>(null);
+	const animationRef = useRef<Animation | null>(null);
 
 	// count 변경 시 라벨 길이 동기화 + 이전 결과 클리어
 	useEffect(() => {
@@ -31,13 +34,36 @@ export function Roulette() {
 	function spin() {
 		if (phase === "spinning") return;
 		const result = randomResult(count);
-		setRotation(nextSpinRotation({ rotation, result, segmentSize }));
+		const nextRotation = nextSpinRotation({ rotation, result, segmentSize });
 		setResultIdx(result);
 		setPhase("spinning");
-		window.setTimeout(() => setPhase("settled"), SPIN_DURATION_MS);
+		cancelAnimation(animationRef.current);
+		const duration = prefersReducedMotion() ? 1 : SPIN_DURATION_MS;
+		const animation = startElementAnimation(
+			wheelRef.current,
+			[{ transform: `rotate(${rotation}deg)` }, { transform: `rotate(${nextRotation}deg)` }],
+			{
+				duration,
+				easing: "cubic-bezier(0.15, 0.85, 0.3, 1)",
+				fill: "forwards",
+			},
+		);
+		animationRef.current = animation;
+		if (!animation) {
+			setRotation(nextRotation);
+			setPhase("settled");
+			return;
+		}
+		void animation?.finished
+			.then(() => {
+				setRotation(nextRotation);
+				setPhase("settled");
+			})
+			.catch(() => undefined);
 	}
 
 	function reset() {
+		cancelAnimation(animationRef.current);
 		setPhase("idle");
 		setResultIdx(null);
 	}
@@ -54,6 +80,7 @@ export function Roulette() {
 						conicGradient={conicGradient}
 						rotation={rotation}
 						phase={phase}
+						wheelRef={wheelRef}
 					/>
 				</div>
 			</MiniGameStage>

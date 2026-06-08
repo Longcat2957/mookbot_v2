@@ -76,6 +76,7 @@ function makeParticipant(userId: string, displayName = userId): Participant {
 function makeDetail(
 	targetCount = 4,
 	participantIds: string[] = ["a", "b", "c", "d"],
+	canControl = true,
 ): RecruitmentDetail {
 	return {
 		recruitment: {
@@ -83,7 +84,7 @@ function makeDetail(
 			targetCount,
 			status: "CLOSED",
 			createdBy: "op",
-			canControl: true,
+			canControl,
 			createdAt: 0,
 		},
 		participants: participantIds.map((id) => makeParticipant(id)),
@@ -393,9 +394,8 @@ describe("useEntryEditingState — Tap-to-Place", () => {
 	});
 
 	it("canEdit=false 면 tap 핸들러가 모두 no-op", () => {
-		canEditMock = false;
 		const { result, rerender } = renderHook(() => useEntryEditingState({ recruitmentId: 7 }));
-		recSwr.data = makeDetail();
+		recSwr.data = makeDetail(4, ["a", "b", "c", "d"], false);
 		act(() => recSwr.onApply?.(recSwr.data!, null));
 		rerender();
 

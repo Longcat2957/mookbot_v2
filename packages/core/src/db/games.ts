@@ -176,6 +176,13 @@ export interface HeadToHeadRow {
 	wins: number;
 }
 
+export interface BottomDuoRecordRow {
+	bottom_user_id: string;
+	support_user_id: string;
+	plays: number;
+	wins: number;
+}
+
 /**
  * 참가자 풀 안에서 같은 게임·같은 라인으로 맞붙은 상대 전적.
  * user_id 관점의 row 를 반환하므로 A vs B, B vs A 가 각각 별도 row 로 나온다.
@@ -216,6 +223,51 @@ export async function listHeadToHeadRecords(input: {
 		   AND (s.id IS NULL OR s.deleted_at IS NULL)
 		   AND (am.id IS NULL OR (am.deleted_at IS NULL AND aut.deleted_at IS NULL))
 		 GROUP BY a.user_id, b.user_id, a.role`,
+		params,
+	);
+}
+
+/**
+ * 참가자 풀 안에서 같은 팀으로 함께 뛴 원딜+서폿 듀오 전적.
+ * bottom_user_id/support_user_id 로 역할을 고정해 한 조합당 한 row 를 반환한다.
+ */
+export async function listBottomDuoRecords(input: {
+	userIds: readonly string[];
+	seasonId?: number;
+}): Promise<BottomDuoRecordRow[]> {
+	const userIds = [...new Set(input.userIds)];
+	if (userIds.length < 2) return [];
+	const bottomClause = inClause(userIds);
+	const supportClause = inClause(userIds);
+	const params: unknown[] = [...bottomClause.params, ...supportClause.params];
+	const conditions = [
+		`bottom.user_id IN ${bottomClause.placeholders}`,
+		`support.user_id IN ${supportClause.placeholders}`,
+		"bottom.user_id <> support.user_id",
+		"bottom.role = 'BOTTOM'",
+		"support.role = 'SUPPORT'",
+		"bottom.team = support.team",
+	];
+	if (input.seasonId !== undefined) {
+		conditions.push("COALESCE(s.season_id, aut.season_id) = ?");
+		params.push(input.seasonId);
+	}
+	return query<BottomDuoRecordRow>(
+		`SELECT
+		   bottom.user_id AS bottom_user_id,
+		   support.user_id AS support_user_id,
+		   COUNT(*) AS plays,
+		   SUM(CASE WHEN bottom.won = 1 THEN 1 ELSE 0 END) AS wins
+		 FROM game_stats bottom
+		 JOIN game_stats support ON support.game_id = bottom.game_id
+		 JOIN games g ON g.id = bottom.game_id
+		 LEFT JOIN series s ON s.id = g.ranked_series_id
+		 LEFT JOIN auction_matches am ON am.id = g.auction_match_id
+		 LEFT JOIN auction_tournaments aut ON aut.id = am.tournament_id
+		 WHERE ${conditions.join(" AND ")}
+		   AND (s.id IS NULL OR s.deleted_at IS NULL)
+		   AND (am.id IS NULL OR (am.deleted_at IS NULL AND aut.deleted_at IS NULL))
+		 GROUP BY bottom.user_id, support.user_id`,
 		params,
 	);
 }

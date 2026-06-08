@@ -1,15 +1,19 @@
+import type { Ref } from "react";
+
 export function RouletteWheel({
 	labels,
 	segmentSize,
 	conicGradient,
 	rotation,
 	phase,
+	wheelRef,
 }: {
 	labels: string[];
 	segmentSize: number;
 	conicGradient: string;
 	rotation: number;
 	phase: "idle" | "spinning" | "settled";
+	wheelRef: Ref<HTMLDivElement>;
 }) {
 	const labelRadius = "calc(var(--mg-roulette-size) / 3.05)";
 	const showLabels = labels.length <= 6;
@@ -20,6 +24,7 @@ export function RouletteWheel({
 			<div className="mg-roulette-orbit mg-roulette-orbit-outer" aria-hidden />
 			<div className="mg-roulette-orbit mg-roulette-orbit-inner" aria-hidden />
 			<div
+				ref={wheelRef}
 				className={`mg-roulette ${phase === "spinning" ? "mg-roulette-spinning" : ""} ${phase === "settled" ? "mg-roulette-settled" : ""}`}
 				style={{ background: conicGradient, transform: `rotate(${rotation}deg)` }}
 			>

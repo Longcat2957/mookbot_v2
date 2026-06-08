@@ -948,6 +948,54 @@ describe("GET /api/recruitments + /api/recruitments/:id", () => {
 		expect(body.entryDraft).toBeNull();
 	});
 
+	it("detail — 참가자 원딜+서폿 듀오 전적 포함", async () => {
+		const { app, db } = await buildTestApp();
+		const { recruitmentId, seasonId } = seedRecruitment(db);
+		seedRecruitmentParticipants(db, recruitmentId, ["u1", "u2"]);
+		const seriesId = (
+			db
+				.prepare("INSERT INTO series (season_id, created_by) VALUES (?, ?) RETURNING id")
+				.get(seasonId, OP) as { id: number }
+		).id;
+		const gameId = (
+			db
+				.prepare(
+					"INSERT INTO games (ranked_series_id, game_number, winning_team, team1_side) VALUES (?, 1, 'TEAM_1', 'BLUE') RETURNING id",
+				)
+				.get(seriesId) as { id: number }
+		).id;
+		db
+			.prepare(
+				"INSERT INTO game_stats (game_id, user_id, team, role, won) VALUES (?, 'u1', 'TEAM_1', 'BOTTOM', 1)",
+			)
+			.run(gameId);
+		db
+			.prepare(
+				"INSERT INTO game_stats (game_id, user_id, team, role, won) VALUES (?, 'u2', 'TEAM_1', 'SUPPORT', 1)",
+			)
+			.run(gameId);
+
+		const res = await app.inject({
+			method: "GET",
+			url: `/api/recruitments/${recruitmentId}`,
+			cookies: { sid: signSid(app, OP) },
+		});
+
+		expect(res.statusCode).toBe(200);
+		const body = res.json() as {
+			bottomDuos: {
+				bottomUserId: string;
+				supportUserId: string;
+				plays: number;
+				wins: number;
+				losses: number;
+			}[];
+		};
+		expect(body.bottomDuos).toEqual([
+			{ bottomUserId: "u1", supportUserId: "u2", plays: 1, wins: 1, losses: 0 },
+		]);
+	});
+
 	it("entry-draft — 운영자 role 이 있으면 모집 생성자가 아니어도 저장 허용", async () => {
 		const { app, db } = await buildTestApp({ canEdit: true });
 		const { recruitmentId } = seedRecruitment(db);

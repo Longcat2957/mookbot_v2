@@ -16,6 +16,11 @@ export interface Geom {
 	bottomY: number;
 }
 
+export interface Point {
+	x: number;
+	y: number;
+}
+
 export function defaultInputLabel(i: number, count: number): string {
 	if (count === 2) return i === 0 ? "1팀" : "2팀";
 	return `${i + 1}번`;
@@ -74,21 +79,58 @@ export function buildLadderGeom(count: number): Geom {
 }
 
 export function buildPath(startCol: number, rungs: Rung[], geom: Geom): string {
+	return buildPathPoints(startCol, rungs, geom)
+		.map((point, index) => `${index === 0 ? "M" : "L"} ${point.x} ${point.y}`)
+		.join(" ");
+}
+
+export function buildPathPoints(startCol: number, rungs: Rung[], geom: Geom): Point[] {
 	const set = new Set(rungs.map((r) => `${r.row}:${r.col}`));
 	let col = startCol;
-	const parts: string[] = [`M ${geom.x(col)} ${geom.topY}`];
+	const points: Point[] = [{ x: geom.x(col), y: geom.topY }];
 	for (let row = 0; row < ROWS; row++) {
-		parts.push(`L ${geom.x(col)} ${geom.rowY(row)}`);
+		points.push({ x: geom.x(col), y: geom.rowY(row) });
 		if (set.has(`${row}:${col}`)) {
-			parts.push(`L ${geom.x(col + 1)} ${geom.rowY(row)}`);
+			points.push({ x: geom.x(col + 1), y: geom.rowY(row) });
 			col += 1;
 		} else if (col > 0 && set.has(`${row}:${col - 1}`)) {
-			parts.push(`L ${geom.x(col - 1)} ${geom.rowY(row)}`);
+			points.push({ x: geom.x(col - 1), y: geom.rowY(row) });
 			col -= 1;
 		}
 	}
-	parts.push(`L ${geom.x(col)} ${geom.bottomY}`);
-	return parts.join(" ");
+	points.push({ x: geom.x(col), y: geom.bottomY });
+	return points;
+}
+
+export function pointAtProgress(points: Point[], progress: number): Point {
+	if (points.length === 0) return { x: 0, y: 0 };
+	if (points.length === 1) return points[0] ?? { x: 0, y: 0 };
+
+	const segments: Array<{ from: Point; to: Point; length: number }> = [];
+	let total = 0;
+	for (let i = 1; i < points.length; i++) {
+		const from = points[i - 1];
+		const to = points[i];
+		if (!from || !to) continue;
+		const length = Math.hypot(to.x - from.x, to.y - from.y);
+		segments.push({ from, to, length });
+		total += length;
+	}
+	if (total <= 0) return points[0] ?? { x: 0, y: 0 };
+
+	let remaining = Math.max(0, Math.min(1, progress)) * total;
+	for (const segment of segments) {
+		if (remaining > segment.length) {
+			remaining -= segment.length;
+			continue;
+		}
+		const t = segment.length === 0 ? 1 : remaining / segment.length;
+		return {
+			x: segment.from.x + (segment.to.x - segment.from.x) * t,
+			y: segment.from.y + (segment.to.y - segment.from.y) * t,
+		};
+	}
+	return points.at(-1) ?? points[0] ?? { x: 0, y: 0 };
 }
 
 export function rungsAlongPath(startCol: number, rungs: Rung[]): number[] {

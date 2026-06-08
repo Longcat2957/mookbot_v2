@@ -400,9 +400,8 @@ describe("usePickBanState — debounced save", () => {
 
 	it("canEdit=false 면 save 안 함", async () => {
 		vi.useFakeTimers();
-		canEditMock = false;
 		const { result, rerender } = renderHook(() => usePickBanState({ seriesId: 42 }));
-		detailSwr.data = makeDetail();
+		detailSwr.data = makeDetail({ canControl: false });
 		act(() => detailSwr.onApply?.(detailSwr.data!, null));
 		rerender();
 

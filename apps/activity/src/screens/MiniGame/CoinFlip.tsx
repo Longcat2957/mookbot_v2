@@ -3,6 +3,7 @@
 // 결과 텍스트는 착지 완료 후에만 공개한다.
 
 import { useEffect, useRef, useState } from "react";
+import { cancelAnimation, prefersReducedMotion, startElementAnimation } from "./motion.js";
 import {
 	MiniGameActionBar,
 	MiniGameControls,
@@ -30,19 +31,22 @@ export function CoinFlip() {
 	const [phase, setPhase] = useState<Phase>("idle");
 	const [side, setSide] = useState<Side | null>(null);
 	const [rotation, setRotation] = useState(0);
-	const timersRef = useRef<number[]>([]);
+	const coinRef = useRef<HTMLDivElement | null>(null);
+	const bobRef = useRef<HTMLDivElement | null>(null);
+	const coinAnimationRef = useRef<Animation | null>(null);
+	const bobAnimationRef = useRef<Animation | null>(null);
 
 	const isBusy = phase === "flipping" || phase === "settling";
 
-	function clearTimers() {
-		for (const id of timersRef.current) window.clearTimeout(id);
-		timersRef.current = [];
+	function cancelRunningAnimations() {
+		cancelAnimation(coinAnimationRef.current);
+		cancelAnimation(bobAnimationRef.current);
 	}
 
 	useEffect(() => {
 		return () => {
-			for (const id of timersRef.current) window.clearTimeout(id);
-			timersRef.current = [];
+			cancelAnimation(coinAnimationRef.current);
+			cancelAnimation(bobAnimationRef.current);
 		};
 	}, []);
 
@@ -52,30 +56,68 @@ export function CoinFlip() {
 		const chaosResidual = 35 + Math.random() * 290;
 		const currentResidual = normalizedDegrees(rotation);
 		const chaosDelta = randomInt(3, 5) * 360 + normalizedDegrees(chaosResidual - currentResidual);
+		const chaosRotation = rotation + chaosDelta;
+		const targetResidual = result === "RED" ? 180 : 0;
+		const finalRotation =
+			chaosRotation +
+			randomInt(2, 4) * 360 +
+			normalizedDegrees(targetResidual - normalizedDegrees(chaosRotation));
+		const duration = prefersReducedMotion() ? 1 : FLIP_DURATION_MS;
+		const chaosOffset = CHAOS_DURATION_MS / FLIP_DURATION_MS;
 
-		clearTimers();
+		cancelRunningAnimations();
 		setSide(null);
-		setRotation((prev) => prev + chaosDelta);
 		setPhase("flipping");
 
-		timersRef.current.push(
-			window.setTimeout(() => {
-				setPhase("settling");
-				setRotation((prev) => {
-					const targetResidual = result === "RED" ? 180 : 0;
-					const residual = normalizedDegrees(prev);
-					return prev + randomInt(2, 4) * 360 + normalizedDegrees(targetResidual - residual);
-				});
-			}, CHAOS_DURATION_MS),
-			window.setTimeout(() => {
+		const coinAnimation = startElementAnimation(
+			coinRef.current,
+			[
+				{ transform: `rotateY(${rotation}deg)`, offset: 0 },
+				{
+					transform: `rotateY(${chaosRotation}deg)`,
+					offset: chaosOffset,
+					easing: "cubic-bezier(0.18, 0.82, 0.28, 1)",
+				},
+				{
+					transform: `rotateY(${finalRotation}deg)`,
+					offset: 1,
+					easing: "cubic-bezier(0.08, 0.72, 0.13, 1)",
+				},
+			],
+			{ duration, fill: "forwards" },
+		);
+		const bobAnimation = startElementAnimation(
+			bobRef.current,
+			[
+				{ transform: "translateY(0) scale(1)", offset: 0 },
+				{ transform: "translateY(-24px) scale(1.035)", offset: 0.16 },
+				{ transform: "translateY(-14px) scale(1.01)", offset: chaosOffset },
+				{ transform: "translateY(1px) scale(0.995)", offset: 0.88 },
+				{ transform: "translateY(0) scale(1)", offset: 1 },
+			],
+			{ duration, easing: "cubic-bezier(0.08, 0.74, 0.16, 1)", fill: "forwards" },
+		);
+		coinAnimationRef.current = coinAnimation;
+		bobAnimationRef.current = bobAnimation;
+
+		if (!coinAnimation) {
+			setRotation(finalRotation);
+			setSide(result);
+			setPhase("settled");
+			return;
+		}
+
+		void coinAnimation.finished
+			.then(() => {
+				setRotation(finalRotation);
 				setSide(result);
 				setPhase("settled");
-			}, FLIP_DURATION_MS),
-		);
+			})
+			.catch(() => undefined);
 	}
 
 	function reset() {
-		clearTimers();
+		cancelRunningAnimations();
 		setPhase("idle");
 		setSide(null);
 	}
@@ -92,10 +134,9 @@ export function CoinFlip() {
 						className={`mg-coin-stage ${isBusy ? "mg-coin-stage-flipping" : ""} ${phase === "settled" ? "mg-coin-stage-settled" : ""}`}
 					>
 						{/* outer: bob (translateY only). inner: rotateY (inline). 분리해서 keyframe vs inline transform 충돌 회피. */}
-						<div
-							className={`mg-coin-bob ${phase === "idle" ? "mg-coin-bob-active" : ""} ${phase === "flipping" ? "mg-coin-bob-toss" : ""} ${phase === "settling" ? "mg-coin-bob-settle" : ""}`}
-						>
+						<div ref={bobRef} className={`mg-coin-bob ${phase === "idle" ? "mg-coin-bob-active" : ""}`}>
 							<div
+								ref={coinRef}
 								className={`mg-coin ${phase === "flipping" ? "mg-coin-flipping" : ""} ${phase === "settling" ? "mg-coin-settling" : ""}`}
 								style={{ transform: `rotateY(${rotation}deg)` }}
 							>

@@ -1,12 +1,7 @@
 // 경매 모집 메시지의 버튼 인터랙션 처리 — 참여/취소/경매시작.
 
 import { db } from "@mookbot/core";
-import {
-	ActionRowBuilder,
-	ButtonBuilder,
-	type ButtonInteraction,
-	ButtonStyle,
-} from "discord.js";
+import { ActionRowBuilder, ButtonBuilder, type ButtonInteraction, ButtonStyle } from "discord.js";
 import { resolveGuildDisplayName } from "../../utils/displayName.js";
 import { notify as wsNotify } from "../../utils/notify.js";
 import { requireOperator } from "../../utils/operator.js";
@@ -206,10 +201,7 @@ async function handleCancelConfirm(
 	await interaction.editReply({ content: lines.join("\n"), components: [] });
 }
 
-async function handleNext(
-	interaction: ButtonInteraction,
-	id: number,
-): Promise<void> {
+async function handleNext(interaction: ButtonInteraction, id: number): Promise<void> {
 	if (!(await requireOperator(interaction))) return;
 	const participants = await listAuctionRecruitmentParticipants(id);
 	const rec = await getAuctionRecruitment(id);

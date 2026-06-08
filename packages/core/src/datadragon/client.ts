@@ -20,6 +20,7 @@ const LOCALE = "ko_KR";
 
 let version = "";
 let initialized = false;
+let initPromise: Promise<void> | null = null;
 
 // Lookup maps: numeric key → data
 const championByKey = new Map<string, ChampionData>(); // "64" → ChampionData
@@ -55,51 +56,60 @@ async function fetchJson<T>(url: string): Promise<T> {
  */
 export async function initDataDragon(): Promise<void> {
 	if (initialized) return;
+	if (initPromise) return initPromise;
 
-	version = await fetchLatestVersion();
-	log.info({ ddVersion: version }, "datadragon version loaded");
+	initPromise = (async () => {
+		const nextVersion = await fetchLatestVersion();
+		log.info({ ddVersion: nextVersion }, "datadragon version loaded");
 
-	// Load champions
-	const champDto = await fetchJson<ChampionListDto>(
-		`${BASE_URL}/cdn/${version}/data/${LOCALE}/champion.json`,
-	);
-	for (const champ of Object.values(champDto.data)) {
-		championByKey.set(champ.key, champ);
-		championByKoName.set(champ.name, champ);
-		// 공백 제거 변형도 인덱싱 — 유저가 "리신" / "마스터이" 입력해도 매치
-		championByKoNameNoSpace.set(champ.name.replace(/\s+/g, ""), champ);
-		championByIdSlug.set(champ.id.toLowerCase(), champ);
+		const [champDto, spellDto, itemDto, iconDto] = await Promise.all([
+			fetchJson<ChampionListDto>(`${BASE_URL}/cdn/${nextVersion}/data/${LOCALE}/champion.json`),
+			fetchJson<SummonerSpellListDto>(`${BASE_URL}/cdn/${nextVersion}/data/${LOCALE}/summoner.json`),
+			fetchJson<ItemListDto>(`${BASE_URL}/cdn/${nextVersion}/data/${LOCALE}/item.json`),
+			fetchJson<ProfileIconListDto>(`${BASE_URL}/cdn/${nextVersion}/data/${LOCALE}/profileicon.json`),
+		]);
+
+		version = nextVersion;
+		championByKey.clear();
+		championByKoName.clear();
+		championByKoNameNoSpace.clear();
+		championByIdSlug.clear();
+		spellByKey.clear();
+		itemById.clear();
+		profileIconById.clear();
+
+		for (const champ of Object.values(champDto.data)) {
+			championByKey.set(champ.key, champ);
+			championByKoName.set(champ.name, champ);
+			// 공백 제거 변형도 인덱싱 — 유저가 "리신" / "마스터이" 입력해도 매치
+			championByKoNameNoSpace.set(champ.name.replace(/\s+/g, ""), champ);
+			championByIdSlug.set(champ.id.toLowerCase(), champ);
+		}
+		log.info({ count: championByKey.size }, "datadragon champions loaded");
+
+		for (const spell of Object.values(spellDto.data)) {
+			spellByKey.set(spell.key, spell.name);
+		}
+		log.info({ count: spellByKey.size }, "datadragon spells loaded");
+
+		for (const [id, item] of Object.entries(itemDto.data)) {
+			itemById.set(id, item.name);
+		}
+		log.info({ count: itemById.size }, "datadragon items loaded");
+
+		for (const icon of Object.values(iconDto.data)) {
+			profileIconById.set(icon.id, icon.image.full);
+		}
+		log.info({ count: profileIconById.size }, "datadragon profile icons loaded");
+
+		initialized = true;
+	})();
+	try {
+		await initPromise;
+	} catch (err) {
+		initPromise = null;
+		throw err;
 	}
-	log.info({ count: championByKey.size }, "datadragon champions loaded");
-
-	// Load summoner spells
-	const spellDto = await fetchJson<SummonerSpellListDto>(
-		`${BASE_URL}/cdn/${version}/data/${LOCALE}/summoner.json`,
-	);
-	for (const spell of Object.values(spellDto.data)) {
-		spellByKey.set(spell.key, spell.name);
-	}
-	log.info({ count: spellByKey.size }, "datadragon spells loaded");
-
-	// Load items
-	const itemDto = await fetchJson<ItemListDto>(
-		`${BASE_URL}/cdn/${version}/data/${LOCALE}/item.json`,
-	);
-	for (const [id, item] of Object.entries(itemDto.data)) {
-		itemById.set(id, item.name);
-	}
-	log.info({ count: itemById.size }, "datadragon items loaded");
-
-	// Load profile icons
-	const iconDto = await fetchJson<ProfileIconListDto>(
-		`${BASE_URL}/cdn/${version}/data/${LOCALE}/profileicon.json`,
-	);
-	for (const icon of Object.values(iconDto.data)) {
-		profileIconById.set(icon.id, icon.image.full);
-	}
-	log.info({ count: profileIconById.size }, "datadragon profile icons loaded");
-
-	initialized = true;
 }
 
 // ============================================================

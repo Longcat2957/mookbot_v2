@@ -75,6 +75,14 @@ export interface HeadToHead {
 	losses: number;
 }
 
+export interface BottomDuoRecord {
+	bottomUserId: string;
+	supportUserId: string;
+	plays: number;
+	wins: number;
+	losses: number;
+}
+
 export interface EntryDraft {
 	// userId → "TEAM_1_TOP" / "TEAM_2_MID" 등 Slot
 	assignments: Record<string, string>;
@@ -96,6 +104,7 @@ export interface RecruitmentDetail {
 	};
 	participants: Participant[];
 	headToHead?: HeadToHead[];
+	bottomDuos?: BottomDuoRecord[];
 	entryDraft: EntryDraft | null;
 }
 
