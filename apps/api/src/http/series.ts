@@ -4,7 +4,7 @@
 import { cloudflare, datadragon, db } from "@mookbot/core";
 import type { FastifyInstance } from "fastify";
 import { userCanEdit } from "../auth/perms.js";
-import { notifyBotRecruitRefresh } from "../bot/notify.js";
+import { notifyBotRecruitRefresh, notifyBotSeriesCreated } from "../bot/notify.js";
 import { HttpError } from "./_errors.js";
 import {
 	invalidate,
@@ -124,6 +124,9 @@ export async function registerSeriesRoutes(app: FastifyInstance): Promise<void> 
 		// 봇에 Discord 모집 메시지 갱신 요청 — best-effort, 실패해도 API 응답은 정상.
 		void notifyBotRecruitRefresh(recruitmentId).catch((err) => {
 			req.log.warn({ err, recruitmentId }, "notifyBotRecruitRefresh failed");
+		});
+		void notifyBotSeriesCreated(series.id, team1Side ?? null).catch((err) => {
+			req.log.warn({ err, seriesId: series.id }, "notifyBotSeriesCreated failed");
 		});
 		return { seriesId: series.id };
 	});

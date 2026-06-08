@@ -36,6 +36,37 @@ export async function notifyBotRecruitRefresh(recruitmentId: number): Promise<vo
 }
 
 /**
+ * 봇에 엔트리 확정 이미지 발행 요청. POST /api/series 성공 직후 호출.
+ * best-effort — 실패 시 caller 에서 catch + log 만.
+ */
+export async function notifyBotSeriesCreated(
+	seriesId: number,
+	team1Side: "BLUE" | "RED" | null,
+): Promise<void> {
+	const botBase = process.env.BOT_INTERNAL_BASE ?? "http://bot:3001";
+	const key = process.env.INTERNAL_API_KEY;
+	if (!key) {
+		log.debug({ seriesId }, "notifyBotSeriesCreated: INTERNAL_API_KEY 미설정 — skip");
+		return;
+	}
+
+	const res = await fetch(`${botBase}/internal/series-created`, {
+		method: "POST",
+		headers: {
+			"Content-Type": "application/json",
+			"X-Internal-Key": key,
+		},
+		body: JSON.stringify({ seriesId, team1Side }),
+		signal: AbortSignal.timeout(5000),
+	});
+
+	if (!res.ok) {
+		const text = await res.text().catch(() => "");
+		throw new Error(`bot series-created ${res.status}: ${text}`);
+	}
+}
+
+/**
  * 봇에 시리즈 종료 카드 발행 요청. Bo3 자동 종료 직후 호출.
  * best-effort — 실패 시 caller 에서 catch + log 만 (응답 흐름 차단 X).
  */

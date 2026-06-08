@@ -8,6 +8,7 @@ import { publishAuctionEndCard } from "./commands/auction/endCardBuilder.js";
 import { publishAuctionMatchupCard } from "./commands/auction/matchupCardBuilder.js";
 import { refreshRecruitMessageWithClient } from "./commands/recruit/messageBuilder.js";
 import { publishSeriesEndCard } from "./commands/series/endCardBuilder.js";
+import { publishSeriesLineupImage } from "./commands/series/lineupImagePublisher.js";
 
 const HEALTH_PORT = Number(process.env.BOT_HEALTH_PORT ?? 3001);
 
@@ -22,6 +23,10 @@ export function startHealthServer(client: Client): void {
 		}
 		if (req.url === "/internal/recruit-refresh" && req.method === "POST") {
 			void handleRecruitRefresh(client, req, res);
+			return;
+		}
+		if (req.url === "/internal/series-created" && req.method === "POST") {
+			void handleSeriesCreated(client, req, res);
 			return;
 		}
 		if (req.url === "/internal/series-completed" && req.method === "POST") {
@@ -116,6 +121,61 @@ async function handleRecruitRefresh(
 		res.end(JSON.stringify({ ok: true }));
 	} catch (err) {
 		log.error({ err, recruitmentId }, "recruit-refresh handler crashed");
+		res.writeHead(500, { "content-type": "application/json" });
+		res.end(JSON.stringify({ error: err instanceof Error ? err.message : String(err) }));
+	}
+}
+
+async function handleSeriesCreated(
+	client: Client,
+	req: IncomingMessage,
+	res: ServerResponse,
+): Promise<void> {
+	const expected = process.env.INTERNAL_API_KEY;
+	if (!expected) {
+		res.writeHead(503, { "content-type": "application/json" });
+		res.end(JSON.stringify({ error: "INTERNAL_API_KEY not configured" }));
+		return;
+	}
+	const got = req.headers["x-internal-key"];
+	if (got !== expected) {
+		res.writeHead(401, { "content-type": "application/json" });
+		res.end(JSON.stringify({ error: "invalid internal key" }));
+		return;
+	}
+
+	let body = "";
+	req.setEncoding("utf8");
+	for await (const chunk of req) body += chunk;
+
+	let parsed: { seriesId?: unknown; team1Side?: unknown };
+	try {
+		parsed = JSON.parse(body);
+	} catch {
+		res.writeHead(400, { "content-type": "application/json" });
+		res.end(JSON.stringify({ error: "invalid json" }));
+		return;
+	}
+	const seriesId = Number(parsed.seriesId);
+	if (!Number.isFinite(seriesId) || seriesId <= 0) {
+		res.writeHead(400, { "content-type": "application/json" });
+		res.end(JSON.stringify({ error: "seriesId required" }));
+		return;
+	}
+	const team1Side = parsed.team1Side === "RED" ? "RED" : "BLUE";
+
+	try {
+		const failure = await publishSeriesLineupImage(client, seriesId, team1Side);
+		if (failure) {
+			log.info({ seriesId, failure }, "series-created: skipped or non-fatal");
+			res.writeHead(200, { "content-type": "application/json" });
+			res.end(JSON.stringify({ ok: true, skipped: failure }));
+			return;
+		}
+		res.writeHead(200, { "content-type": "application/json" });
+		res.end(JSON.stringify({ ok: true }));
+	} catch (err) {
+		log.error({ err, seriesId }, "series-created handler crashed");
 		res.writeHead(500, { "content-type": "application/json" });
 		res.end(JSON.stringify({ error: err instanceof Error ? err.message : String(err) }));
 	}

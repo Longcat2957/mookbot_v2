@@ -1,3 +1,4 @@
+export * as balanceSvg from "./balance-svg.js";
 export * as cloudflare from "./cloudflare/index.js";
 export * as datadragon from "./datadragon/index.js";
 export * as db from "./db/index.js";
