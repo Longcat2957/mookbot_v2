@@ -8,10 +8,13 @@ export function invalidate(topic: string, originUser?: string): void {
 	broadcast(topic, { t: "invalidate", topic, originUser });
 }
 
-// Data Dragon 절대 URL. 기본은 원본 CDN을 그대로 내려 프록시 설정/캐시 문제를 피한다.
-// 필요한 환경에서만 DD_PROXY_PREFIX=/dd 처럼 지정해 same-origin 프록시를 사용한다.
+// Data Dragon 절대 URL. Discord Activity iframe 에서는 외부 이미지 origin 이 막힐 수
+// 있으므로 기본은 same-origin nginx 프록시(/dd)를 사용한다.
 const DD_ORIGIN = "https://ddragon.leagueoflegends.com";
-const DD_PROXY_PREFIX = process.env.DD_PROXY_PREFIX?.replace(/\/+$/, "") ?? "";
+const DD_PROXY_PREFIX =
+	process.env.DD_PROXY_PREFIX === "off"
+		? ""
+		: (process.env.DD_PROXY_PREFIX?.replace(/\/+$/, "") ?? "/dd");
 
 export function rewriteDD(url: string): string {
 	if (!url.startsWith(DD_ORIGIN) || !DD_PROXY_PREFIX) return url;
