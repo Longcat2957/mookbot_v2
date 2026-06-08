@@ -46,7 +46,8 @@ export function ParticipantCard({
 				}
 			}}
 			className={cx(
-				"bg-base-300 rounded-lg hover:bg-base-content/10 transition px-3 py-2 flex items-center gap-2 min-w-0",
+				"bg-base-300 rounded-lg hover:bg-base-content/10 transition flex items-center gap-2 min-w-0 overflow-hidden",
+				compact ? "px-2 py-1.5 min-h-11" : "px-3 py-2",
 				coarse ? "cursor-pointer" : "cursor-grab active:cursor-grabbing",
 				selected
 					? "ring-2 ring-primary bg-primary/10"
@@ -59,17 +60,19 @@ export function ParticipantCard({
 			<UserAvatar
 				discordId={participant.userId}
 				displayName={displayName}
-				size="sm"
+				size={compact ? "xs" : "sm"}
 				imageUrl={participant.profileIconUrl ?? null}
 			/>
 
 			{/* 중: 이름 + 메타 */}
 			<div className="flex-1 min-w-0">
-				<div className="flex items-center gap-2 mb-0.5">
-					<span className="font-bold text-base truncate">{displayName}</span>
+				<div className="flex items-center gap-1.5 mb-0.5 min-w-0">
+					<span className={cx("font-bold truncate", compact ? "text-sm" : "text-base")}>
+						{displayName}
+					</span>
 					{history.total.plays > 0 ? (
 						<span
-							className={`text-xs font-bold tabular-nums ${totalWr >= 50 ? "text-success" : "text-error"}`}
+							className={`shrink-0 text-xs font-bold tabular-nums ${totalWr >= 50 ? "text-success" : "text-error"}`}
 						>
 							{totalWr}%
 						</span>
@@ -78,24 +81,24 @@ export function ParticipantCard({
 							신규
 						</StatusBadge>
 					)}
-					{history.total.plays > 0 && (
+					{history.total.plays > 0 && !compact && (
 						<span className="text-[10px] opacity-50 tabular-nums">
 							{history.total.wins}-{history.total.losses}
 						</span>
 					)}
 				</div>
-				<div className="flex items-center gap-1 flex-wrap">
+				<div className="flex items-center gap-1 overflow-hidden">
 					{roles.length > 0 && (
 						<>
-							{roles.map((r) => (
+							{roles.slice(0, compact ? 2 : roles.length).map((r) => (
 								<StatusBadge key={r} tone="primary" variant="solid" size="xs">
 									{ROLE_LABEL[r] ?? r}
 								</StatusBadge>
 							))}
-							<span className="opacity-30 mx-0.5">|</span>
+							{!compact && <span className="opacity-30 mx-0.5">|</span>}
 						</>
 					)}
-					{history.topRole && history.topRole.plays > 0 && (
+					{history.topRole && history.topRole.plays > 0 && !compact && (
 						<StatusBadge tone="neutral" variant="outline" size="xs">
 							주 {ROLE_LABEL[history.topRole.role] ?? history.topRole.role}
 						</StatusBadge>

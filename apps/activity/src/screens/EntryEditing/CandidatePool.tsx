@@ -91,11 +91,12 @@ export function CandidatePool({
 					모든 참가자가 슬롯에 배정되었습니다.
 				</div>
 			) : (
-				<div className="grid grid-cols-1 md:grid-cols-2 gap-1.5">
+				<div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
 					{state.unassigned.map((p) => (
 						<ParticipantCard
 							key={p.userId}
 							participant={p}
+							compact
 							selected={state.selectedUid === p.userId}
 							onTap={() => state.handleParticipantTap(p.userId)}
 							recentlyChanged={state.recentlyChanged.has(p.userId)}

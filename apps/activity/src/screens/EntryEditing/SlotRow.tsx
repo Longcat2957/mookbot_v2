@@ -87,12 +87,12 @@ export function SlotRow({
 				const uid = e.dataTransfer.getData("text/plain");
 				if (uid) onDrop(uid);
 			}}
-			className={cx("flex items-stretch gap-2 rounded-md transition", baseRing)}
+			className={cx("flex h-[4.75rem] items-stretch gap-2 rounded-md transition", baseRing)}
 		>
 			<StatusBadge
 				tone="neutral"
 				variant="solid"
-				className="w-12 min-h-[4.75rem] h-auto justify-center shrink-0 text-sm font-bold"
+				className="h-full w-12 justify-center shrink-0 text-sm font-bold"
 			>
 				{LANE_LABEL[lane]}
 			</StatusBadge>
@@ -109,7 +109,7 @@ export function SlotRow({
 								}
 					}
 					className={cx(
-						"flex-1 min-w-0 min-h-[4.75rem] bg-base-300 rounded-md px-2 py-1.5 hover:bg-base-content/10 transition",
+						"flex h-full min-w-0 flex-1 flex-col justify-center overflow-hidden bg-base-300 rounded-md px-2 py-1.5 hover:bg-base-content/10 transition",
 						coarse ? "cursor-pointer" : "cursor-grab active:cursor-grabbing",
 					)}
 				>
@@ -130,7 +130,7 @@ export function SlotRow({
 					<SlotMetaLine participant={participant} headToHead={headToHead} />
 				</div>
 			) : (
-				<div className="flex-1 min-h-[4.75rem] text-base-content/40 text-sm italic px-2 py-1.5 border border-dashed border-base-content/20 rounded-md text-center flex items-center justify-center">
+				<div className="flex h-full flex-1 items-center justify-center rounded-md border border-dashed border-base-content/20 px-2 py-1.5 text-center text-sm italic text-base-content/40">
 					— 비어있음 —
 				</div>
 			)}
@@ -159,7 +159,6 @@ function SlotMetaLine({
 		rows.push(
 			<MetaRecordLine
 				key="head-to-head"
-				label="상대전적"
 				name={`vs ${headToHead.opponentName}`}
 				plays={headToHead.plays}
 				wins={headToHead.wins}
@@ -169,16 +168,16 @@ function SlotMetaLine({
 		);
 	}
 	if (rows.length > 0) {
-		return <div className="mt-1 space-y-1">{rows}</div>;
+		return <div className="mt-1 min-w-0">{rows}</div>;
 	}
 
 	if (participant.soloRanked) {
 		const ranked = participant.soloRanked;
 		return (
-			<div className="mt-1 flex min-h-7 flex-wrap items-center gap-x-1.5 gap-y-0.5 rounded border border-info/25 bg-info/10 px-2 py-1 text-[0.8125rem] leading-tight">
+			<div className="mt-1 grid min-h-7 min-w-0 grid-cols-[2.5rem_minmax(0,1fr)_auto] items-center gap-1.5 rounded border border-info/25 bg-info/10 px-2 py-1 text-[0.8125rem] leading-tight">
 				<span className="font-semibold text-base-content/70">솔랭</span>
 				{participant.mainPosition && (
-					<span className="badge badge-xs badge-info shrink-0">
+					<span className="badge badge-xs badge-info min-w-0 truncate">
 						{mainPositionLabel(participant.mainPosition)}
 					</span>
 				)}
@@ -200,14 +199,12 @@ function SlotMetaLine({
 }
 
 function MetaRecordLine({
-	label,
 	name,
 	plays,
 	wins,
 	losses,
 	title,
 }: {
-	label: string;
 	name: string;
 	plays: number;
 	wins: number;
@@ -218,19 +215,20 @@ function MetaRecordLine({
 	return (
 		<div
 			className={cx(
-				"flex min-h-7 flex-wrap items-center gap-x-1.5 gap-y-0.5 rounded border px-2 py-1 text-[0.8125rem] leading-tight",
+				"grid min-h-7 min-w-0 grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-1.5 rounded border px-2 py-1 text-[0.8125rem] leading-tight",
 				wins >= losses
 					? "border-success/30 bg-success/10 text-success-content"
 					: "border-error/30 bg-error/10 text-error-content",
 			)}
 			title={title}
 		>
-			<span className="font-semibold text-base-content/70">{label}</span>
-			<span className="font-bold tabular-nums text-base-content">
+			<span className="min-w-0 truncate font-semibold text-base-content/70">
+				{name.replace(/^vs /, "vs ")}
+			</span>
+			<span className="shrink-0 font-bold tabular-nums text-base-content">
 				{wins}-{losses}
 			</span>
-			<span className="text-base-content/60 tabular-nums">{winrate}%</span>
-			<span className="min-w-0 max-w-full truncate text-base-content/60">{name}</span>
+			<span className="shrink-0 text-base-content/60 tabular-nums">{winrate}%</span>
 		</div>
 	);
 }
