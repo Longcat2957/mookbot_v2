@@ -88,7 +88,9 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
 		const winSuffix =
 			s.status === "COMPLETED" && s.winning_team
 				? ` · ${s.winning_team === "TEAM_1" ? "1팀" : "2팀"} 승`
-				: "";
+				: s.status === "COMPLETED"
+					? " · 무승부"
+					: "";
 		const sizeLabel = teamSize > 0 ? `${teamSize}v${teamSize}` : "—";
 		// v0.11.0: series 는 RANKED 전용 — 경매 배지 불필요 (경매 매치는 auction_matches).
 		return [

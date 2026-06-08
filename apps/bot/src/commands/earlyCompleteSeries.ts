@@ -15,10 +15,17 @@ import {
 import { notify } from "../utils/notify.js";
 import { requireOperator } from "../utils/operator.js";
 
-const { getSeries, listGamesInSeries, countSeriesWins, completeSeries, cancelSeries, recordAudit } =
-	db;
+const {
+	getSeries,
+	listGamesInSeries,
+	countSeriesWins,
+	completeSeries,
+	completeSeriesDraw,
+	cancelSeries,
+	recordAudit,
+} = db;
 
-type EarlyResult = "TEAM_1" | "TEAM_2" | "CANCEL";
+type EarlyResult = "TEAM_1" | "TEAM_2" | "DRAW" | "CANCEL";
 
 export const data = new SlashCommandBuilder()
 	.setName("내전조기종료")
@@ -34,6 +41,7 @@ export const data = new SlashCommandBuilder()
 			.addChoices(
 				{ name: "1팀 승 (COMPLETED)", value: "TEAM_1" },
 				{ name: "2팀 승 (COMPLETED)", value: "TEAM_2" },
+				{ name: "무승부 (COMPLETED)", value: "DRAW" },
 				{ name: "취소 / 무효 (CANCELLED)", value: "CANCEL" },
 			),
 	);
@@ -41,6 +49,7 @@ export const data = new SlashCommandBuilder()
 function resultLabel(r: EarlyResult): string {
 	if (r === "TEAM_1") return "1팀 승 (COMPLETED)";
 	if (r === "TEAM_2") return "2팀 승 (COMPLETED)";
+	if (r === "DRAW") return "무승부 (COMPLETED)";
 	return "취소 / 무효 (CANCELLED)";
 }
 
@@ -73,6 +82,12 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
 	}
 
 	const wins = await countSeriesWins(seriesId);
+	if (result === "DRAW" && wins.team1 !== wins.team2) {
+		await interaction.editReply(
+			`❌ 무승부 처리는 현재 스코어가 동률일 때만 가능합니다. 현재 스코어: ${wins.team1}:${wins.team2}`,
+		);
+		return;
+	}
 
 	const embed = new EmbedBuilder()
 		.setTitle(`⚠️ 시리즈 #${seriesId} 조기 종료 미리보기`)
@@ -118,7 +133,7 @@ export async function handleButton(interaction: ButtonInteraction): Promise<void
 
 	const seriesId = Number(parts[3]);
 	const result = parts[4] as EarlyResult;
-	if (result !== "TEAM_1" && result !== "TEAM_2" && result !== "CANCEL") {
+	if (result !== "TEAM_1" && result !== "TEAM_2" && result !== "DRAW" && result !== "CANCEL") {
 		await interaction.update({
 			content: `❌ 알 수 없는 결과: ${result}`,
 			embeds: [],
@@ -149,9 +164,19 @@ export async function handleButton(interaction: ButtonInteraction): Promise<void
 
 	const games = await listGamesInSeries(seriesId);
 	const wins = await countSeriesWins(seriesId);
+	if (result === "DRAW" && wins.team1 !== wins.team2) {
+		await interaction.editReply({
+			content: `❌ 무승부 처리는 현재 스코어가 동률일 때만 가능합니다. 현재 스코어: ${wins.team1}:${wins.team2}`,
+			embeds: [],
+			components: [],
+		});
+		return;
+	}
 
 	if (result === "CANCEL") {
 		await cancelSeries(seriesId);
+	} else if (result === "DRAW") {
+		await completeSeriesDraw(seriesId);
 	} else {
 		await completeSeries(seriesId, result);
 	}
@@ -172,7 +197,12 @@ export async function handleButton(interaction: ButtonInteraction): Promise<void
 	void notify("dashboard");
 	void notify(`series:${seriesId}`);
 
-	const finalLabel = result === "CANCEL" ? "CANCELLED" : `COMPLETED (${result} 승)`;
+	const finalLabel =
+		result === "CANCEL"
+			? "CANCELLED"
+			: result === "DRAW"
+				? "COMPLETED (무승부)"
+				: `COMPLETED (${result} 승)`;
 	await interaction.editReply({
 		content: `✅ 시리즈 #${seriesId} 조기 종료 완료 — ${finalLabel}. 게임 ${games.length}경기 / 스코어 ${wins.team1}:${wins.team2} 보존됨.`,
 		embeds: [],

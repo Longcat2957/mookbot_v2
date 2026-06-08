@@ -5,6 +5,7 @@ import { createSeason } from "./seasons.js";
 import {
 	cancelSeries,
 	completeSeries,
+	completeSeriesDraw,
 	createSeries,
 	getSeries,
 	getSeriesParticipants,
@@ -143,6 +144,15 @@ describe("status transitions", () => {
 		const after = await getSeries(s.id);
 		expect(after?.status).toBe("COMPLETED");
 		expect(after?.winning_team).toBe("TEAM_1");
+		expect(after?.ended_at).toBeGreaterThan(0);
+	});
+
+	it("completeSeriesDraw 가 COMPLETED + winning_team NULL 설정", async () => {
+		const s = await mkSeries();
+		await completeSeriesDraw(s.id);
+		const after = await getSeries(s.id);
+		expect(after?.status).toBe("COMPLETED");
+		expect(after?.winning_team).toBeNull();
 		expect(after?.ended_at).toBeGreaterThan(0);
 	});
 

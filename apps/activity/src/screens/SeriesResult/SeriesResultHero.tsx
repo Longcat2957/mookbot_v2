@@ -4,10 +4,11 @@ import { type SeriesDetail, teamLabel } from "./types.js";
 
 export function SeriesResultHero({ detail }: { detail: SeriesDetail }) {
 	const { team1Wins, team2Wins } = scoreByTeam(detail.games);
+	const isDraw = detail.series.status === "COMPLETED" && detail.series.winningTeam === null;
 
 	return (
 		<PanelCard
-			status={detail.series.winningTeam ? "success" : "neutral"}
+			status={detail.series.winningTeam ? "success" : isDraw ? "warning" : "neutral"}
 			bodyClassName="p-5 items-center text-center gap-2"
 		>
 			{detail.series.winningTeam && (
@@ -35,6 +36,7 @@ export function SeriesResultHero({ detail }: { detail: SeriesDetail }) {
 					{teamLabel(detail.series.winningTeam)} 우승
 				</div>
 			)}
+			{isDraw && <div className="text-sm font-bold text-warning mt-1">무승부</div>}
 		</PanelCard>
 	);
 }

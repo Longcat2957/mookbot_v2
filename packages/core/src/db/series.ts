@@ -165,6 +165,14 @@ export async function completeSeries(id: number, winningTeam: Team): Promise<voi
 	);
 }
 
+export async function completeSeriesDraw(id: number): Promise<void> {
+	await execute(
+		`UPDATE series SET status = 'COMPLETED', winning_team = NULL, ended_at = unixepoch()
+		 WHERE id = ? AND status = 'IN_PROGRESS' AND deleted_at IS NULL`,
+		[id],
+	);
+}
+
 export async function cancelSeries(id: number): Promise<void> {
 	await execute(
 		`UPDATE series SET status = 'CANCELLED', ended_at = unixepoch()

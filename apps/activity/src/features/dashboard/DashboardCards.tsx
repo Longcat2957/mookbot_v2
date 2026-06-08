@@ -10,13 +10,17 @@ export function CompletedSeriesCard({
 	onClick: () => void;
 }) {
 	const winner =
-		series.winningTeam === "TEAM_1" ? "1팀" : series.winningTeam === "TEAM_2" ? "2팀" : "—";
+		series.winningTeam === "TEAM_1"
+			? "1팀 승"
+			: series.winningTeam === "TEAM_2"
+				? "2팀 승"
+				: "무승부";
 	const winnerColor =
 		series.winningTeam === "TEAM_1"
 			? "text-info"
 			: series.winningTeam === "TEAM_2"
 				? "text-error"
-				: "";
+				: "text-base-content/70";
 	return (
 		<InteractivePanelCard status="success" onClick={onClick} bodyClassName="py-4 gap-2">
 			<div className="flex items-center justify-between">
@@ -29,7 +33,7 @@ export function CompletedSeriesCard({
 					<span className="opacity-30 mx-1">:</span>
 					<span className="text-error">{series.wins.team2}</span>
 				</span>
-				<span className={`font-medium ${winnerColor}`}>{winner} 승</span>
+				<span className={`font-medium ${winnerColor}`}>{winner}</span>
 				<span className="text-base-content/60 text-xs ml-auto">
 					{formatAgo(series.endedAt ?? series.startedAt)}
 				</span>

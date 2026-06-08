@@ -10,6 +10,7 @@ export function SeriesSummary({
 	onSelectUser?: ((userId: string) => void) | undefined;
 }) {
 	if (!state.detail || !state.draft) return null;
+	const completedDraw = state.seriesCompleted && state.detail.series.winningTeam === null;
 
 	return (
 		<PanelCard status={state.seriesCompleted ? "success" : "neutral"} bodyClassName="p-4 gap-3">
@@ -37,6 +38,14 @@ export function SeriesSummary({
 							<div className="text-sm font-bold text-success">
 								{state.detail.series.winningTeam === "TEAM_1" ? "1팀" : "2팀"}
 							</div>
+						</div>
+					</div>
+				)}
+				{completedDraw && (
+					<div className="ml-auto flex items-center gap-2 px-3 py-1 rounded-md bg-warning/10 border border-warning/40">
+						<div>
+							<div className="text-[10px] text-base-content/60 leading-none">결과</div>
+							<div className="text-sm font-bold text-warning">무승부</div>
 						</div>
 					</div>
 				)}
