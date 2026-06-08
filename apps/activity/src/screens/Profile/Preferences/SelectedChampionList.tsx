@@ -1,3 +1,4 @@
+import { riotAssetUrl } from "../../../api/riotAssets.js";
 import type { Champion } from "../../PickBan/types.js";
 
 export function SelectedChampionList({
@@ -33,15 +34,16 @@ export function SelectedChampionList({
 				<div className="flex flex-wrap gap-1.5 bg-base-200/40 rounded p-2">
 					{selected.map((id, idx) => {
 						const champ = champById.get(id);
+						const iconUrl = riotAssetUrl(champ?.iconUrl);
 						return (
 							<div
 								key={id}
 								className="flex items-center gap-1 bg-base-100 rounded pl-1 pr-0.5 py-0.5 border border-base-300"
 							>
-								{champ?.iconUrl && (
+								{iconUrl && (
 									<img
-										src={champ.iconUrl}
-										alt={champ.name}
+										src={iconUrl}
+										alt={champ?.name ?? `#${id}`}
 										width={20}
 										height={20}
 										className="w-5 h-5 rounded"

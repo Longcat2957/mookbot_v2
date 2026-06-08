@@ -1,3 +1,4 @@
+import { riotAssetUrl } from "../../api/riotAssets.js";
 import { type AuctionCardData, LANE_LABEL } from "./candidateInfoTypes.js";
 
 export function CandidateMookDetails({ data }: { data: AuctionCardData }) {
@@ -50,7 +51,7 @@ function MookChampionList({ topChampions }: { topChampions: AuctionCardData["top
 								title={`${c.championName} · ${c.plays}경기 (${c.wins}W ${c.losses}L · ${wr}%)`}
 							>
 								<img
-									src={c.iconUrl}
+									src={riotAssetUrl(c.iconUrl) ?? c.iconUrl}
 									alt={c.championName}
 									width={28}
 									height={28}

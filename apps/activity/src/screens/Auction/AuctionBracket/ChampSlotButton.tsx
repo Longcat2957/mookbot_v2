@@ -1,3 +1,4 @@
+import { riotAssetUrl } from "../../../api/riotAssets.js";
 import type { Champion } from "./gameInputTypes.js";
 
 export function ChampSlotButton({
@@ -18,7 +19,7 @@ export function ChampSlotButton({
 			{champion ? (
 				<>
 					<img
-						src={champion.iconUrl}
+						src={riotAssetUrl(champion.iconUrl) ?? champion.iconUrl}
 						alt={champion.name}
 						width={16}
 						height={16}

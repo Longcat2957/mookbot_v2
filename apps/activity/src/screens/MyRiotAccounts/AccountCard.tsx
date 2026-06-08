@@ -1,3 +1,4 @@
+import { riotAssetUrl } from "../../api/riotAssets.js";
 import { StatusBadge } from "../../components/DesignPrimitives.js";
 import type { Account } from "./types.js";
 
@@ -17,7 +18,7 @@ export function AccountCard({ account, busy, onSetMain, onRefresh, onUnlink }: P
 			<div className="card-body p-3 gap-2 flex-row items-center flex-wrap">
 				{account.profileIconUrl ? (
 					<img
-						src={account.profileIconUrl}
+						src={riotAssetUrl(account.profileIconUrl) ?? account.profileIconUrl}
 						alt=""
 						width={40}
 						height={40}

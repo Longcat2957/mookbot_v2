@@ -1,3 +1,4 @@
+import { riotAssetUrl } from "../../api/riotAssets.js";
 import { PanelCard, SectionHeader, StatusBadge } from "../../components/DesignPrimitives.js";
 import type { RecentGame } from "./types.js";
 import { ROLE_LABEL } from "./types.js";
@@ -45,7 +46,7 @@ function RecentGameItem({ game, onClick }: { game: RecentGame; onClick: () => vo
 			>
 				{game.iconUrl ? (
 					<img
-						src={game.iconUrl}
+						src={riotAssetUrl(game.iconUrl) ?? game.iconUrl}
 						alt={game.championName ?? ""}
 						width={36}
 						height={36}

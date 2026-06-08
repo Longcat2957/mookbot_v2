@@ -1,3 +1,4 @@
+import { riotAssetUrl } from "../../api/riotAssets.js";
 import type { Champion, Team } from "./types.js";
 
 export function ResultRadioCard({
@@ -64,7 +65,7 @@ export function ResultRadioCard({
 					return champ ? (
 						<img
 							key={`${lanes[i]}-${cid}`}
-							src={champ.iconUrl}
+							src={riotAssetUrl(champ.iconUrl) ?? champ.iconUrl}
 							alt={champ.name}
 							title={`${lanes[i]} · ${champ.name}`}
 							width={28}

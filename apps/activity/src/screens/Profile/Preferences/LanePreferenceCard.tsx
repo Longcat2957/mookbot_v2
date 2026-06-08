@@ -1,3 +1,4 @@
+import { riotAssetUrl } from "../../../api/riotAssets.js";
 import { type PreferenceChamp, ROLE_LABEL, type Role } from "./types.js";
 
 export function LanePreferenceCard({
@@ -39,7 +40,7 @@ export function LanePreferenceCard({
 							title={champ.championName}
 						>
 							<img
-								src={champ.iconUrl}
+								src={riotAssetUrl(champ.iconUrl) ?? champ.iconUrl}
 								alt={champ.championName}
 								width={20}
 								height={20}

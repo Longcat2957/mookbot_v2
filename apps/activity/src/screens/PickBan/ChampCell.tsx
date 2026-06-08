@@ -1,4 +1,5 @@
 import { memo, useCallback } from "react";
+import { riotAssetUrl } from "../../api/riotAssets.js";
 import { cx, StatusBadge } from "../../components/DesignPrimitives.js";
 import { markRender } from "../../debug/renderMetrics.js";
 import type { Champion, PickUsage } from "./types.js";
@@ -34,6 +35,7 @@ function ChampCellImpl({
 	previousUsage?: PickUsage[] | undefined;
 }) {
 	markRender("PickBan.ChampCell");
+	const iconUrl = riotAssetUrl(champ.iconUrl);
 	const handleClick = useCallback(() => {
 		if (onClick) {
 			onClick();
@@ -66,7 +68,7 @@ function ChampCellImpl({
 			)}
 		>
 			<img
-				src={champ.iconUrl}
+				src={iconUrl ?? champ.iconUrl}
 				alt={champ.name}
 				width={64}
 				height={64}

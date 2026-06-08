@@ -1,16 +1,18 @@
+import { riotAssetUrl } from "../../api/riotAssets.js";
 import { type ChampionPlay, wrColor } from "./types.js";
 
 export function ChampionTile({ champ }: { champ: ChampionPlay; compact?: boolean }) {
 	const wr = champ.plays > 0 ? Math.round((champ.wins / champ.plays) * 100) : 0;
+	const iconUrl = riotAssetUrl(champ.iconUrl);
 	return (
 		<div
 			className="tooltip tooltip-top"
 			data-tip={`${champ.championName} · ${champ.plays}G ${champ.wins}승 ${champ.losses}패 (${wr}%)`}
 		>
 			<div className="relative">
-				{champ.iconUrl ? (
+				{iconUrl ? (
 					<img
-						src={champ.iconUrl}
+						src={iconUrl}
 						alt={champ.championName}
 						width={36}
 						height={36}

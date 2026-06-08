@@ -1,3 +1,4 @@
+import { riotAssetUrl } from "../../api/riotAssets.js";
 import type { LineupParticipant } from "../../components/LineupPreview.js";
 import {
 	type Champion,
@@ -53,7 +54,7 @@ export function GameTeamPanel({
 						return banChamp ? (
 							<img
 								key={banChamp.id}
-								src={banChamp.iconUrl}
+								src={riotAssetUrl(banChamp.iconUrl) ?? banChamp.iconUrl}
 								alt={banChamp.name}
 								title={`밴: ${banChamp.name}`}
 								width={32}
@@ -84,7 +85,7 @@ export function GameTeamPanel({
 						<div key={lane} className="flex items-center gap-2">
 							{champ ? (
 								<img
-									src={champ.iconUrl}
+									src={riotAssetUrl(champ.iconUrl) ?? champ.iconUrl}
 									alt={champ.name}
 									width={40}
 									height={40}

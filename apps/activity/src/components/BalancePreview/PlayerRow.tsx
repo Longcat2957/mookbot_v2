@@ -1,3 +1,4 @@
+import { riotAssetUrl } from "../../api/riotAssets.js";
 import { winrateBadgeClass as wrColorClass } from "../../state/winrateColor.js";
 import { type BalanceParticipant, LANE_LABEL } from "./types.js";
 
@@ -55,9 +56,9 @@ export function PlayerRow({
 									key={champion.championId}
 									className="flex items-center gap-2 rounded-md border border-base-content/10 bg-base-200/60 px-2 py-1.5 text-sm"
 								>
-									{champion.iconUrl && (
+									{riotAssetUrl(champion.iconUrl) && (
 										<img
-											src={champion.iconUrl}
+											src={riotAssetUrl(champion.iconUrl) ?? champion.iconUrl}
 											alt=""
 											width={32}
 											height={32}

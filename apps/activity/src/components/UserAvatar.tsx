@@ -7,6 +7,8 @@
 // 같은 사용자는 imageUrl 없을 때도 항상 같은 색상이 보장됨 (해시 기반).
 // ring={isMe} 옵션으로 본인 강조 (primary 컬러 ring).
 
+import { riotAssetUrl } from "../api/riotAssets.js";
+
 const COLORS = [
 	"bg-primary/30",
 	"bg-secondary/30",
@@ -66,17 +68,18 @@ export function UserAvatar({
 	/** primary 컬러 ring (본인 강조 등에) */
 	ring?: boolean;
 }) {
+	const resolvedImageUrl = riotAssetUrl(imageUrl);
 	const sizeW = SIZE_W[size] ?? SIZE_W.md;
 	const sizeText = SIZE_TEXT[size] ?? SIZE_TEXT.md;
 	const sizePx = SIZE_PX[size] ?? SIZE_PX.md;
 	const ringClass = ring ? "ring-2 ring-primary ring-offset-2 ring-offset-base-200" : "";
 
-	if (imageUrl) {
+	if (resolvedImageUrl) {
 		return (
 			<div className={`avatar shrink-0 ${className}`}>
 				<div className={`${sizeW} rounded-full ${ringClass} bg-base-300 overflow-hidden`}>
 					<img
-						src={imageUrl}
+						src={resolvedImageUrl}
 						alt={displayName}
 						width={sizePx}
 						height={sizePx}

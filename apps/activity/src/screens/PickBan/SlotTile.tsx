@@ -1,3 +1,4 @@
+import { riotAssetUrl } from "../../api/riotAssets.js";
 import { cx } from "../../components/DesignPrimitives.js";
 import type { Champion } from "./types.js";
 
@@ -33,7 +34,7 @@ export function SlotTile({
 		>
 			{champion ? (
 				<img
-					src={champion.iconUrl}
+					src={riotAssetUrl(champion.iconUrl) ?? champion.iconUrl}
 					alt={champion.name}
 					width={imageSize}
 					height={imageSize}

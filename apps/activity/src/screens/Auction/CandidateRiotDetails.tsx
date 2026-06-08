@@ -1,3 +1,4 @@
+import { riotAssetUrl } from "../../api/riotAssets.js";
 import {
 	type AuctionCardData,
 	formatPoints,
@@ -85,7 +86,7 @@ function RiotMasteries({ account }: { account: RiotAccount }) {
 						className="flex flex-col items-center gap-0.5 surface-quiet-soft rounded-md p-1"
 					>
 						<img
-							src={m.iconUrl}
+							src={riotAssetUrl(m.iconUrl) ?? m.iconUrl}
 							alt={m.name}
 							width={48}
 							height={48}

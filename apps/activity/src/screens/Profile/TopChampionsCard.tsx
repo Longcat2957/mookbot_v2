@@ -1,3 +1,4 @@
+import { riotAssetUrl } from "../../api/riotAssets.js";
 import { PanelCard, SectionHeader, StatusBadge } from "../../components/DesignPrimitives.js";
 import type { TopChampion } from "./types.js";
 
@@ -25,7 +26,7 @@ export function TopChampionsCard({ champions }: { champions: TopChampion[] }) {
 									{index + 1}
 								</div>
 								<img
-									src={champion.iconUrl}
+									src={riotAssetUrl(champion.iconUrl) ?? champion.iconUrl}
 									alt={champion.championName}
 									width={36}
 									height={36}
