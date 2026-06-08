@@ -1,4 +1,5 @@
 import { balanceSvg } from "@mookbot/core";
+import { Resvg } from "@resvg/resvg-js";
 import { AttachmentBuilder, type Client } from "discord.js";
 
 const DEFAULT_LINEUP_CHANNEL_ID = "1500816168766804079";
@@ -11,14 +12,23 @@ export async function publishSeriesLineupImage(
 	const channelId = process.env.ENTRY_LINEUP_CHANNEL_ID ?? DEFAULT_LINEUP_CHANNEL_ID;
 	const svg = await balanceSvg.buildSeriesBalanceSvg(seriesId, team1Side);
 	if (!svg) return `series ${seriesId} balance svg unavailable`;
+	const png = new Resvg(svg, {
+		background: "#1a1c20",
+		font: {
+			loadSystemFonts: true,
+			defaultFontFamily: "Noto Sans CJK KR",
+		},
+	})
+		.render()
+		.asPng();
 
 	try {
 		const ch = await client.channels.fetch(channelId);
 		if (!ch?.isTextBased() || !("send" in ch)) {
 			return `entry lineup channel ${channelId} is not a text channel`;
 		}
-		const attachment = new AttachmentBuilder(Buffer.from(svg, "utf8"), {
-			name: `series-${seriesId}-lineup.svg`,
+		const attachment = new AttachmentBuilder(png, {
+			name: `series-${seriesId}-lineup.png`,
 			description: `Series #${seriesId} lineup balance image`,
 		});
 		await ch.send({

@@ -150,7 +150,7 @@ function renderBalanceSvg(input: RenderInput): string {
 <svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" font-family="-apple-system,BlinkMacSystemFont,'Pretendard','Noto Sans KR',sans-serif" color="#dcddde">
   <rect x="0" y="0" width="${width}" height="${height}" fill="#1a1c20" rx="12"/>
   <!-- Header -->
-  <text x="${padding}" y="${yHeader + 24}" font-size="20" font-weight="700" fill="#dcddde">📋 시리즈 #${input.seriesId} · Bo3 ${input.teamSize}v${input.teamSize}</text>
+  <text x="${padding}" y="${yHeader + 24}" font-size="20" font-weight="700" fill="#dcddde">시리즈 #${input.seriesId} · Bo3 ${input.teamSize}v${input.teamSize}</text>
   <text x="${padding}" y="${yHeader + 48}" font-size="13" fill="rgba(220,221,222,0.6)">시즌 #${input.seasonId} · Game 1 사이드 확정</text>
 
   <!-- Team headers -->

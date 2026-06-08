@@ -20,7 +20,8 @@ RUN pnpm --filter @mookbot/core build \
 
 FROM node:22-alpine AS runtime
 WORKDIR /app
-RUN corepack enable
+RUN apk add --no-cache font-noto-cjk \
+ && corepack enable
 ENV NODE_ENV=production
 COPY pnpm-workspace.yaml package.json pnpm-lock.yaml ./
 COPY packages/core/package.json packages/core/
