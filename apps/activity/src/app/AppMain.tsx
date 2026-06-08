@@ -44,7 +44,8 @@ export function AppMain({
 		nav.stage === "AUCTION_DRAFT" ||
 		nav.stage === "AUCTION_BRACKET" ||
 		nav.stage === "AUCTION_RESULT";
-	const mainClass = isAuctionStage
+	const usesWideWorkspace = isAuctionStage || nav.stage === "ENTRY_EDITING";
+	const mainClass = usesWideWorkspace
 		? "max-w-none mx-0 p-1.5 sm:p-2 lg:p-2 w-full flex-1"
 		: "max-w-screen-xl mx-auto p-3 lg:p-4 w-full flex-1";
 

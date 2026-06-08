@@ -83,6 +83,19 @@ export interface BottomDuoRecord {
 	losses: number;
 }
 
+export type SynergyKind = "TOP_JUNGLE" | "JUNGLE_MID" | "BOTTOM_SUPPORT";
+
+export interface SynergyRecord {
+	kind: SynergyKind;
+	roleA: Lane;
+	roleB: Lane;
+	userAId: string;
+	userBId: string;
+	plays: number;
+	wins: number;
+	losses: number;
+}
+
 export interface EntryDraft {
 	// userId → "TEAM_1_TOP" / "TEAM_2_MID" 등 Slot
 	assignments: Record<string, string>;
@@ -105,6 +118,7 @@ export interface RecruitmentDetail {
 	participants: Participant[];
 	headToHead?: HeadToHead[];
 	bottomDuos?: BottomDuoRecord[];
+	synergies?: SynergyRecord[];
 	entryDraft: EntryDraft | null;
 }
 

@@ -9,6 +9,7 @@ import {
 	listBottomDuoRecords,
 	listGamesInSeries,
 	listHeadToHeadRecords,
+	listRolePairSynergyRecords,
 } from "./games.js";
 import { createSeason } from "./seasons.js";
 import { createSeries } from "./series.js";
@@ -286,6 +287,86 @@ describe("listBottomDuoRecords", () => {
 	it("빈/단일 user 입력은 []", async () => {
 		expect(await listBottomDuoRecords({ userIds: [] })).toEqual([]);
 		expect(await listBottomDuoRecords({ userIds: ["u1"] })).toEqual([]);
+	});
+});
+
+describe("listRolePairSynergyRecords", () => {
+	it("참가자 풀의 같은 팀 역할 조합 전적을 역할 방향 고정으로 집계", async () => {
+		await upsertUser("u3", "u3");
+		await upsertUser("u4", "u4");
+		const g1 = insertGame(1, "TEAM_1");
+		const g2 = insertGame(2, "TEAM_2");
+		for (const [gameId, duoWon] of [
+			[g1, 1],
+			[g2, 0],
+		] as const) {
+			db
+				.prepare(
+					"INSERT INTO game_stats (game_id, user_id, team, role, won) VALUES (?, 'u1', 'TEAM_1', 'JUNGLE', ?)",
+				)
+				.run(gameId, duoWon);
+			db
+				.prepare(
+					"INSERT INTO game_stats (game_id, user_id, team, role, won) VALUES (?, 'u2', 'TEAM_1', 'MID', ?)",
+				)
+				.run(gameId, duoWon);
+			db
+				.prepare(
+					"INSERT INTO game_stats (game_id, user_id, team, role, won) VALUES (?, 'u3', 'TEAM_2', 'TOP', ?)",
+				)
+				.run(gameId, duoWon ? 0 : 1);
+			db
+				.prepare(
+					"INSERT INTO game_stats (game_id, user_id, team, role, won) VALUES (?, 'u4', 'TEAM_2', 'JUNGLE', ?)",
+				)
+				.run(gameId, duoWon ? 0 : 1);
+		}
+
+		const seasonRow = db.prepare("SELECT season_id FROM series WHERE id = ?").get(seriesId) as {
+			season_id: number;
+		};
+		const rows = await listRolePairSynergyRecords({
+			userIds: ["u1", "u2", "u3", "u4"],
+			seasonId: seasonRow.season_id,
+			pairs: [
+				{ kind: "JUNGLE_MID", roleA: "JUNGLE", roleB: "MID" },
+				{ kind: "TOP_JUNGLE", roleA: "TOP", roleB: "JUNGLE" },
+			],
+		});
+
+		expect(rows.find((r) => r.kind === "JUNGLE_MID")).toMatchObject({
+			role_a: "JUNGLE",
+			role_b: "MID",
+			user_a_id: "u1",
+			user_b_id: "u2",
+			plays: 2,
+			wins: 1,
+		});
+		expect(rows.find((r) => r.kind === "TOP_JUNGLE")).toMatchObject({
+			role_a: "TOP",
+			role_b: "JUNGLE",
+			user_a_id: "u3",
+			user_b_id: "u4",
+			plays: 2,
+			wins: 1,
+		});
+		expect(rows.find((r) => r.user_a_id === "u2" && r.user_b_id === "u1")).toBeUndefined();
+	});
+
+	it("빈/단일 user 또는 빈 pair 입력은 []", async () => {
+		expect(
+			await listRolePairSynergyRecords({
+				userIds: [],
+				pairs: [{ kind: "JUNGLE_MID", roleA: "JUNGLE", roleB: "MID" }],
+			}),
+		).toEqual([]);
+		expect(
+			await listRolePairSynergyRecords({
+				userIds: ["u1"],
+				pairs: [{ kind: "JUNGLE_MID", roleA: "JUNGLE", roleB: "MID" }],
+			}),
+		).toEqual([]);
+		expect(await listRolePairSynergyRecords({ userIds: ["u1", "u2"], pairs: [] })).toEqual([]);
 	});
 });
 

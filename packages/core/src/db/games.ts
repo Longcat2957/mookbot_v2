@@ -183,6 +183,22 @@ export interface BottomDuoRecordRow {
 	wins: number;
 }
 
+export interface RolePairSynergyInput {
+	kind: string;
+	roleA: Role;
+	roleB: Role;
+}
+
+export interface RolePairSynergyRecordRow {
+	kind: string;
+	role_a: Role;
+	role_b: Role;
+	user_a_id: string;
+	user_b_id: string;
+	plays: number;
+	wins: number;
+}
+
 /**
  * 참가자 풀 안에서 같은 게임·같은 라인으로 맞붙은 상대 전적.
  * user_id 관점의 row 를 반환하므로 A vs B, B vs A 가 각각 별도 row 로 나온다.
@@ -270,6 +286,70 @@ export async function listBottomDuoRecords(input: {
 		 GROUP BY bottom.user_id, support.user_id`,
 		params,
 	);
+}
+
+/**
+ * 참가자 풀 안에서 같은 팀으로 함께 뛴 역할 조합 전적.
+ * roleA/roleB 방향을 고정해 한 조합당 한 row 를 반환한다.
+ */
+export async function listRolePairSynergyRecords(input: {
+	userIds: readonly string[];
+	seasonId?: number;
+	pairs: readonly RolePairSynergyInput[];
+}): Promise<RolePairSynergyRecordRow[]> {
+	const userIds = [...new Set(input.userIds)];
+	if (userIds.length < 2 || input.pairs.length === 0) return [];
+
+	const rows = await Promise.all(
+		input.pairs.map(async (pair) => {
+			const aClause = inClause(userIds);
+			const bClause = inClause(userIds);
+			const params: unknown[] = [
+				pair.kind,
+				pair.roleA,
+				pair.roleB,
+				...aClause.params,
+				...bClause.params,
+				pair.roleA,
+				pair.roleB,
+			];
+			const conditions = [
+				`a.user_id IN ${aClause.placeholders}`,
+				`b.user_id IN ${bClause.placeholders}`,
+				"a.user_id <> b.user_id",
+				"a.role = ?",
+				"b.role = ?",
+				"a.team = b.team",
+			];
+			if (input.seasonId !== undefined) {
+				conditions.push("COALESCE(s.season_id, aut.season_id) = ?");
+				params.push(input.seasonId);
+			}
+			return query<RolePairSynergyRecordRow>(
+				`SELECT
+				   ? AS kind,
+				   ? AS role_a,
+				   ? AS role_b,
+				   a.user_id AS user_a_id,
+				   b.user_id AS user_b_id,
+				   COUNT(*) AS plays,
+				   SUM(CASE WHEN a.won = 1 THEN 1 ELSE 0 END) AS wins
+				 FROM game_stats a
+				 JOIN game_stats b ON b.game_id = a.game_id
+				 JOIN games g ON g.id = a.game_id
+				 LEFT JOIN series s ON s.id = g.ranked_series_id
+				 LEFT JOIN auction_matches am ON am.id = g.auction_match_id
+				 LEFT JOIN auction_tournaments aut ON aut.id = am.tournament_id
+				 WHERE ${conditions.join(" AND ")}
+				   AND (s.id IS NULL OR s.deleted_at IS NULL)
+				   AND (am.id IS NULL OR (am.deleted_at IS NULL AND aut.deleted_at IS NULL))
+				 GROUP BY a.user_id, b.user_id`,
+				params,
+			);
+		}),
+	);
+
+	return rows.flat();
 }
 
 /**

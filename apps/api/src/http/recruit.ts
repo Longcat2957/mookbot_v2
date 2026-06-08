@@ -8,6 +8,12 @@ import { emptyHistory, fetchPlayHistoryFor } from "./_history.js";
 
 const { listRecruitmentParticipants, getRecruitment } = db;
 
+const ENTRY_SYNERGY_PAIRS = [
+	{ kind: "TOP_JUNGLE", roleA: "TOP", roleB: "JUNGLE" },
+	{ kind: "JUNGLE_MID", roleA: "JUNGLE", roleB: "MID" },
+	{ kind: "BOTTOM_SUPPORT", roleA: "BOTTOM", roleB: "SUPPORT" },
+] as const;
+
 type SoloRanked = {
 	tier: string;
 	rank: string;
@@ -118,11 +124,15 @@ export async function registerRecruitRoutes(app: FastifyInstance): Promise<void>
 		const participants = await listRecruitmentParticipants(id);
 		const userIds = participants.map((p) => p.user_id);
 		const participantIdSet = new Set(userIds);
-		const [users, mains, headToHead, bottomDuos] = await Promise.all([
+		const [users, mains, headToHead, synergies] = await Promise.all([
 			db.listUsers(userIds),
 			db.listMainRiotAccounts(userIds),
 			db.listHeadToHeadRecords({ userIds, seasonId: rec.season_id }),
-			db.listBottomDuoRecords({ userIds, seasonId: rec.season_id }),
+			db.listRolePairSynergyRecords({
+				userIds,
+				seasonId: rec.season_id,
+				pairs: ENTRY_SYNERGY_PAIRS,
+			}),
 		]);
 		const nameById = new Map(users.map((u) => [u.discord_id, u.display_name]));
 		const iconById = new Map(
@@ -181,13 +191,25 @@ export async function registerRecruitRoutes(app: FastifyInstance): Promise<void>
 				wins: h.wins,
 				losses: h.plays - h.wins,
 			})),
-			bottomDuos: bottomDuos.map((duo) => ({
-				bottomUserId: duo.bottom_user_id,
-				supportUserId: duo.support_user_id,
-				plays: duo.plays,
-				wins: duo.wins,
-				losses: duo.plays - duo.wins,
+			synergies: synergies.map((s) => ({
+				kind: s.kind,
+				roleA: s.role_a,
+				roleB: s.role_b,
+				userAId: s.user_a_id,
+				userBId: s.user_b_id,
+				plays: s.plays,
+				wins: s.wins,
+				losses: s.plays - s.wins,
 			})),
+			bottomDuos: synergies
+				.filter((s) => s.kind === "BOTTOM_SUPPORT")
+				.map((duo) => ({
+					bottomUserId: duo.user_a_id,
+					supportUserId: duo.user_b_id,
+					plays: duo.plays,
+					wins: duo.wins,
+					losses: duo.plays - duo.wins,
+				})),
 			entryDraft,
 		};
 	});

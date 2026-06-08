@@ -990,10 +990,30 @@ describe("GET /api/recruitments + /api/recruitments/:id", () => {
 				wins: number;
 				losses: number;
 			}[];
+			synergies: {
+				kind: string;
+				roleA: string;
+				roleB: string;
+				userAId: string;
+				userBId: string;
+				plays: number;
+				wins: number;
+				losses: number;
+			}[];
 		};
 		expect(body.bottomDuos).toEqual([
 			{ bottomUserId: "u1", supportUserId: "u2", plays: 1, wins: 1, losses: 0 },
 		]);
+		expect(body.synergies).toContainEqual({
+			kind: "BOTTOM_SUPPORT",
+			roleA: "BOTTOM",
+			roleB: "SUPPORT",
+			userAId: "u1",
+			userBId: "u2",
+			plays: 1,
+			wins: 1,
+			losses: 0,
+		});
 	});
 
 	it("entry-draft — 운영자 role 이 있으면 모집 생성자가 아니어도 저장 허용", async () => {

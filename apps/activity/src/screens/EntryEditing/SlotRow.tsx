@@ -25,7 +25,6 @@ export function SlotRow({
 	lane,
 	participant,
 	headToHead,
-	bottomDuo,
 	onDrop,
 	onClear,
 	onTap,
@@ -36,7 +35,6 @@ export function SlotRow({
 	lane: Lane;
 	participant: Participant | null;
 	headToHead?: { opponentName: string; plays: number; wins: number; losses: number };
-	bottomDuo?: { partnerName: string; plays: number; wins: number; losses: number };
 	onDrop: (userId: string) => void;
 	onClear: () => void;
 	onTap?: () => void;
@@ -129,7 +127,7 @@ export function SlotRow({
 							</StatusBadge>
 						)}
 					</div>
-					<SlotMetaLine participant={participant} headToHead={headToHead} bottomDuo={bottomDuo} />
+					<SlotMetaLine participant={participant} headToHead={headToHead} />
 				</div>
 			) : (
 				<div className="flex-1 min-h-[4.75rem] text-base-content/40 text-sm italic px-2 py-1.5 border border-dashed border-base-content/20 rounded-md text-center flex items-center justify-center">
@@ -152,26 +150,11 @@ export function SlotRow({
 function SlotMetaLine({
 	participant,
 	headToHead,
-	bottomDuo,
 }: {
 	participant: Participant;
 	headToHead?: { opponentName: string; plays: number; wins: number; losses: number } | undefined;
-	bottomDuo?: { partnerName: string; plays: number; wins: number; losses: number } | undefined;
 }) {
 	const rows: ReactNode[] = [];
-	if (bottomDuo && bottomDuo.plays > 0) {
-		rows.push(
-			<MetaRecordLine
-				key="bottom-duo"
-				label="바텀듀오"
-				name={`with ${bottomDuo.partnerName}`}
-				plays={bottomDuo.plays}
-				wins={bottomDuo.wins}
-				losses={bottomDuo.losses}
-				title={`바텀듀오 with ${bottomDuo.partnerName}: ${bottomDuo.wins}-${bottomDuo.losses} (${bottomDuo.plays}G)`}
-			/>,
-		);
-	}
 	if (headToHead && headToHead.plays > 0) {
 		rows.push(
 			<MetaRecordLine
