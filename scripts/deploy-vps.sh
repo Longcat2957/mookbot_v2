@@ -6,12 +6,13 @@
 #   1. preflight  — working tree clean + main 과 origin/main sync 확인
 #   2. D1 schema migrate  — schema.sql 의 ALTER ADD COLUMN / CREATE INDEX 멱등 적용
 #   3. docker:release  — 3개 이미지 build + push (X.Y.Z + latest)
-#   4. VPS pull + up -d  — ssh root@141.164.46.191 로 적용
-#   5. health verify  — 컨테이너 상태 출력
-#   6. slash command 등록  — Discord 에 명령어 PUT (새 컨테이너 healthy 이후)
+#   4. VPS disk cleanup  — 오래된 미사용 Docker 이미지/빌드 캐시 정리
+#   5. VPS pull + up -d  — ssh root@141.164.46.191 로 적용
+#   6. post-deploy cleanup + health verify  — 디스크 정리 후 컨테이너 상태 출력
+#   7. slash command 등록  — Discord 에 명령어 PUT (새 컨테이너 healthy 이후)
 #
 # 옵션:
-#   --skip-commands  — step 6 (Discord 명령 등록) 건너뜀. 명령 변경 0 일 때만 사용.
+#   --skip-commands  — step 7 (Discord 명령 등록) 건너뜀. 명령 변경 0 일 때만 사용.
 #
 # 가정:
 #   - 변경분 commit + git push origin main 이 이미 완료됨
@@ -40,9 +41,50 @@ cd "$ROOT_DIR"
 VPS_HOST="root@141.164.46.191"
 VPS_DIR="/root/deploy"
 MAIN_BRANCH="main"
+VPS_MIN_FREE_KB=$((3 * 1024 * 1024))
+DOCKER_PRUNE_UNTIL="${DOCKER_PRUNE_UNTIL:-24h}"
 
 VERSION="$(node -p "require('./package.json').version")"
 echo "[deploy-vps] version: $VERSION"
+
+vps_docker_cleanup() {
+	local label="$1"
+	echo "[deploy-vps] VPS docker cleanup ($label) — unused images/build cache only, volumes preserved"
+	ssh -o ConnectTimeout=10 "$VPS_HOST" "bash -s -- '$label' '$VPS_MIN_FREE_KB' '$DOCKER_PRUNE_UNTIL'" <<'REMOTE'
+set -euo pipefail
+
+label="$1"
+min_free_kb="$2"
+prune_until="$3"
+
+disk_line="$(df -h / | tail -1)"
+avail_kb="$(df --output=avail / | tail -1 | tr -d ' ')"
+echo "[deploy-vps] disk before cleanup ($label): $disk_line"
+timeout 15 docker system df || true
+
+docker image prune -af --filter "until=$prune_until"
+docker builder prune -af --filter "until=$prune_until"
+docker container prune -f
+
+avail_kb="$(df --output=avail / | tail -1 | tr -d ' ')"
+if [ "$avail_kb" -lt "$min_free_kb" ]; then
+	echo "[deploy-vps] WARN: free disk below threshold after age-based prune; pruning all unused Docker images/cache" >&2
+	docker image prune -af
+	docker builder prune -af
+	docker container prune -f
+fi
+
+disk_line="$(df -h / | tail -1)"
+avail_kb="$(df --output=avail / | tail -1 | tr -d ' ')"
+echo "[deploy-vps] disk after cleanup ($label): $disk_line"
+timeout 15 docker system df || true
+
+if [ "$avail_kb" -lt "$min_free_kb" ]; then
+	echo "[deploy-vps] ERROR: VPS disk free space below 3GB after Docker cleanup" >&2
+	exit 1
+fi
+REMOTE
+}
 
 # --- 1. preflight ----------------------------------------------------------
 echo "[deploy-vps] preflight: working tree + remote sync 확인"
@@ -75,31 +117,36 @@ echo "[deploy-vps] preflight OK ($LOCAL_HEAD)"
 # --- 2. db migrate ---------------------------------------------------------
 # 새 ALTER ADD COLUMN / CREATE INDEX 를 prod D1 에 먼저 적용해야 신규 코드가 깨지지 않음.
 # migrate.ts 는 idempotent — 이미 적용된 statement 는 skip 또는 dup 에러 흡수.
-echo "[deploy-vps] step 2/6 — D1 schema migrate"
+echo "[deploy-vps] step 2/7 — D1 schema migrate"
 pnpm --filter @mookbot/core db:migrate
 
 # --- 3. docker:release -----------------------------------------------------
-echo "[deploy-vps] step 3/6 — docker build + push"
+echo "[deploy-vps] step 3/7 — docker build + push"
 "$ROOT_DIR/scripts/docker-build.sh"
 "$ROOT_DIR/scripts/docker-push.sh"
 
-# --- 3. VPS pull + up ------------------------------------------------------
-echo "[deploy-vps] step 4/6 — VPS pull + up -d ($VPS_HOST:$VPS_DIR)"
+# --- 4. VPS docker cleanup -------------------------------------------------
+echo "[deploy-vps] step 4/7 — VPS disk cleanup before pull"
+vps_docker_cleanup "before-pull"
+
+# --- 5. VPS pull + up ------------------------------------------------------
+echo "[deploy-vps] step 5/7 — VPS pull + up -d ($VPS_HOST:$VPS_DIR)"
 ssh -o ConnectTimeout=10 "$VPS_HOST" "cd $VPS_DIR && docker compose pull && docker compose up -d"
 
-# --- 4. verify -------------------------------------------------------------
-echo "[deploy-vps] step 5/6 — health 확인 (5s 대기 후)"
+# --- 6. post-deploy cleanup + verify --------------------------------------
+echo "[deploy-vps] step 6/7 — post-deploy cleanup + health 확인 (5s 대기 후)"
+vps_docker_cleanup "after-deploy"
 sleep 5
 ssh -o ConnectTimeout=10 "$VPS_HOST" "cd $VPS_DIR && docker compose ps"
 
-# --- 5. slash command 등록 -------------------------------------------------
+# --- 7. slash command 등록 -------------------------------------------------
 # 새 컨테이너가 healthy 이후 등록 — Discord 가 새 이름 노출 시점에 봇이 이미
 # 새 코드로 응답 가능하도록 (옛 컨테이너에 새 이름 띄우면 unknown command 응답).
 # 명령어 변경 없는 release 라면 --skip-commands 로 1 API call 절약 (옵션).
 if [ "$SKIP_COMMANDS" = "1" ]; then
-	echo "[deploy-vps] step 6/6 — slash command 등록 skip (--skip-commands)"
+	echo "[deploy-vps] step 7/7 — slash command 등록 skip (--skip-commands)"
 else
-	echo "[deploy-vps] step 6/6 — slash command 등록 (Discord)"
+	echo "[deploy-vps] step 7/7 — slash command 등록 (Discord)"
 	pnpm --filter @mookbot/bot exec tsx src/deploy-commands.ts
 fi
 
