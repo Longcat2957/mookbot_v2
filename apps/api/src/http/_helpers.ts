@@ -15,10 +15,14 @@ const DD_PROXY_PREFIX =
 	process.env.DD_PROXY_PREFIX === "off"
 		? ""
 		: (process.env.DD_PROXY_PREFIX?.replace(/\/+$/, "") ?? "/dd");
+const DD_CACHE_BUSTER = process.env.DD_CACHE_BUSTER ?? "20260608";
 
 export function rewriteDD(url: string): string {
 	if (!url.startsWith(DD_ORIGIN) || !DD_PROXY_PREFIX) return url;
-	return `${DD_PROXY_PREFIX}${new URL(url).pathname}`;
+	const ddUrl = new URL(url);
+	const proxyUrl = new URL(`${DD_PROXY_PREFIX}${ddUrl.pathname}`, "http://activity.local");
+	proxyUrl.searchParams.set("ddv", DD_CACHE_BUSTER);
+	return `${proxyUrl.pathname}${proxyUrl.search}`;
 }
 
 export function requireSession(req: FastifyRequest, reply: FastifyReply): string | null {
