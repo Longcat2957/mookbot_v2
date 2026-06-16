@@ -46,7 +46,7 @@ jobs:
           echo "ARTIFACT=${OUT}.gz" >> "$GITHUB_ENV"
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: d1-backup-${{ env.STAMP }}
           path: ${{ env.ARTIFACT }}
